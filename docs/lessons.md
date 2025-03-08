@@ -30,3 +30,55 @@ This pattern is particularly useful when:
 - Managing singleton instances (like database connections)
 - Preventing hot reload issues in development
 - Ensuring proper type safety with global variables 
+
+## Database Configuration
+1. When using Prisma with Neon in a serverless environment:
+   - Use `@neondatabase/serverless` for connection pooling
+   - Configure WebSocket support for better connection management
+   - Create connection pools per request to avoid idle connections
+   - Use environment-specific database URLs
+
+2. Prisma Client Generation:
+   - Add `prisma generate` to build and postinstall scripts for Vercel deployment
+   - Handle permission issues by cleaning node_modules/.prisma when needed
+   - Use proper error handling for database operations
+
+## Authentication Setup
+1. NextAuth.js Integration:
+   - Use the beta version for Next.js 14+ compatibility
+   - Implement proper session and JWT handling
+   - Configure protected routes with middleware
+   - Handle cart sessions for guest users
+
+2. Security Best Practices:
+   - Use bcrypt for password hashing
+   - Implement proper session management
+   - Configure CSRF protection
+   - Set up secure cookie handling
+   - Use environment variables for sensitive data
+
+3. File Upload Security:
+   - Integrate auth with Uploadthing
+   - Implement file size and type restrictions
+   - Add user-specific upload permissions
+   - Store file metadata with user context
+
+## Testing and Documentation
+1. Authentication Testing:
+   - Create test pages for auth functionality
+   - Verify protected routes
+   - Test session persistence
+   - Validate user roles and permissions
+
+2. Documentation Importance:
+   - Document configuration files
+   - Provide usage examples
+   - List security considerations
+   - Keep track of lessons learned
+
+## Deployment Considerations
+1. Vercel Deployment:
+   - Configure build scripts properly
+   - Handle dependency caching
+   - Set up environment variables
+   - Test in production environment 
