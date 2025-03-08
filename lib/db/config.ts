@@ -1,32 +1,64 @@
-import { PrismaClient } from '@prisma/client';
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaClient } from "@prisma/client";
+import ws from "ws";
+
+type ExtendedPrismaClient = ReturnType<typeof prismaClientSingleton>;
 
 declare global {
   // eslint-disable-next-line no-var
-  var prisma: PrismaClient | undefined;
+  var prisma: ExtendedPrismaClient | undefined;
 }
 
-type Environment = 'development' | 'staging' | 'production' | 'test';
+// Enable WebSocket for Neon
+neonConfig.webSocketConstructor = ws;
 
-export const prisma = global.prisma || new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-});
+// Function to determine the correct database URL based on environment
+function getDatabaseURL() {
+  const env = process.env.NODE_ENV as "development" | "staging" | "production" | "test";
 
-if (process.env.NODE_ENV !== 'production') {
-  global.prisma = prisma;
-}
-
-export function getDatabaseURL() {
-  const env = process.env.NODE_ENV as Environment;
   switch (env) {
-    case 'production':
-      return process.env.DATABASE_URL_PRODUCTION;
-    case 'staging':
-      return process.env.DATABASE_URL_STAGING;
+    case "production":
+      return process.env.DATABASE_URL_PRODUCTION!;
+    case "staging":
+      return process.env.DATABASE_URL_STAGING!;
     default:
-      return process.env.DATABASE_URL;
+      return process.env.DATABASE_URL!;
   }
 }
 
-export function getEnvironment(): Environment {
-  return (process.env.NODE_ENV as Environment) || 'development';
-} 
+// Get the correct database URL
+const connectionString = getDatabaseURL();
+
+// Create a connection pool using Neon serverless
+const pool = new Pool({ connectionString });
+
+// Create PrismaClient with Neon adapter
+const prismaClientSingleton = () => {
+  return new PrismaClient().$extends({
+    query: {
+      async $allOperations({ operation, model, args, query }) {
+        const pool = new Pool({ connectionString });
+        const adapter = new PrismaNeon(pool);
+        // @ts-ignore - Adapter typing issue
+        args.adapter = adapter;
+        return query(args);
+      },
+    },
+    result: {
+      product: {
+        price: {
+          compute(product) {
+            return product.price.toString();
+          },
+        },
+      },
+    },
+  });
+};
+
+export const prisma = global.prisma ?? prismaClientSingleton();
+
+if (process.env.NODE_ENV !== "production") {
+  global.prisma = prisma;
+}
