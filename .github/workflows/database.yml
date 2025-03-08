@@ -1,0 +1,58 @@
+name: Database Migrations
+
+on:
+  push:
+    branches:
+      - main
+      - development
+    paths:
+      - 'prisma/**'
+  pull_request:
+    paths:
+      - 'prisma/**'
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        
+      - name: Run migrations (Development)
+        if: github.ref == 'refs/heads/development'
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_DEVELOPMENT }}
+          
+      - name: Run migrations (Production)
+        if: github.ref == 'refs/heads/main'
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
+          
+      - name: Comment PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const migrationFiles = fs.readdirSync('./prisma/migrations');
+            const comment = `## Database Migration Changes\n\nThis PR includes the following migration files:\n\n${migrationFiles.join('\n')}`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.name,
+              body: comment
+            }); 
