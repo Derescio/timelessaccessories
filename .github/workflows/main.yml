@@ -1,0 +1,115 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, development ]
+  pull_request:
+    branches: [ main, development ]
+
+env:
+  NODE_VERSION: '18.x'
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: timelessaccessories
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run linting
+        run: npm run lint
+        
+      - name: Type check
+        run: npm run type-check
+        
+      - name: Run tests
+        run: npm run test
+        env:
+          DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5432/${{ env.POSTGRES_DB }}
+        
+  build:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build application
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5432/${{ env.POSTGRES_DB }}
+        
+  deploy-staging:
+    needs: build
+    if: github.ref == 'refs/heads/development'
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy to Vercel (Staging)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npm i -g vercel
+          vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
+          vercel build --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --token=$VERCEL_TOKEN
+          
+  deploy-production:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy to Vercel (Production)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npm i -g vercel
+          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          vercel build --prod --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN 

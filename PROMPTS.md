@@ -1,0 +1,3 @@
+## Prompt 1
+
+Create development steps in `Scratchpad` of `.cursorrules` to create an ecommerce website with admin dashboard, using TypeScript, Next.js 15, Shadcn, Lucide, Zod, Recharts, Resend, Uploadthing, Prisma, PostgreSQL(development,production), next-auth@beta, Stripe. The development plan should also be able to create the CI/CD steps for a github project that has a development and production branch for code management and scalability. The UI/UX user flow design such as login/register, homepage, cart page, product, product-id, etc etc.
