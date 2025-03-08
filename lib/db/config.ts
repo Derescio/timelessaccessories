@@ -31,13 +31,13 @@ function getDatabaseURL() {
 const connectionString = getDatabaseURL();
 
 // Create a connection pool using Neon serverless
-const pool = new Pool({ connectionString });
+//const pool = new Pool({ connectionString });
 
 // Create PrismaClient with Neon adapter
 const prismaClientSingleton = () => {
   return new PrismaClient().$extends({
     query: {
-      async $allOperations({ operation, model, args, query }) {
+      async $allOperations({  args, query }) {
         const pool = new Pool({ connectionString });
         const adapter = new PrismaNeon(pool);
         // @ts-ignore - Adapter typing issue
