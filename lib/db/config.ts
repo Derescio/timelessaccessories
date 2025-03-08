@@ -40,7 +40,7 @@ const prismaClientSingleton = () => {
       async $allOperations({  args, query }) {
         const pool = new Pool({ connectionString });
         const adapter = new PrismaNeon(pool);
-        // @ts-ignore - Adapter typing issue
+        
         args.adapter = adapter;
         return query(args);
       },
