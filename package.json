@@ -76,6 +76,8 @@
     "eslint-config-next": "15.2.1",
     "prisma": "^6.4.1",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.3",
     "typescript": "^5"
   }
 }
