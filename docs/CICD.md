@@ -3,12 +3,24 @@
 This document outlines the Continuous Integration and Continuous Deployment (CI/CD) pipeline for the Timeless Accessories e-commerce project.
 
 ## Overview
+This project uses GitHub Actions for CI/CD, integrated with Vercel for deployments and Neon PostgreSQL for database management. The pipeline supports multiple environments with database branching for isolation and safety.
 
-Our CI/CD pipeline is implemented using GitHub Actions and consists of four main stages:
-1. Validation
-2. Build
-3. Staging Deployment
-4. Production Deployment
+## Pipeline Structure
+
+### Environments
+1. **Development**
+   - Local development environment
+   - Individual database branches for feature development
+
+2. **Staging**
+   - Automated deployments from `development` branch
+   - Dynamic database branches for testing
+   - Preview deployments on Vercel
+
+3. **Production**
+   - Deployments from `main` branch
+   - Main database branch
+   - Production environment on Vercel
 
 ## Pipeline Triggers
 
@@ -16,70 +28,159 @@ The pipeline is triggered on:
 - Push events to `main` and `development` branches
 - Pull requests targeting `main` and `development` branches
 
-## Pipeline Stages
+## Workflow Stages
 
-### 1. Validation Stage
+### 1. Validation
 ```yaml
 validate:
-  runs-on: ubuntu-latest
+  steps:
+    - Code checkout
+    - Node.js setup
+    - Dependencies installation
+    - Environment setup
+    - Database migration check
+    - Type checking
+    - Linting
+    - Testing
 ```
-This stage includes:
-- **Environment Setup**: 
-  - Node.js 18.x
-  - PostgreSQL database service
-- **Validation Steps**:
-  - Dependencies installation
-  - Linting checks
-  - TypeScript type checking
-  - Unit tests execution
 
-### 2. Build Stage
-```yaml
-build:
-  needs: validate
-```
-This stage includes:
-- Fresh checkout of code
-- Dependencies installation
-- Application build process
-- Build artifact generation
-
-### 3. Staging Deployment (Development Branch)
+### 2. Staging Deployment
 ```yaml
 deploy-staging:
-  needs: build
+  needs: validate
   if: github.ref == 'refs/heads/development'
+  steps:
+    - Create staging database branch
+    - Deploy to Vercel preview
 ```
-- Triggered only for the development branch
-- Deploys to Vercel preview environment
-- Uses staging environment variables
-- Requires successful build stage
 
-### 4. Production Deployment (Main Branch)
+### 3. Production Deployment
 ```yaml
 deploy-production:
-  needs: build
+  needs: validate
   if: github.ref == 'refs/heads/main'
+  steps:
+    - Create backup snapshot
+    - Deploy to Vercel production
 ```
-- Triggered only for the main branch
-- Deploys to Vercel production environment
-- Uses production environment variables
-- Requires successful build stage
-- Manual approval required
+
+## Database Management
+
+### Branch Strategy
+- **Production**: Main branch
+- **Staging**: `staging-{YYYYMMDD-HHMMSS}`
+- **PR Testing**: `pr-{PR_NUMBER}-{YYYYMMDD-HHMMSS}`
+- **Snapshots**: `deploy-{YYYYMMDD-HHMMSS}`
+
+### Migration Handling
+```yaml
+- name: Run Prisma Migrations
+  run: |
+    if [[ $GITHUB_REF == refs/heads/main ]]; then
+      echo "Running production migrations..."
+      npx prisma migrate deploy
+    else
+      echo "Running migrations on branch..."
+      npx prisma migrate deploy
+    fi
+```
 
 ## Environment Variables
 
-### Build and Test
-- `NODE_VERSION`: 18.x
-- `POSTGRES_USER`: Database user
-- `POSTGRES_PASSWORD`: Database password
-- `POSTGRES_DB`: Database name
-- `DATABASE_URL`: PostgreSQL connection string
+### Required Secrets
+```yaml
+# Vercel
+VERCEL_TOKEN: "Vercel deployment token"
+VERCEL_PROJECT_ID: "Project ID from Vercel"
+VERCEL_ORG_ID: "Organization ID from Vercel"
+
+# Database
+DATABASE_URL: "Neon PostgreSQL connection string"
+```
+
+### Environment Variables
+```yaml
+env:
+  NODE_VERSION: '20.x'
+  NEON_DB_NAME: 'dwshop'
+  NEON_PROJECT_ID: 'dark-scene-a59y6uw3'
+```
+
+## Deployment Process
+
+### Pull Request
+1. Creates temporary database branch
+2. Runs validation suite
+3. Creates preview deployment
+
+### Staging
+1. Creates new staging database branch
+2. Runs migrations
+3. Deploys to staging environment
+
+### Production
+1. Creates backup snapshot
+2. Runs migrations on main branch
+3. Deploys to production
+
+## Safety Measures
+
+### Database
+- Automatic branching for isolation
+- Pre-deployment snapshots
+- Migration status checks
 
 ### Deployment
-- `VERCEL_TOKEN`: Vercel deployment token
-- `VERCEL_ORG_ID`: Vercel organization ID
-- `VERCEL_PROJECT_ID`: Vercel project ID
+- Environment-specific configurations
+- Required status checks
+- Protected branches
+
+## Monitoring and Maintenance
+
+### Database Branches
+- Regular cleanup of old branches
+- Monitoring of branch usage
+- Snapshot management
+
+### Deployments
+- Vercel deployment logs
+- GitHub Actions logs
+- Database migration history
+
+## Troubleshooting
+
+### Common Issues
+1. **Failed Migrations**
+   - Check migration history
+   - Verify database access
+   - Review branch status
+
+2. **Deployment Failures**
+   - Check Vercel logs
+   - Verify environment variables
+   - Review build output
+
+3. **Branch Issues**
+   - Confirm branch exists
+   - Check permissions
+   - Verify connection string
+
+## Best Practices
+
+1. **Development**
+   - Create feature branches
+   - Test migrations locally
+   - Use meaningful commit messages
+
+2. **Deployment**
+   - Review changes before merge
+   - Monitor deployment logs
+   - Verify environment variables
+
+3. **Database**
+   - Regular branch cleanup
+   - Monitor storage usage
+   - Maintain backup snapshots
 
 ## Branch Protection Rules
 
@@ -94,24 +195,6 @@ deploy-production:
 - Requires code review approval
 - Allows direct pushes for urgent fixes
 
-## Deployment Process
-
-### Staging Deployment
-1. Push changes to development branch
-2. Automatic CI/CD pipeline trigger
-3. Validation and build stages run
-4. Automatic deployment to Vercel preview environment
-5. Preview URL generated for testing
-
-### Production Deployment
-1. Create pull request from development to main
-2. CI/CD pipeline runs on PR
-3. Code review and approval required
-4. Merge PR to main branch
-5. Production deployment pipeline triggers
-6. Manual approval step
-7. Deployment to Vercel production environment
-
 ## Monitoring and Rollback
 
 ### Monitoring
@@ -125,47 +208,6 @@ deploy-production:
 2. Locate previous successful deployment
 3. Click "Promote to Production"
 4. Verify rollback success
-
-## Best Practices
-
-1. **Commit Messages**
-   ```
-   type(scope): subject
-   
-   [optional body]
-   [optional footer]
-   ```
-   Types: feat, fix, docs, style, refactor, test, chore
-
-2. **Branch Naming**
-   - Feature branches: `feature/description`
-   - Bug fixes: `bugfix/description`
-   - Hotfixes: `hotfix/description`
-
-3. **Pull Requests**
-   - Use PR template
-   - Link related issues
-   - Include testing instructions
-   - Add relevant labels
-
-## Troubleshooting
-
-### Common Issues and Solutions
-
-1. **Failed Tests**
-   - Check test logs
-   - Run tests locally
-   - Verify database connection
-
-2. **Build Failures**
-   - Check dependency versions
-   - Verify environment variables
-   - Review build logs
-
-3. **Deployment Issues**
-   - Verify Vercel tokens
-   - Check environment variables
-   - Review deployment logs
 
 ## Security Considerations
 
