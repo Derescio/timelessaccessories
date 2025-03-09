@@ -31,11 +31,20 @@ jobs:
       - name: Type check
         run: npm run type-check
 
-      - name: Run Jest tests
-        run: npm run test
+      - name: Run Jest tests with coverage
+        run: npm run test:coverage
         env:
           NODE_ENV: test
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: true
 
       - name: Install Playwright
         run: npx playwright install --with-deps
@@ -54,12 +63,3 @@ jobs:
           path: |
             playwright-report/
             coverage/
-
-      - name: Report Coverage
-        uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/lcov.info
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: true
