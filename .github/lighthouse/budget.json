@@ -1,0 +1,26 @@
+{
+  "ci": {
+    "collect": {
+      "numberOfRuns": 3
+    },
+    "assert": {
+      "assertions": {
+        "first-contentful-paint": ["warn", {"minScore": 0.9}],
+        "largest-contentful-paint": ["warn", {"minScore": 0.9}],
+        "first-meaningful-paint": ["warn", {"minScore": 0.9}],
+        "interactive": ["error", {"minScore": 0.9}],
+        "speed-index": ["warn", {"minScore": 0.9}],
+        "total-blocking-time": ["warn", {"minScore": 0.9}],
+        "cumulative-layout-shift": ["warn", {"minScore": 0.9}],
+        "performance-budget": ["error", {
+          "resourceSizes": {
+            "script": "200 KB",
+            "total": "1000 KB",
+            "image": "300 KB",
+            "stylesheet": "100 KB"
+          }
+        }]
+      }
+    }
+  }
+} 
