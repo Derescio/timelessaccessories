@@ -13,17 +13,21 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       security-events: write
+      actions: read
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: javascript
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript"
 
       - name: Run npm audit
         run: npm audit
@@ -37,6 +41,6 @@ jobs:
           args: --severity-threshold=high
 
       - name: Upload security results
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: snyk.sarif
