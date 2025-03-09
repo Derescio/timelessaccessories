@@ -82,3 +82,11 @@ This pattern is particularly useful when:
    - Handle dependency caching
    - Set up environment variables
    - Test in production environment 
+
+## UI Component Installation
+1. Shadcn/UI Components:
+   - Use `npx shadcn@latest add [component-name]` for installation
+   - NOT `npx shadcn-ui` which is incorrect
+   - Can install multiple components at once: `npx shadcn@latest add component1 component2`
+   - Components are added to `@/components/ui/`
+   - Tailwind CSS classes can be customized in the component files 

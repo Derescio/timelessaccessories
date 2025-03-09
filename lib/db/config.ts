@@ -21,7 +21,7 @@ function getDatabaseURL() {
     case "production":
       return process.env.DATABASE_URL_PRODUCTION!;
     case "staging":
-      return process.env.DATABASE_URL_STAGING!;
+      return process.env.SHADOW_DATABASE_URL;
     default:
       return process.env.DATABASE_URL!;
   }

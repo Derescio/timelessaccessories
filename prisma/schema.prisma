@@ -29,87 +29,77 @@ model User {
 model Product {
   id                 String                  @id @default(cuid())
   name               String
-  slug               String                  @unique
   description        String
   price              Decimal                 @db.Decimal(10, 2)
-  compareAtPrice     Decimal? // Original price for sale items
-  hasDiscount        Boolean                 @default(false)
-  discountPercentage Int?                    @default(0)
-  sku                String                  @unique
   categoryId         String
   inventory          Int                     @default(0)
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
+  compareAtPrice     Decimal?
+  discountPercentage Int?                    @default(0)
+  hasDiscount        Boolean                 @default(false)
+  isActive           Boolean                 @default(true)
+  metadata           Json?
+  sku                String                  @unique
+  slug               String                  @unique
   cartItems          CartItem[]
   orderItems         OrderItem[]
   category           Category                @relation(fields: [categoryId], references: [id])
-  reviews            Review[]
-  images             ProductImage[]
   attributes         ProductAttributeValue[]
+  images             ProductImage[]
+  inventories        ProductInventory[]
   variants           ProductVariant[]
+  reviews            Review[]
   wishlistItems      WishlistItem[]
-  isActive           Boolean                 @default(true)
-  metadata           Json? // For additional flexible data
-  ProductInventory   ProductInventory?
 }
 
 model Category {
   id          String              @id @default(cuid())
   name        String
-  slug        String              @unique
   description String?
-  parentId    String? // For subcategories (e.g., Necklaces under Jewelry)
-  parent      Category?           @relation("SubCategories", fields: [parentId], references: [id])
-  children    Category[]          @relation("SubCategories")
-  products    Product[]
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
+  parentId    String?
+  slug        String              @unique
+  parent      Category?           @relation("SubCategories", fields: [parentId], references: [id])
+  children    Category[]          @relation("SubCategories")
   attributes  CategoryAttribute[]
+  products    Product[]
 }
 
 model CategoryAttribute {
   id         String                  @id @default(cuid())
-  name       String // e.g., "Size", "Color", "Material"
+  name       String
   type       AttributeType
   required   Boolean                 @default(false)
-  options    String[] // e.g., ["S", "M", "L"] or ["Gold", "Silver"]
+  options    String[]
   categoryId String
-  category   Category                @relation(fields: [categoryId], references: [id])
-  values     ProductAttributeValue[]
   createdAt  DateTime                @default(now())
   updatedAt  DateTime                @updatedAt
+  category   Category                @relation(fields: [categoryId], references: [id])
+  values     ProductAttributeValue[]
 
   @@unique([categoryId, name])
-}
-
-enum AttributeType {
-  SIZE
-  COLOR
-  MATERIAL
-  STYLE
-  WEIGHT
-  LENGTH
-  OTHER
 }
 
 model Order {
   id              String      @id @default(cuid())
   userId          String
-  user            User        @relation(fields: [userId], references: [id])
-  items           OrderItem[]
   status          OrderStatus @default(PENDING)
-  subtotal        Decimal
-  tax             Decimal
-  shipping        Decimal
   total           Decimal
-  shippingAddress Json
-  billingAddress  Json?
-  paymentIntent   String? // Stripe payment intent ID
-  notes           String?
+  addressId       String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+  billingAddress  Json?
+  notes           String?
+  paymentIntent   String?
+  shipping        Decimal
+  shippingAddress Json
+  subtotal        Decimal
+  tax             Decimal
   Address         Address?    @relation(fields: [addressId], references: [id])
-  addressId       String?
+  user            User        @relation(fields: [userId], references: [id])
+  items           OrderItem[]
   Payment         Payment?
 
   @@index([userId])
@@ -118,14 +108,14 @@ model Order {
 model OrderItem {
   id        String   @id @default(cuid())
   orderId   String
-  order     Order    @relation(fields: [orderId], references: [id])
   productId String
-  product   Product  @relation(fields: [productId], references: [id])
-  variantId String?
   quantity  Int
-  price     Decimal // Price at time of purchase
+  price     Decimal
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  variantId String?
+  order     Order    @relation(fields: [orderId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
 
   @@index([orderId])
   @@index([productId])
@@ -134,11 +124,11 @@ model OrderItem {
 model Cart {
   id        String     @id @default(cuid())
   userId    String?    @unique
-  user      User?      @relation(fields: [userId], references: [id])
-  sessionId String?    @unique // For guest carts
-  items     CartItem[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+  sessionId String?    @unique
+  user      User?      @relation(fields: [userId], references: [id])
+  items     CartItem[]
 
   @@index([userId])
   @@index([sessionId])
@@ -147,13 +137,13 @@ model Cart {
 model CartItem {
   id        String   @id @default(cuid())
   cartId    String
-  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
   productId String
-  product   Product  @relation(fields: [productId], references: [id])
-  variantId String?
   quantity  Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  variantId String?
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
 
   @@unique([cartId, productId, variantId])
   @@index([cartId])
@@ -162,16 +152,16 @@ model CartItem {
 
 model Review {
   id         String   @id @default(cuid())
-  productId  String
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
   rating     Int      @default(5)
-  title      String?
-  content    String
-  isVerified Boolean  @default(false)
+  userId     String
+  productId  String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  content    String
+  isVerified Boolean  @default(false)
+  title      String?
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
 
   @@index([productId])
   @@index([userId])
@@ -206,14 +196,14 @@ model Payment {
 model ProductImage {
   id        String          @id @default(cuid())
   productId String
-  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   url       String
   alt       String?
   position  Int             @default(0)
-  variantId String? // Optional: specific variant this image belongs to
-  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+  variantId String?
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
 
   @@index([productId])
 }
@@ -221,55 +211,57 @@ model ProductImage {
 model ProductAttributeValue {
   id          String            @id @default(cuid())
   productId   String
-  product     Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
   attributeId String
-  attribute   CategoryAttribute @relation(fields: [attributeId], references: [id])
   value       String
   variantId   String?
-  variant     ProductVariant?   @relation(fields: [variantId], references: [id])
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
+  attribute   CategoryAttribute @relation(fields: [attributeId], references: [id])
+  product     Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant     ProductVariant?   @relation(fields: [variantId], references: [id])
 
   @@unique([productId, attributeId, variantId])
   @@index([productId])
 }
 
 model ProductVariant {
-  id         String                  @id @default(cuid())
-  productId  String
-  product    Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sku        String                  @unique
-  price      Decimal? // Override main product price if needed
-  attributes ProductAttributeValue[]
-  images     ProductImage[]
-  inventory  ProductInventory?
-  createdAt  DateTime                @default(now())
-  updatedAt  DateTime                @updatedAt
+  id          String                  @id @default(cuid())
+  productId   String
+  sku         String                  @unique
+  price       Decimal?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  attributes  ProductAttributeValue[]
+  images      ProductImage[]
+  inventories ProductInventory[]
+  product     Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
 }
 
 model ProductInventory {
   id        String          @id @default(cuid())
-  productId String          @unique
-  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variantId String?         @unique
-  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+  productId String
+  variantId String?
   quantity  Int
-  lowStock  Int             @default(5) // Low stock notification threshold
+  lowStock  Int             @default(5)
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
 
+  @@unique([productId, variantId])
   @@index([productId])
+  @@index([variantId])
 }
 
 model Wishlist {
   id        String         @id @default(cuid())
   userId    String         @unique
-  user      User           @relation(fields: [userId], references: [id])
-  items     WishlistItem[]
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
+  user      User           @relation(fields: [userId], references: [id])
+  items     WishlistItem[]
 
   @@index([userId])
 }
@@ -277,14 +269,24 @@ model Wishlist {
 model WishlistItem {
   id         String   @id @default(cuid())
   wishlistId String
-  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
   productId  String
-  product    Product  @relation(fields: [productId], references: [id])
   createdAt  DateTime @default(now())
+  product    Product  @relation(fields: [productId], references: [id])
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
 
   @@unique([wishlistId, productId])
   @@index([wishlistId])
   @@index([productId])
+}
+
+enum AttributeType {
+  SIZE
+  COLOR
+  MATERIAL
+  STYLE
+  WEIGHT
+  LENGTH
+  OTHER
 }
 
 enum Role {
