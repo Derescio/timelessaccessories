@@ -9,12 +9,15 @@ jobs:
   renovate:
     name: Update Dependencies
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Self-hosted Renovate
-        uses: renovatebot/github-action@v39
+        uses: renovatebot/github-action@v39.1.4
         with:
           configurationFile: .github/renovate.json
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -22,3 +25,5 @@ jobs:
           LOG_LEVEL: debug
           RENOVATE_AUTODISCOVER: false
           RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_PLATFORM: "github"
+          RENOVATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
