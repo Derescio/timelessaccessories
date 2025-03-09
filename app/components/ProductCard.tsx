@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 interface Product {
     id: string;
     name: string;
@@ -18,10 +20,12 @@ export default function ProductCard({ product }: ProductCardProps) {
     return (
         <div className="group relative">
             <div className="aspect-h-1 aspect-w-1 w-full overflow-hidden rounded-md bg-gray-200 lg:aspect-none group-hover:opacity-75 lg:h-80">
-                <img
+                <Image
                     src={product.images[0] || '/placeholder.jpg'}
                     alt={product.name}
                     className="h-full w-full object-cover object-center lg:h-full lg:w-full"
+                    width={300}
+                    height={300}
                 />
             </div>
             <div className="mt-4 flex justify-between">

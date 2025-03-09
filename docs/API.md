@@ -206,3 +206,145 @@ interface Category {
 6. Use HTTPS for all requests
 7. Include rate limiting headers
 8. Version your API endpoints 
+
+## Products API
+
+### Get All Products
+```http
+GET /api/products
+```
+
+Returns a list of all products.
+
+#### Response
+```typescript
+{
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  images: string[];
+  categoryId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}[]
+```
+
+#### Example Response
+```json
+[
+  {
+    "id": "1",
+    "name": "Gold Necklace",
+    "price": 299.99,
+    "description": "14K Gold necklace",
+    "images": ["/images/necklace.jpg"],
+    "categoryId": "jewelry",
+    "createdAt": "2025-03-09T04:20:00.000Z",
+    "updatedAt": "2025-03-09T04:20:00.000Z"
+  }
+]
+```
+
+#### Error Response
+```json
+{
+  "error": "Failed to fetch products: [error details]"
+}
+```
+
+### Create Product
+```http
+POST /api/products
+```
+
+Creates a new product.
+
+#### Request Body
+```typescript
+{
+  name: string;
+  price: number;
+  description: string;
+  images: string[];
+  categoryId: string;
+}
+```
+
+#### Example Request
+```json
+{
+  "name": "Silver Bracelet",
+  "price": 149.99,
+  "description": "Sterling silver bracelet",
+  "images": ["/images/bracelet.jpg"],
+  "categoryId": "jewelry"
+}
+```
+
+#### Success Response
+```json
+{
+  "id": "2",
+  "name": "Silver Bracelet",
+  "price": 149.99,
+  "description": "Sterling silver bracelet",
+  "images": ["/images/bracelet.jpg"],
+  "categoryId": "jewelry",
+  "createdAt": "2025-03-09T04:30:00.000Z",
+  "updatedAt": "2025-03-09T04:30:00.000Z"
+}
+```
+
+#### Error Response
+```json
+{
+  "error": "Failed to create product: [error details]"
+}
+```
+
+## Error Handling
+
+All API endpoints follow a consistent error response format:
+```typescript
+{
+  error: string;
+}
+```
+
+HTTP Status Codes:
+- `200`: Success
+- `201`: Created successfully
+- `400`: Bad request / Validation error
+- `500`: Server error
+
+## Testing
+
+Run API tests:
+```bash
+npm test -- __tests__/api/products.test.ts
+```
+
+## Development
+
+### Local Development
+```bash
+npm run dev
+# API available at http://localhost:3000/api/products
+```
+
+### Production
+```bash
+npm run build
+npm start
+# API available at your-domain.com/api/products
+```
+
+## Security
+
+- All endpoints require authentication (except GET /products)
+- Rate limiting applied
+- Input validation using Zod
+- SQL injection prevention via Prisma
+- XSS protection
+- CSRF tokens for mutations 

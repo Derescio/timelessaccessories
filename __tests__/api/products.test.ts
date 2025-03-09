@@ -1,8 +1,8 @@
-import { createMocks } from 'node-mocks-http';
-import { getProducts, createProduct } from '@/app/api/products/route';
+import { NextRequest } from 'next/server';
+import { GET, POST } from '@/app/api/products/route';
 import { prisma } from '@/lib/db/config';
 
-jest.mock('@/lib/db', () => ({
+jest.mock('@/lib/db/config', () => ({
   prisma: {
     product: {
       findMany: jest.fn(),
@@ -17,7 +17,7 @@ describe('Products API', () => {
   });
 
   describe('GET /api/products', () => {
-    it('returns all products', async () => {
+    it('returns all products successfully', async () => {
       const mockProducts = [
         {
           id: '1',
@@ -26,37 +26,33 @@ describe('Products API', () => {
           description: 'Test description',
           images: ['/test-image.jpg'],
           categoryId: '1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ];
 
       (prisma.product.findMany as jest.Mock).mockResolvedValue(mockProducts);
 
-      const { req, res } = createMocks({
-        method: 'GET',
-      });
+      const response = await GET();
+      const data = await response.json();
 
-      await getProducts(req, res);
-
-      expect(res._getStatusCode()).toBe(200);
-      expect(JSON.parse(res._getData())).toEqual(mockProducts);
+      expect(response.status).toBe(200);
+      expect(data).toEqual(mockProducts);
     });
 
-    it('handles errors gracefully', async () => {
+    it('handles errors when fetching products', async () => {
       (prisma.product.findMany as jest.Mock).mockRejectedValue(new Error('Database error'));
 
-      const { req, res } = createMocks({
-        method: 'GET',
-      });
+      const response = await GET();
+      const data = await response.json();
 
-      await getProducts(req, res);
-
-      expect(res._getStatusCode()).toBe(500);
-      expect(JSON.parse(res._getData())).toEqual({ error: 'Failed to fetch products' });
+      expect(response.status).toBe(500);
+      expect(data.error).toContain('Failed to fetch products');
     });
   });
 
   describe('POST /api/products', () => {
-    it('creates a new product', async () => {
+    it('creates a new product successfully', async () => {
       const mockProduct = {
         name: 'New Product',
         price: 129.99,
@@ -65,29 +61,46 @@ describe('Products API', () => {
         categoryId: '1',
       };
 
-      (prisma.product.create as jest.Mock).mockResolvedValue({ id: '2', ...mockProduct });
+      const mockCreatedProduct = {
+        id: '2',
+        ...mockProduct,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
-      const { req, res } = createMocks({
+      (prisma.product.create as jest.Mock).mockResolvedValue(mockCreatedProduct);
+
+      const request = new Request('http://localhost:3000/api/products', {
         method: 'POST',
-        body: mockProduct,
+        body: JSON.stringify(mockProduct),
       });
 
-      await createProduct(req, res);
+      const response = await POST(request);
+      const data = await response.json();
 
-      expect(res._getStatusCode()).toBe(201);
-      expect(JSON.parse(res._getData())).toHaveProperty('id');
+      expect(response.status).toBe(201);
+      expect(data).toEqual(mockCreatedProduct);
+      expect(prisma.product.create).toHaveBeenCalledWith({
+        data: mockProduct,
+      });
     });
 
-    it('validates required fields', async () => {
-      const { req, res } = createMocks({
+    it('handles validation errors when creating product', async () => {
+      const invalidProduct = {
+        name: 'Invalid Product',
+        // Missing required fields
+      };
+
+      const request = new Request('http://localhost:3000/api/products', {
         method: 'POST',
-        body: { name: 'Invalid Product' }, // Missing required fields
+        body: JSON.stringify(invalidProduct),
       });
 
-      await createProduct(req, res);
+      const response = await POST(request);
+      const data = await response.json();
 
-      expect(res._getStatusCode()).toBe(400);
-      expect(JSON.parse(res._getData())).toHaveProperty('error');
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Failed to create product');
     });
   });
 }); 
