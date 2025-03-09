@@ -1,0 +1,24 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    - cron: "0 0 * * 1" # Run weekly on Mondays
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  renovate:
+    name: Update Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Self-hosted Renovate
+        uses: renovatebot/github-action@v39
+        with:
+          configurationFile: .github/renovate.json
+          token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          LOG_LEVEL: debug
+          RENOVATE_AUTODISCOVER: false
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
