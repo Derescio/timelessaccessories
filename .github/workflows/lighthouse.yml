@@ -20,19 +20,24 @@ jobs:
         with:
           node-version: "20.x"
 
-      - name: Install Lighthouse CI
-        run: npm install -g @lhci/cli@0.13.x
+      - name: Wait for Vercel Preview
+        uses: patrickedqvist/wait-for-vercel-preview@v1.3.1
+        id: waitForVercel
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          max_timeout: 300
+          check_interval: 5
 
       - name: Run Lighthouse CI
         uses: treosh/lighthouse-ci-action@v10
         with:
           urls: |
-            https://timelessaccessories.vercel.app/
-            https://timelessaccessories.vercel.app/products
-            https://timelessaccessories.vercel.app/categories
+            ${{ steps.waitForVercel.outputs.url }}
+            ${{ steps.waitForVercel.outputs.url }}/products
+            ${{ steps.waitForVercel.outputs.url }}/categories
           uploadArtifacts: true
           temporaryPublicStorage: true
-          budgetPath: .github/lighthouse/budget.json
+          configPath: .github/lighthouse/budget.json
 
       - name: Save results
         uses: actions/upload-artifact@v4
