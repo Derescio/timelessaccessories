@@ -7,21 +7,21 @@ on:
     branches: [main, development]
 
 env:
-  NODE_VERSION: '20.x'
-  NEON_DB_NAME: 'dwshop'
-  NEON_PROJECT_ID: 'dark-scene-a59y6uw3'
+  NODE_VERSION: "20.x"
+  NEON_DB_NAME: "dwshop"
+  NEON_PROJECT_ID: "dark-scene-a59y6uw3"
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -50,7 +50,7 @@ jobs:
         run: |
           echo "Checking pending migrations..."
           npx prisma migrate status
-          
+
       - name: Run Prisma Migrations
         run: |
           if [[ $GITHUB_REF == refs/heads/main ]]; then
@@ -74,10 +74,10 @@ jobs:
     needs: validate
     if: github.ref == 'refs/heads/development'
     runs-on: ubuntu-latest
-    environment: staging
+    environment: preview
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Deploy to Vercel (Staging)
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -96,13 +96,13 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Backup Check
         run: |
           echo "Creating production snapshot before deployment..."
           SNAPSHOT_ID="deploy-$(date +%Y%m%d-%H%M%S)"
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}?branch=$SNAPSHOT_ID" >> $GITHUB_ENV
-      
+
       - name: Deploy to Vercel (Production)
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -112,4 +112,4 @@ jobs:
           npm i -g vercel
           vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
           vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} 
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
