@@ -10,10 +10,10 @@ export default function RootLayout({
 }>) {
     return (
         <>
-            <div className="flex h-screen flex-col">
+            <div className="min-h-screen bg-white">
                 <Header />
                 <SessionProvider>
-                    <main className="flex-1 wrapper">
+                    <main>
                         {children}
                     </main>
                 </SessionProvider>

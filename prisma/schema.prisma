@@ -23,110 +23,117 @@ model User {
   cart          Cart?
   orders        Order[]
   reviews       Review[]
-  Wishlist      Wishlist?
+  wishlist      Wishlist?
 }
 
 model Product {
-  id                 String                  @id @default(cuid())
-  name               String
-  description        String
-  price              Decimal                 @db.Decimal(10, 2)
-  categoryId         String
-  inventory          Int                     @default(0)
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
-  compareAtPrice     Decimal?
-  discountPercentage Int?                    @default(0)
-  hasDiscount        Boolean                 @default(false)
-  isActive           Boolean                 @default(true)
-  metadata           Json?
-  sku                String                  @unique
-  slug               String                  @unique
+  id            String             @id @default(cuid())
+  name          String
+  description   String
+  slug          String             @unique
+  categoryId    String
+  isActive      Boolean            @default(true)
+  metadata      Json?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  category      Category           @relation(fields: [categoryId], references: [id])
+  inventories   ProductInventory[]
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  reviews       Review[]
+  wishlistItems WishlistItem[]
+
+  @@index([categoryId])
+  @@index([isActive])
+}
+
+model ProductInventory {
+  id                 String      @id @default(cuid())
+  productId          String
+  sku                String      @unique
+  costPrice          Decimal     @db.Decimal(10, 2)
+  retailPrice        Decimal     @db.Decimal(10, 2)
+  compareAtPrice     Decimal?    @db.Decimal(10, 2)
+  discountPercentage Int?
+  hasDiscount        Boolean     @default(false)
+  quantity           Int         @default(0)
+  lowStock           Int         @default(5)
+  images             String[]
+  attributes         Json?
+  isDefault          Boolean     @default(false)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  product            Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   cartItems          CartItem[]
   orderItems         OrderItem[]
-  category           Category                @relation(fields: [categoryId], references: [id])
-  attributes         ProductAttributeValue[]
-  images             ProductImage[]
-  inventories        ProductInventory[]
-  variants           ProductVariant[]
-  reviews            Review[]
-  wishlistItems      WishlistItem[]
+
+  @@index([productId])
+  @@index([sku])
 }
 
 model Category {
-  id          String              @id @default(cuid())
+  id          String     @id @default(cuid())
   name        String
   description String?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  imageUrl    String?    @default("/placeholder.svg")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   parentId    String?
-  slug        String              @unique
-  parent      Category?           @relation("SubCategories", fields: [parentId], references: [id])
-  children    Category[]          @relation("SubCategories")
-  attributes  CategoryAttribute[]
+  slug        String     @unique
+  parent      Category?  @relation("SubCategories", fields: [parentId], references: [id])
+  children    Category[] @relation("SubCategories")
   products    Product[]
-}
 
-model CategoryAttribute {
-  id         String                  @id @default(cuid())
-  name       String
-  type       AttributeType
-  required   Boolean                 @default(false)
-  options    String[]
-  categoryId String
-  createdAt  DateTime                @default(now())
-  updatedAt  DateTime                @updatedAt
-  category   Category                @relation(fields: [categoryId], references: [id])
-  values     ProductAttributeValue[]
-
-  @@unique([categoryId, name])
+  @@index([parentId])
 }
 
 model Order {
   id              String      @id @default(cuid())
   userId          String
   status          OrderStatus @default(PENDING)
-  total           Decimal
+  subtotal        Decimal     @db.Decimal(10, 2)
+  tax             Decimal     @db.Decimal(10, 2)
+  shipping        Decimal     @db.Decimal(10, 2)
+  total           Decimal     @db.Decimal(10, 2)
   addressId       String?
+  billingAddress  Json?
+  shippingAddress Json
+  paymentIntent   String?
+  notes           String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
-  billingAddress  Json?
-  notes           String?
-  paymentIntent   String?
-  shipping        Decimal
-  shippingAddress Json
-  subtotal        Decimal
-  tax             Decimal
-  Address         Address?    @relation(fields: [addressId], references: [id])
+  address         Address?    @relation(fields: [addressId], references: [id])
   user            User        @relation(fields: [userId], references: [id])
   items           OrderItem[]
-  Payment         Payment?
+  payment         Payment?
 
   @@index([userId])
 }
 
 model OrderItem {
-  id        String   @id @default(cuid())
-  orderId   String
-  productId String
-  quantity  Int
-  price     Decimal
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  variantId String?
-  order     Order    @relation(fields: [orderId], references: [id])
-  product   Product  @relation(fields: [productId], references: [id])
+  id          String           @id @default(cuid())
+  orderId     String
+  productId   String
+  inventoryId String
+  quantity    Int
+  price       Decimal          @db.Decimal(10, 2)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  order       Order            @relation(fields: [orderId], references: [id])
+  product     Product          @relation(fields: [productId], references: [id])
+  inventory   ProductInventory @relation(fields: [inventoryId], references: [id])
 
   @@index([orderId])
   @@index([productId])
+  @@index([inventoryId])
 }
 
 model Cart {
   id        String     @id @default(cuid())
   userId    String?    @unique
+  sessionId String?    @unique
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
-  sessionId String?    @unique
   user      User?      @relation(fields: [userId], references: [id])
   items     CartItem[]
 
@@ -135,31 +142,33 @@ model Cart {
 }
 
 model CartItem {
-  id        String   @id @default(cuid())
-  cartId    String
-  productId String
-  quantity  Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  variantId String?
-  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product   Product  @relation(fields: [productId], references: [id])
+  id          String           @id @default(cuid())
+  cartId      String
+  productId   String
+  inventoryId String
+  quantity    Int
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  cart        Cart             @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product     Product          @relation(fields: [productId], references: [id])
+  inventory   ProductInventory @relation(fields: [inventoryId], references: [id])
 
-  @@unique([cartId, productId, variantId])
+  @@unique([cartId, inventoryId])
   @@index([cartId])
   @@index([productId])
+  @@index([inventoryId])
 }
 
 model Review {
   id         String   @id @default(cuid())
   rating     Int      @default(5)
+  title      String?
+  content    String
   userId     String
   productId  String
+  isVerified Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  content    String
-  isVerified Boolean  @default(false)
-  title      String?
   product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   user       User     @relation(fields: [userId], references: [id])
 
@@ -179,6 +188,8 @@ model Address {
   updatedAt  DateTime @updatedAt
   user       User     @relation(fields: [userId], references: [id])
   orders     Order[]
+
+  @@index([userId])
 }
 
 model Payment {
@@ -191,68 +202,6 @@ model Payment {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   order     Order         @relation(fields: [orderId], references: [id])
-}
-
-model ProductImage {
-  id        String          @id @default(cuid())
-  productId String
-  url       String
-  alt       String?
-  position  Int             @default(0)
-  variantId String?
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variant   ProductVariant? @relation(fields: [variantId], references: [id])
-
-  @@index([productId])
-}
-
-model ProductAttributeValue {
-  id          String            @id @default(cuid())
-  productId   String
-  attributeId String
-  value       String
-  variantId   String?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  attribute   CategoryAttribute @relation(fields: [attributeId], references: [id])
-  product     Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variant     ProductVariant?   @relation(fields: [variantId], references: [id])
-
-  @@unique([productId, attributeId, variantId])
-  @@index([productId])
-}
-
-model ProductVariant {
-  id          String                  @id @default(cuid())
-  productId   String
-  sku         String                  @unique
-  price       Decimal?
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
-  attributes  ProductAttributeValue[]
-  images      ProductImage[]
-  inventories ProductInventory[]
-  product     Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@index([productId])
-}
-
-model ProductInventory {
-  id        String          @id @default(cuid())
-  productId String
-  variantId String?
-  quantity  Int
-  lowStock  Int             @default(5)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variant   ProductVariant? @relation(fields: [variantId], references: [id])
-
-  @@unique([productId, variantId])
-  @@index([productId])
-  @@index([variantId])
 }
 
 model Wishlist {
@@ -277,16 +226,6 @@ model WishlistItem {
   @@unique([wishlistId, productId])
   @@index([wishlistId])
   @@index([productId])
-}
-
-enum AttributeType {
-  SIZE
-  COLOR
-  MATERIAL
-  STYLE
-  WEIGHT
-  LENGTH
-  OTHER
 }
 
 enum Role {

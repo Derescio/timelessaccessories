@@ -1,8 +1,12 @@
 ///import ProductList from "@/components/shared/product/product-list";
 //import { getFeaturedProducts, getLatestProducts, } from "@/lib/actions/product.actions";
 //import { getAllCategories } from "@/lib/actions/product.actions";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
+// import { Button } from "@/components/ui/button";
+// import Link from "next/link";
+import Hero from "@/components/hero";
+import CategorySection from "@/components/productCategories";
+import FeaturedProducts from "@/components/featuredProducts";
+import BlogSection from "@/components/blogs";
 //import ProductCarousel from "@/components/shared/product/product-carousel";
 //import ViewAllProductsButton from "@/components/all-products-btn";
 
@@ -19,9 +23,10 @@ const HomePage = async () => {
 
   return (
     <>
-      <Link href="/sign-in">Sign In
-        <Button>Sign In</Button>
-      </Link>
+      <Hero />
+      <CategorySection />
+      <FeaturedProducts />
+      <BlogSection />
       {/* <div className="flex  items-center justify-center mb-6">
         {categories.map((x) => (
           <Button key={x.category} variant='ghost' className='max-w-sm' asChild>
