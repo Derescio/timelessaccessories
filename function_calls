@@ -1,0 +1,7 @@
+<invoke name="read_file">
+<parameter name="explanation">Reading the Prisma schema file to understand our data model</parameter>
+<parameter name="target_file">prisma/schema.prisma</parameter>
+<parameter name="should_read_entire_file">true</parameter>
+<parameter name="start_line_one_indexed">1</parameter>
+<parameter name="end_line_one_indexed">250</parameter>
+</invoke> 

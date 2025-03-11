@@ -7,23 +7,26 @@ import { NavigationMenu, NavigationMenuItem, NavigationMenuLink, NavigationMenuL
 import { ShoppingCart, User, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "./MobileNav";
+import Logo from '../../public/images/Logo.png'
+import Image from "next/image";
+import { ModeToggle } from "./mode-toggle";
 
 const mainNavItems = [
     {
-        title: "Jewelry",
-        href: "/categories/jewelry",
+        title: "Home",
+        href: "/",
     },
     {
-        title: "Clothing",
-        href: "/categories/clothing",
+        title: "Shop",
+        href: "/products",
     },
     {
-        title: "Shoes",
-        href: "/categories/shoes",
+        title: "Blog",
+        href: "/blogs",
     },
     {
-        title: "New Arrivals",
-        href: "/new-arrivals",
+        title: "Contact",
+        href: "/contacts",
     },
     {
         title: "Sale",
@@ -33,11 +36,11 @@ const mainNavItems = [
 
 export function Header() {
     return (
-        <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <header className="sticky top-0 z-50 w-full mt-8 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="container flex h-16 items-center justify-between gap-4 px-4">
                 {/* Logo */}
                 <Link href="/" className="flex items-center space-x-2">
-                    <span className="text-xl font-bold">Timeless</span>
+                    <Image src={Logo} alt="Logo" width={300} height={500} />
                 </Link>
 
                 {/* Desktop Navigation */}
@@ -59,6 +62,7 @@ export function Header() {
 
                 {/* Search, Cart, and Profile */}
                 <div className="flex items-center gap-4">
+                    <ModeToggle />
                     {/* Search */}
                     <form className="hidden md:block w-full max-w-sm">
                         <div className="relative">
