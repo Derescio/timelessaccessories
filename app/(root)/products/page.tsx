@@ -1,67 +1,149 @@
-import { Metadata } from "next";
+"use client";
+
+import { Suspense } from "react";
 import { getLatestNeProducts } from "@/lib/actions/product.actions";
 import { ProductCard } from "@/components/cards/ProductCardNew";
 import { Product } from "@/types";
 import { Prisma } from "@prisma/client";
+import ProductsFilter from "@/components/cards/Products-Filter";
+import { useCallback, useEffect, useState } from "react";
+import { Pagination } from "@/components/ui/pagination";
 
-export const metadata: Metadata = {
-    title: 'Products Page',
-    description: 'Products Page',
-};
+const DEFAULT_PER_PAGE = 2;
 
-const ProductsPage = async () => {
-    const rawProducts = await getLatestNeProducts();
-    //console.log('Raw Products:', rawProducts);
+function ProductsPageContent() {
+    const [products, setProducts] = useState<Product[]>([]);
+    const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [perPage, setPerPage] = useState(DEFAULT_PER_PAGE);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [sortOrder, setSortOrder] = useState("name_asc");
 
-    const products: Product[] = rawProducts.map((rawProduct) => ({
-        id: rawProduct.id,
-        name: rawProduct.name,
-        description: rawProduct.description,
-        price: rawProduct.inventories[0]?.hasDiscount && rawProduct.inventories[0]?.discountPercentage
-            ? new Prisma.Decimal(Number(rawProduct.inventories[0].retailPrice) * (1 - rawProduct.inventories[0].discountPercentage / 100))
-            : rawProduct.inventories[0]?.retailPrice || new Prisma.Decimal(0),
-        inventory: rawProduct.inventories[0]?.quantity || 0,
-        discountPercentage: rawProduct.inventories[0]?.discountPercentage,
-        category: {
-            ...rawProduct.category,
-            description: rawProduct.category.description || undefined,
-            imageUrl: rawProduct.category.imageUrl || undefined,
-            parentId: rawProduct.category.parentId || undefined
-        },
-        inventories: rawProduct.inventories,
-        reviews: rawProduct.reviews,
-        compareAtPrice: rawProduct.inventories[0]?.retailPrice || null,
-        categoryId: rawProduct.categoryId,
-        isActive: rawProduct.isActive,
-        isFeatured: Boolean(rawProduct.metadata) || null,
-        sku: rawProduct.inventories[0]?.sku || "",
-        createdAt: rawProduct.createdAt,
-        updatedAt: rawProduct.updatedAt,
-        hasDiscount: rawProduct.inventories[0]?.hasDiscount || false,
-        slug: rawProduct.slug,
-        mainImage: rawProduct.inventories[0]?.images[0] || "/images/placeholder.svg",
-        images: (rawProduct.inventories[0]?.images || []).map((url, index) => ({
-            id: `${rawProduct.id}-image-${index}`,
-            url,
-            alt: null,
-            position: index
-        })),
-    }));
+    const fetchProducts = useCallback(async () => {
+        const rawProducts = await getLatestNeProducts();
+        const transformedProducts = rawProducts.map((rawProduct) => ({
+            id: rawProduct.id,
+            name: rawProduct.name,
+            description: rawProduct.description,
+            price: rawProduct.inventories[0]?.hasDiscount && rawProduct.inventories[0]?.discountPercentage
+                ? new Prisma.Decimal(Number(rawProduct.inventories[0].retailPrice) * (1 - rawProduct.inventories[0].discountPercentage / 100))
+                : rawProduct.inventories[0]?.retailPrice || new Prisma.Decimal(0),
+            inventory: rawProduct.inventories[0]?.quantity || 0,
+            discountPercentage: rawProduct.inventories[0]?.discountPercentage,
+            category: {
+                ...rawProduct.category,
+                description: rawProduct.category.description || undefined,
+                imageUrl: rawProduct.category.imageUrl || undefined,
+                parentId: rawProduct.category.parentId || undefined
+            },
+            inventories: rawProduct.inventories,
+            reviews: rawProduct.reviews,
+            compareAtPrice: rawProduct.inventories[0]?.compareAtPrice || new Prisma.Decimal(0),
+            categoryId: rawProduct.categoryId,
+            isActive: rawProduct.isActive,
+            isFeatured: Boolean(rawProduct.metadata) || null,
+            sku: rawProduct.inventories[0]?.sku || "",
+            createdAt: rawProduct.createdAt,
+            updatedAt: rawProduct.updatedAt,
+            hasDiscount: rawProduct.inventories[0]?.hasDiscount || false,
+            slug: rawProduct.slug,
+            mainImage: rawProduct.inventories[0]?.images[0] || "/images/placeholder.svg",
+            images: (rawProduct.inventories[0]?.images || []).map((url, index) => ({
+                id: `${rawProduct.id}-image-${index}`,
+                url,
+                alt: null,
+                position: index
+            })),
+        }));
+        setProducts(transformedProducts);
+    }, []);
+
+    useEffect(() => {
+        fetchProducts();
+    }, [fetchProducts]);
+
+    useEffect(() => {
+        let filtered = products.filter(product =>
+            product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            product.description.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+
+        // Apply sorting
+        filtered = [...filtered].sort((a, b) => {
+            switch (sortOrder) {
+                case "name_asc":
+                    return a.name.localeCompare(b.name);
+                case "name_desc":
+                    return b.name.localeCompare(a.name);
+                case "price_asc":
+                    return Number(a.price) - Number(b.price);
+                case "price_desc":
+                    return Number(b.price) - Number(a.price);
+                default:
+                    return 0;
+            }
+        });
+
+        setFilteredProducts(filtered);
+        setCurrentPage(1); // Reset to first page when filtering or sorting
+    }, [products, searchQuery, sortOrder]);
+
+    const handleSearch = useCallback((value: string) => {
+        setSearchQuery(value);
+    }, []);
+
+    const handlePerPageChange = useCallback((value: number) => {
+        setPerPage(value);
+        setCurrentPage(1); // Reset to first page when changing items per page
+    }, []);
+
+    const handleSortChange = useCallback((value: string) => {
+        setSortOrder(value);
+    }, []);
+
+    // Pagination calculations
+    const totalPages = Math.ceil(filteredProducts.length / perPage);
+    const startIndex = (currentPage - 1) * perPage;
+    const endIndex = startIndex + perPage;
+    const currentProducts = filteredProducts.slice(startIndex, endIndex);
 
     return (
-        <main className="flex flex-col gap-10 max-w-6xl mx-auto px-4 py-10 justify-center">
-            <h1>Products Page</h1>
+        <main className="flex flex-col gap-6 max-w-6xl mx-auto px-4 py-10">
+            <div className="flex flex-col gap-4">
+                <h1 className="text-3xl font-bold">Products</h1>
+                <ProductsFilter
+                    onSearch={handleSearch}
+                    onPerPageChange={handlePerPageChange}
+                    onSortChange={handleSortChange}
+                />
+            </div>
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {products.map((product) => (
+                {currentProducts.map((product) => (
                     <ProductCard key={product.id} product={product} />
                 ))}
             </div>
+
+            {totalPages > 1 && (
+                <div className="flex justify-center mt-6">
+                    <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={setCurrentPage}
+                    />
+                </div>
+            )}
         </main>
     );
-};
+}
 
-export default ProductsPage;
-
+export default function ProductsPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <ProductsPageContent />
+        </Suspense>
+    );
+}
 
 
 

@@ -72,7 +72,7 @@ export async function getLatestNeProducts() {
     return {
       ...product,
       price: discountedPrice,
-      compareAtPrice: defaultInventory.retailPrice,
+      compareAtPrice: defaultInventory.compareAtPrice || new Prisma.Decimal(0),
       discountPercentage: defaultInventory.discountPercentage || null,
       hasDiscount: defaultInventory.hasDiscount || false,
       mainImage: defaultInventory.images[0] || '/placeholder.svg',
