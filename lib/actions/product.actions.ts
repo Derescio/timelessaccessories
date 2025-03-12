@@ -1,11 +1,12 @@
 'use server';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { prismaToJSObject } from '@/lib/utils';
+import { prisma } from "@/lib/prisma";
+import { Product } from "@/types";
 
-const prisma = new PrismaClient();
+const prismaClient = new PrismaClient();
 
-// Add Decimal and JsonValue types
-type Decimal = Prisma.Decimal;
+// Add JsonValue type
 type JsonValue = Prisma.JsonValue;
 
 // Updated types
@@ -32,7 +33,7 @@ interface ProductSorting {
 
 
 export async function getLatestNeProducts() {
-  const data = await prisma.product.findMany({
+  const data = await prismaClient.product.findMany({
     where: {
       isActive: true,
     },
@@ -166,8 +167,8 @@ export async function getAllProducts(
     };
 
     const [products, total] = await Promise.all([
-      prisma.product.findMany(baseQuery),
-      prisma.product.count({ where }),
+      prismaClient.product.findMany(baseQuery),
+      prismaClient.product.count({ where }),
     ]);
 
     // Transform products with inventory and rating data
@@ -205,7 +206,7 @@ export async function getAllProducts(
 // Get featured products
 export async function getFeaturedProducts(limit = 6) {
   try {
-    const products = await prisma.product.findMany({
+    const products = await prismaClient.product.findMany({
       where: {
         isActive: true,
         metadata: {
@@ -250,7 +251,7 @@ export async function getFeaturedProducts(limit = 6) {
 
     return prismaToJSObject(transformProducts(products));
   } finally {
-    await prisma.$disconnect();
+    await prismaClient.$disconnect();
   }
 }
 
@@ -260,7 +261,7 @@ export async function getProductsByCategory(categoryId: string, page = 1, limit 
     const skip = (page - 1) * limit;
 
     const [products, total] = await Promise.all([
-      prisma.product.findMany({
+      prismaClient.product.findMany({
         where: {
           categoryId,
           isActive: true,
@@ -300,7 +301,7 @@ export async function getProductsByCategory(categoryId: string, page = 1, limit 
           createdAt: 'desc',
         },
       }),
-      prisma.product.count({
+      prismaClient.product.count({
         where: {
           categoryId,
           isActive: true,
@@ -314,7 +315,7 @@ export async function getProductsByCategory(categoryId: string, page = 1, limit 
       currentPage: page,
     });
   } finally {
-    await prisma.$disconnect();
+    await prismaClient.$disconnect();
   }
 }
 
@@ -329,8 +330,8 @@ type TransformableProduct = {
     slug: string;
   } | null;
   inventories: Array<{
-    retailPrice: Decimal;
-    compareAtPrice: Decimal | null;
+    retailPrice: Prisma.Decimal;
+    compareAtPrice: Prisma.Decimal | null;
     discountPercentage: number | null;
     hasDiscount: boolean;
     images: string[];
@@ -373,7 +374,7 @@ function transformProducts(products: TransformableProduct[]) {
 // Get all categories (unchanged)
 export async function getAllCategories() {
   try {
-    const categories = await prisma.category.findMany({
+    const categories = await prismaClient.category.findMany({
       include: {
         products: {
           where: {
@@ -394,14 +395,14 @@ export async function getAllCategories() {
       productCount: category.products.length,
     })));
   } finally {
-    await prisma.$disconnect();
+    await prismaClient.$disconnect();
   }
 }
 
 // Get latest products
 export async function getLatestProducts(limit = 8) {
   try {
-    const products = await prisma.product.findMany({
+    const products = await prismaClient.product.findMany({
       where: {
         isActive: true,
       },
@@ -442,6 +443,84 @@ export async function getLatestProducts(limit = 8) {
 
     return prismaToJSObject(transformProducts(products));
   } finally {
-    await prisma.$disconnect();
+    await prismaClient.$disconnect();
+  }
+}
+
+export async function getProductBySlug(slug: string): Promise<Product | null> {
+  try {
+    const rawProduct = await prisma.product.findUnique({
+      where: { slug },
+      include: {
+        category: true,
+        inventories: true,
+        reviews: true,
+      },
+    });
+
+    if (!rawProduct) {
+      return null;
+    }
+
+    // Calculate average rating
+    const averageRating = rawProduct.reviews.length > 0
+      ? rawProduct.reviews.reduce((acc: number, review: { rating: number }) => acc + review.rating, 0) / rawProduct.reviews.length
+      : null;
+
+    // Transform the raw product into our Product type
+    const transformedProduct: Product = {
+      id: rawProduct.id,
+      name: rawProduct.name,
+      description: rawProduct.description,
+      price: rawProduct.inventories[0]?.retailPrice || new Prisma.Decimal(0),
+      categoryId: rawProduct.categoryId,
+      inventory: rawProduct.inventories[0]?.quantity || 0,
+      createdAt: rawProduct.createdAt,
+      updatedAt: rawProduct.updatedAt,
+      compareAtPrice: rawProduct.inventories[0]?.compareAtPrice || null,
+      discountPercentage: rawProduct.inventories[0]?.discountPercentage || null,
+      hasDiscount: rawProduct.inventories[0]?.hasDiscount || false,
+      isActive: rawProduct.isActive,
+      isFeatured: Boolean(rawProduct.metadata) || null,
+      metadata: rawProduct.metadata as Record<string, unknown>,
+      sku: rawProduct.inventories[0]?.sku || "",
+      slug: rawProduct.slug,
+      category: {
+        ...rawProduct.category,
+        description: rawProduct.category.description || undefined,
+        imageUrl: rawProduct.category.imageUrl || undefined,
+        parentId: rawProduct.category.parentId || undefined
+      },
+      images: (rawProduct.inventories[0]?.images || []).map((url: string, index: number) => ({
+        id: `${rawProduct.id}-image-${index}`,
+        url,
+        alt: null,
+        position: index
+      })),
+      mainImage: rawProduct.inventories[0]?.images[0] || "/images/placeholder.svg",
+      averageRating,
+      reviewCount: rawProduct.reviews.length,
+      inventories: rawProduct.inventories.map((inv: {
+        retailPrice: Prisma.Decimal;
+        discountPercentage: number | null;
+        hasDiscount: boolean;
+        images: string[];
+        sku: string;
+        quantity: number;
+      }) => ({
+        retailPrice: inv.retailPrice,
+        discountPercentage: inv.discountPercentage,
+        hasDiscount: inv.hasDiscount,
+        images: inv.images,
+        sku: inv.sku,
+        quantity: inv.quantity
+      })),
+      reviews: rawProduct.reviews
+    };
+
+    return prismaToJSObject(transformedProduct);
+  } catch (error) {
+    console.error("Error fetching product by slug:", error);
+    return null;
   }
 }

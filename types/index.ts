@@ -86,6 +86,8 @@ export interface Product {
         discountPercentage: number | null;
         hasDiscount: boolean;
         images: string[];
+        quantity: number;
+        sku: string;
     }[];
     reviews: {
         rating: number;

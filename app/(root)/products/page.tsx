@@ -8,10 +8,14 @@ import { Prisma } from "@prisma/client";
 import ProductsFilter from "@/components/cards/Products-Filter";
 import { useCallback, useEffect, useState } from "react";
 import { Pagination } from "@/components/ui/pagination";
+import { useSearchParams } from "next/navigation";
 
-const DEFAULT_PER_PAGE = 2;
+const DEFAULT_PER_PAGE = 12;
 
 function ProductsPageContent() {
+    const searchParams = useSearchParams();
+    const categoryId = searchParams.get('category');
+
     const [products, setProducts] = useState<Product[]>([]);
     const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
@@ -63,7 +67,15 @@ function ProductsPageContent() {
     }, [fetchProducts]);
 
     useEffect(() => {
-        let filtered = products.filter(product =>
+        let filtered = products;
+
+        // Apply category filter if present
+        if (categoryId) {
+            filtered = filtered.filter(product => product.categoryId === categoryId);
+        }
+
+        // Apply search filter
+        filtered = filtered.filter(product =>
             product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             product.description.toLowerCase().includes(searchQuery.toLowerCase())
         );
@@ -86,7 +98,7 @@ function ProductsPageContent() {
 
         setFilteredProducts(filtered);
         setCurrentPage(1); // Reset to first page when filtering or sorting
-    }, [products, searchQuery, sortOrder]);
+    }, [products, searchQuery, sortOrder, categoryId]);
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value);
@@ -110,7 +122,9 @@ function ProductsPageContent() {
     return (
         <main className="flex flex-col gap-6 max-w-6xl mx-auto px-4 py-10">
             <div className="flex flex-col gap-4">
-                <h1 className="text-3xl font-bold">Products</h1>
+                <h1 className="text-3xl font-bold">
+                    {categoryId ? `${currentProducts[0]?.category.name || 'Category'} Products` : 'All Products'}
+                </h1>
                 <ProductsFilter
                     onSearch={handleSearch}
                     onPerPageChange={handlePerPageChange}
@@ -118,11 +132,17 @@ function ProductsPageContent() {
                 />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {currentProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                ))}
-            </div>
+            {currentProducts.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {currentProducts.map((product) => (
+                        <ProductCard key={product.id} product={product} />
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-10">
+                    <p className="text-muted-foreground">No products found</p>
+                </div>
+            )}
 
             {totalPages > 1 && (
                 <div className="flex justify-center mt-6">
