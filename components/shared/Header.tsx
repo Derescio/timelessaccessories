@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { MobileNav } from "./MobileNav";
 import Logo from '../../public/images/Logo.png'
 import Image from "next/image";
-import { ModeToggle } from "./mode-toggle";
+import ModeToggle from "./mode-toggle";
 
 const mainNavItems = [
     {
