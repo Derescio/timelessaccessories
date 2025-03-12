@@ -1,3 +1,4 @@
+'use client';
 import * as React from "react";
 import {
     Carousel,
@@ -10,18 +11,24 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Category } from "@prisma/client";
 import Link from "next/link";
 import Image from "next/image";
+import Autoplay from "embla-carousel-autoplay";
 
 interface CategoryCarouselProps {
     categories: (Category & { productCount: number })[];
 }
 
 export function CategoryCarousel({ categories }: CategoryCarouselProps) {
+    const plugin = React.useRef(
+        Autoplay({ delay: 1500, stopOnInteraction: true })
+    );
+
     return (
         <Carousel
             opts={{
                 align: "start",
                 loop: true,
             }}
+            plugins={[plugin.current]}
             className="w-full max-w-6xl mx-auto px-4"
         >
             <CarouselContent>

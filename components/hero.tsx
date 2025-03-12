@@ -31,7 +31,7 @@ const Hero = () => {
                         Discover our exclusive collection of handcrafted jewelry, where luxury meets artistry.
                     </p>
                     <Link
-                        href="/shop"
+                        href="/products"
                         className="inline-block bg-white text-gray-900 px-8 py-3 rounded-full text-sm uppercase tracking-wider font-normal hover:bg-gray-100 transition-colors duration-300"
                     >
                         Shop Collection
