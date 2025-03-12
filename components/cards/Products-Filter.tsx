@@ -67,7 +67,7 @@ export default function ProductsFilter({
                 </Select>
 
                 <Select
-                    defaultValue="10"
+                    defaultValue="2"
                     onValueChange={handlePerPageChange}
                 >
                     <SelectTrigger className="w-[100px]">
