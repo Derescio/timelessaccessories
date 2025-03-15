@@ -8,10 +8,10 @@ interface BlogPostCardProps {
     image: string
     author: string
     date: string
-    category: string
+    // category: string
 }
 
-export default function BlogPostCard({ slug, title, excerpt, image, author, date, category }: BlogPostCardProps) {
+export default function BlogPostCard({ slug, title, excerpt, image, author, date }: BlogPostCardProps) {
     return (
         <article className="group">
             <Link href={`/blog/${slug}`}>

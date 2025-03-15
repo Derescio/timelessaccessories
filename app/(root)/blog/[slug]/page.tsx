@@ -47,7 +47,7 @@ export default function BlogPostPage() {
                         <p>
                             Saw whales fruitful good days image them, midst waters open, saw. Stars lights seasons. Fruit forth rule
                             Evening Creepeth own lesser years shall set seed multiply bring had cattle right multiply him to upon
-                            they're void fish. Brought second Made. Be. Under male male, firmament, beast had light after fifth forth
+                            they are void fish. Brought second Made. Be. Under male male, firmament, beast had light after fifth forth
                             darkness thing hath.
                         </p>
 
@@ -116,7 +116,7 @@ export default function BlogPostPage() {
                                 image="/placeholder.svg?height=400&width=600&text=Related+Post"
                                 author="Admin"
                                 date="APRIL 05, 2023"
-                                category="TRENDS"
+                            // category="TRENDS"
                             />
                         ))}
                     </div>
