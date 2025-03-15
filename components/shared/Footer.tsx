@@ -11,7 +11,7 @@ const footerLinks = {
     ],
     support: [
         { title: "Contact Us", href: "/contact" },
-        { title: "FAQs", href: "/faqs" },
+        { title: "FAQs", href: "/faq" },
         { title: "Shipping", href: "/shipping" },
         { title: "Returns", href: "/returns" },
         { title: "Size Guide", href: "/size-guide" },
