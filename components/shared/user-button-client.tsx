@@ -18,6 +18,7 @@ interface UserButtonProps {
 }
 
 const UserButtonClient = ({ session, signOutAction }: UserButtonProps) => {
+
     if (!session) return (
         <Button asChild variant='outline'>
             <Link href='/sign-in'>
@@ -25,9 +26,20 @@ const UserButtonClient = ({ session, signOutAction }: UserButtonProps) => {
             </Link>
         </Button>
     );
+    if (!session?.user) return (
+        <Button asChild variant='outline'>
+            <Link href='/sign-in'>
+                <UserIcon size={24} /> Login
+            </Link>
+        </Button>
+    );
+
+
 
     const firstName = session?.user?.name?.charAt(0).toUpperCase() ?? 'U';
-    console.log(session);
+
+
+
     return (
         <div className='flex gap-2 items-center'>
             <DropdownMenu>

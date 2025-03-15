@@ -37,7 +37,7 @@ const SignUpPage = async (props: {
             <Card>
                 <CardHeader className='space-y-4'>
                     <Link href="/" className="flex-center">
-                        <Image src="/images/SHOPDDWLogo.png" alt="SHOPDDW" width={100} height={100} priority={true} className="rounded-full" />
+                        <Image src="/images/Logo.png" alt="SHOPDDW" width={100} height={100} priority={true} className="rounded-full" />
                     </Link>
                     <CardTitle className='text-center'>Create Account</CardTitle>
                     <CardDescription className='text-center'>

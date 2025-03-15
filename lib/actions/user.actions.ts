@@ -1,8 +1,7 @@
 'use server';
 
 import { auth, signIn, signOut } from '@/auth';
-// import { auth, signIn, signOut } from '@/auth';
-import {  signInFormSchema, signUpFormSchema, updateUserSchema , changePasswordSchema} from '@/lib/validators';
+import { signInFormSchema, signUpFormSchema, updateUserSchema, changePasswordSchema } from '@/lib/validators';
 // import { shippingAddressSchema, signInFormSchema, signUpFormSchema, paymentMethodSchema } from '@/lib/validators';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { prisma } from '@/lib/db/config';
@@ -20,7 +19,7 @@ import { z } from 'zod';
 //import { getMyCart } from './cart.actions';
 
 
-export async function signInWithCredentials(formData: FormData) {
+export async function signInWithCredentials(prevState: unknown, formData: FormData) {
     try {
         const user = signInFormSchema.parse({
             email: formData.get('email'),
@@ -28,13 +27,13 @@ export async function signInWithCredentials(formData: FormData) {
         });
 
         await signIn('credentials', user);
-        revalidatePath('/', 'layout');
+        revalidatePath('/');
         return { success: true, message: 'Signed in successfully' };
     } catch (error) {
         if (isRedirectError(error)) {
-            //const error = getRedirectError('/sign-in', RedirectType.replace, RedirectStatusCode.TemporaryRedirect);
+
             throw error;
-            //redirect('/sign-in');
+
         }
 
         return { success: false, message: 'Invalid email or password' };
@@ -347,7 +346,7 @@ export async function updateProfile(data: z.infer<typeof updateUserSchema>) {
         console.log('validatedData', validatedData)
 
         await prisma.user.update({
-            where: { id:currentUser.id },
+            where: { id: currentUser.id },
             data: {
                 name: validatedData.name,
                 // Only update email if it's different and implement email verification
@@ -376,35 +375,35 @@ export async function changePassword(data: z.infer<typeof changePasswordSchema>)
         }
 
         const validatedData = changePasswordSchema.parse(data);
-        
+
         // Get current user with password
         const user = await prisma.user.findUnique({
             where: { id: session.user.id },
             select: { password: true }
         });
-        
+
         if (!user?.password) {
             return { success: false, message: 'Cannot change password for OAuth accounts' };
         }
-        
+
         // Verify current password
         const isPasswordValid = compareSync(validatedData.currentPassword, user.password);
         if (!isPasswordValid) {
             return { success: false, message: 'Current password is incorrect' };
         }
-        
+
         // Hash new password and update
         const hashedPassword = hashSync(validatedData?.newPassword || '', 10);
         await prisma.user.update({
             where: { id: session.user.id },
             data: { password: hashedPassword }
         });
-        
+
         // Sign out all sessions for security
         //await signOut({ redirect: false });
         revalidatePath('/user/account');
         revalidatePath('/user/account/acct-details');
-        
+
         return { success: true, message: 'Password changed successfully. Please sign in again.' };
     } catch (error) {
         if (error instanceof z.ZodError) {
