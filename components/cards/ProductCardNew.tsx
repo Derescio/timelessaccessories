@@ -1,4 +1,3 @@
-// import Link from "next/link";
 import Image from "next/image";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,9 +5,11 @@ import { ShoppingCart, Star } from "lucide-react";
 import { Product } from "@/types";
 import Link from "next/link";
 
+
 interface ProductCardProps {
     product: Product;
 }
+
 
 export function ProductCard({ product }: ProductCardProps) {
     const {

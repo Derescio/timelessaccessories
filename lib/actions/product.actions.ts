@@ -400,52 +400,52 @@ export async function getAllCategories() {
 }
 
 // Get latest products
-export async function getLatestProducts(limit = 8) {
-  try {
-    const products = await prismaClient.product.findMany({
-      where: {
-        isActive: true,
-      },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        inventories: {
-          where: {
-            isDefault: true,
-          },
-          select: {
-            retailPrice: true,
-            compareAtPrice: true,
-            discountPercentage: true,
-            hasDiscount: true,
-            images: true,
-            attributes: true,
-            quantity: true,
-          },
-        },
-        reviews: {
-          select: {
-            id: true,
-            rating: true,
-          },
-        },
-      },
-      take: limit,
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+// export async function getLatestProducts(limit = 8) {
+//   try {
+//     const products = await prismaClient.product.findMany({
+//       where: {
+//         isActive: true,
+//       },
+//       include: {
+//         category: {
+//           select: {
+//             id: true,
+//             name: true,
+//             slug: true,
+//           },
+//         },
+//         inventories: {
+//           where: {
+//             isDefault: true,
+//           },
+//           select: {
+//             retailPrice: true,
+//             compareAtPrice: true,
+//             discountPercentage: true,
+//             hasDiscount: true,
+//             images: true,
+//             attributes: true,
+//             quantity: true,
+//           },
+//         },
+//         reviews: {
+//           select: {
+//             id: true,
+//             rating: true,
+//           },
+//         },
+//       },
+//       take: limit,
+//       orderBy: {
+//         createdAt: 'desc',
+//       },
+//     });
 
-    return prismaToJSObject(transformProducts(products));
-  } finally {
-    await prismaClient.$disconnect();
-  }
-}
+//     return prismaToJSObject(transformProducts(products));
+//   } finally {
+//     await prismaClient.$disconnect();
+//   }
+// }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   try {
