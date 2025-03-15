@@ -1,6 +1,7 @@
 'use client'
 
 import { Button } from "@/components/ui/button";
+import { Metadata } from "next";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signInDefaultValues } from "@/lib/constants";
@@ -11,9 +12,17 @@ import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
 
-const signInAction = async (state: { success: boolean; message: string; }, formData: FormData) => {
-    return await signInWithCredentials(formData);
+
+export const metadata: Metadata = {
+    title: 'Sign In',
+    description: 'Sign in to your account',
 };
+
+
+const signInAction = async (state: { success: boolean; message: string; }, formData: FormData) => {
+    return await signInWithCredentials(state, formData);
+};
+
 
 const CredentialsSignInForm = () => {
     const [data, action] = useActionState(signInAction, {

@@ -11,8 +11,9 @@ export default function RootLayout({
     return (
         <>
             <div className="min-h-screen bg-white">
-                <Header />
                 <SessionProvider>
+                    <Header />
+
                     <main>
                         {children}
                     </main>

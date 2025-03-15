@@ -36,16 +36,18 @@ export default function RootLayout({
       <body
         className={`${poppins.variable} ${poppins.variable} antialiased`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <SessionProvider>
+        <SessionProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem
+            disableTransitionOnChange
+          >
+
             {children}
-          </SessionProvider>
-        </ThemeProvider>
+
+          </ThemeProvider>
+        </SessionProvider>
       </body>
     </html>
   );

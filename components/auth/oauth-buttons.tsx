@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { signIn } from "next-auth/react";
-import { Chrome } from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
 
 export function OAuthButtons() {
     return (
@@ -23,7 +23,7 @@ export function OAuthButtons() {
                 className="w-full"
                 onClick={() => signIn('google', { callbackUrl: '/' })}
             >
-                <Chrome className="mr-2 h-4 w-4" />
+                <FcGoogle />
                 Continue with Google
             </Button>
         </div>
