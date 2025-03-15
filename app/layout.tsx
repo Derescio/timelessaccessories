@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import '@/app/assets/styles/globals.css'
 import { ThemeProvider } from "@/components/shared/theme-provider";
-
+import { SessionProvider } from "next-auth/react"
 // const geistSans = Geist({
 //   variable: "--font-geist-sans",
 //   subsets: ["latin"],
@@ -42,7 +42,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <SessionProvider>
+            {children}
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

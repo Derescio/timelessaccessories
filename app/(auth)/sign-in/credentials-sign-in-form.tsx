@@ -9,6 +9,7 @@ import { signInWithCredentials } from "@/lib/actions/user.actions";
 import { useFormStatus } from "react-dom";
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
+import { OAuthButtons } from "@/components/auth/oauth-buttons";
 
 const signInAction = async (state: { success: boolean; message: string; }, formData: FormData) => {
     return await signInWithCredentials(formData);
@@ -35,48 +36,58 @@ const CredentialsSignInForm = () => {
 
 
     return (
-        <form action={action} >
-            <input type='hidden' name='callbackUrl' value={callbackUrl} />
-            <div className='space-y-6'>
-                <div>
-                    <Label htmlFor='email'>Email</Label>
-                    <Input
-                        id='email'
-                        name='email'
-                        required
-                        type='email'
-                        defaultValue={signInDefaultValues.email}
-                        autoComplete='email'
-                    />
-                </div>
-                <div>
-                    <Label htmlFor='password'>Password</Label>
-                    <Input
-                        id='password'
-                        name='password'
-                        required
-                        type='password'
-                        defaultValue={signInDefaultValues.password}
-                        autoComplete='current-password'
-                    />
-                </div>
-                <div>
-                    <SignInButton />
-                </div>
-                {data && !data.success && (
-                    <div className='text-sm text-center text-red-600'>
-                        {data.message}
+        <>
+            <form action={action} >
+                <input type='hidden' name='callbackUrl' value={callbackUrl} />
+                <div className='space-y-6'>
+                    <div>
+                        <Label htmlFor='email'>Email</Label>
+                        <Input
+                            id='email'
+                            name='email'
+                            required
+                            type='email'
+                            defaultValue={signInDefaultValues.email}
+                            autoComplete='email'
+                        />
                     </div>
-                )
-                }
-                <div className='text-sm text-center text-muted-foreground'>
-                    Don`t have an account?{' '}
-                    <Link target='_self' className='link' href='/sign-up'>
-                        Sign Up
-                    </Link>
+                    <div>
+                        <Label htmlFor='password'>Password</Label>
+                        <Input
+                            id='password'
+                            name='password'
+                            required
+                            type='password'
+                            defaultValue={signInDefaultValues.password}
+                            autoComplete='current-password'
+                        />
+                    </div>
+                    <div>
+                        <SignInButton />
+                    </div>
+                    {data && !data.success && (
+                        <div className='text-sm text-center text-red-600'>
+                            {data.message}
+                        </div>
+                    )}
+                    <div className='text-sm text-center text-muted-foreground'>
+                        Don`t have an account?{' '}
+                        <Link target='_self' className='link' href='/sign-up'>
+                            Sign Up
+                        </Link>
+                    </div>
                 </div>
+            </form>
+
+            <OAuthButtons />
+
+            <div className='text-sm text-center text-muted-foreground'>
+                Don`t have an account?{' '}
+                <Link target='_self' className='link' href='/sign-up'>
+                    Sign Up
+                </Link>
             </div>
-        </form>
+        </>
     );
 }
 export default CredentialsSignInForm;

@@ -1,15 +1,18 @@
-"use client"
-
+'use client'
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { NavigationMenu, NavigationMenuItem, NavigationMenuLink, NavigationMenuList, navigationMenuTriggerStyle } from "@/components/ui/navigation-menu";
-import { ShoppingCart, User, Search } from "lucide-react";
+import { ShoppingCart, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "./MobileNav";
 import Logo from '../../public/images/Logo.png'
 import Image from "next/image";
 import ModeToggle from "./mode-toggle";
+import { useSession, signOut } from "next-auth/react";
+import UserButtonClient from "./user-button-client";
+// import { useEffect } from "react";
+// import { useRouter } from "next/navigation";
 
 const mainNavItems = [
     {
@@ -35,6 +38,8 @@ const mainNavItems = [
 ];
 
 export function Header() {
+    const { data: session } = useSession();
+    // const router = useRouter();
     return (
         <header className="sticky top-0 z-50 w-full mt-8 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="container flex h-16 items-center justify-between gap-4 px-4">
@@ -86,11 +91,10 @@ export function Header() {
                     </Button>
 
                     {/* Profile */}
-                    <Button variant="ghost" size="icon" asChild>
-                        <Link href="/profile">
-                            <User className="h-5 w-5" />
-                        </Link>
-                    </Button>
+                    <UserButtonClient
+                        session={session}
+                        signOutAction={() => signOut()}
+                    />
 
                     {/* Mobile Navigation */}
                     <div className="md:hidden">
@@ -100,4 +104,4 @@ export function Header() {
             </div>
         </header>
     );
-} 
+}

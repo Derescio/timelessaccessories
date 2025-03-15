@@ -4,6 +4,7 @@ import {prisma} from '@/lib/db/config';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import type { NextAuthConfig } from 'next-auth';
 import { NextResponse } from 'next/server';
+import GoogleProvider from 'next-auth/providers/google';
 import { compareSync } from 'bcrypt-ts-edge';
 import { cookies } from 'next/headers';
 
@@ -23,6 +24,19 @@ export const config = {
     adapter: PrismaAdapter(prisma),
 
     providers: [
+        GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID!,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+            profile(profile) {
+                return {
+                    id: profile.sub,
+                    name: profile.name,
+                    email: profile.email,
+                    image: profile.picture,
+                    role: "USER" // Set default role for new users
+                }
+            }
+        }),
         CredentialsProvider({
             credentials: {
                 email: { type: 'email' },
@@ -103,6 +117,7 @@ export const config = {
             }
             return token;
         },
+       
         //     // Assign user fields to token
         //     if (user) {
         //         token.id = user.id;
@@ -186,7 +201,10 @@ export const config = {
                 return response;
             } else { return true }
 
-        }
+        },
+        async signIn({ user, account, profile }) {
+            return true // Accept all sign-ins
+        },
     },
 } satisfies NextAuthConfig
 
