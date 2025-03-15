@@ -7,7 +7,7 @@ import Hero from "@/components/hero";
 import CategorySection from "@/components/productCategories";
 import FeaturedProducts from "@/components/featuredProducts";
 import BlogSection from "@/components/blogs";
-import FAQAccordion from "@/components/faq";
+
 //import ProductCarousel from "@/components/shared/product/product-carousel";
 //import ViewAllProductsButton from "@/components/all-products-btn";
 
