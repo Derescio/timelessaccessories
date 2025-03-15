@@ -7,6 +7,7 @@ import Hero from "@/components/hero";
 import CategorySection from "@/components/productCategories";
 import FeaturedProducts from "@/components/featuredProducts";
 import BlogSection from "@/components/blogs";
+import FAQAccordion from "@/components/faq";
 //import ProductCarousel from "@/components/shared/product/product-carousel";
 //import ViewAllProductsButton from "@/components/all-products-btn";
 
@@ -27,6 +28,7 @@ const HomePage = async () => {
       <CategorySection />
       <FeaturedProducts />
       <BlogSection />
+
       {/* <div className="flex  items-center justify-center mb-6">
         {categories.map((x) => (
           <Button key={x.category} variant='ghost' className='max-w-sm' asChild>

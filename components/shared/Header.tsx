@@ -25,11 +25,11 @@ const mainNavItems = [
     },
     {
         title: "Blog",
-        href: "/blogs",
+        href: "/blog",
     },
     {
-        title: "Contact",
-        href: "/contacts",
+        title: "About",
+        href: "/about",
     },
     {
         title: "Sale",
@@ -82,7 +82,7 @@ export function Header() {
 
                 {/* Search, Cart, and Profile */}
                 <div className="flex items-center gap-4">
-                    <ModeToggle />
+                    {/* <ModeToggle /> */}
                     {/* Search */}
                     <form className="hidden md:block w-full max-w-sm">
                         <div className="relative">
