@@ -17,7 +17,7 @@ export default function BlogPostCard({ slug, title, excerpt, image, author, date
             <Link href={`/blog/${slug}`}>
                 <div className="relative aspect-[4/3] mb-4 overflow-hidden rounded-lg">
                     <Image
-                        src={image || "/placeholder.svg"}
+                        src={image || "/images/RingImage.jpg"}
                         alt={title}
                         fill
                         className="object-cover transition-transform duration-500 group-hover:scale-105"

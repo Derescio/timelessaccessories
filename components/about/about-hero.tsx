@@ -3,8 +3,9 @@ import Image from "next/image"
 export default function AboutHero() {
     return (
         <div className="relative h-[400px] md:h-[600px]">
+
             <Image
-                src="/placeholder.svg?height=600&width=1200"
+                src="/images/Blog_Image.jpg"
                 alt="About Timeless Accessories"
                 fill
                 className="object-cover"

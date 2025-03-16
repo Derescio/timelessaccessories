@@ -30,7 +30,7 @@ export default function AboutContent() {
                     </div>
                 </div>
                 <div className="relative aspect-square">
-                    <Image src="/placeholder.svg?height=600&width=600" alt="Our Story" fill className="object-cover rounded-lg" />
+                    <Image src="/images/charms_new.jpg" alt="Our Story" fill className="object-cover rounded-lg" />
                 </div>
             </div>
 
