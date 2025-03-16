@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import ProductGallery from "@/components/products/product-gallery";
 import ProductDetails from "@/components/products/product-details";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+// import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // interface Props {
 //     params: {
