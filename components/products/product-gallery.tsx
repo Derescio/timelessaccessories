@@ -28,7 +28,7 @@ export default function ProductGallery({ images, mainImage }: ProductGalleryProp
     return (
         <div className="flex flex-col md:flex-row gap-4">
             {/* Thumbnails - vertical on desktop, horizontal on mobile */}
-            <div className="flex md:flex-col order-2 md:order-1 gap-2 md:gap-4 overflow-x-auto md:overflow-hidden">
+            <div className="flex md:flex-col  order-2 md:order-1 gap-2 md:gap-4 overflow-x-auto md:overflow-hidden">
                 {allImages.map((image, index) => (
                     <button
                         key={image.id}
@@ -47,7 +47,7 @@ export default function ProductGallery({ images, mainImage }: ProductGalleryProp
             </div>
 
             {/* Main Image */}
-            <div className="relative w-full aspect-square bg-gray-100 rounded-lg order-1 md:order-2">
+            <div className="relative w-[75%] aspect-square bg-white rounded-lg order-1 md:order-2">
                 <Image
                     src={allImages[currentImage].url || "/images/placeholder.svg"}
                     alt={allImages[currentImage].alt || "Product image"}
