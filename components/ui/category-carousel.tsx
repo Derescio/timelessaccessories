@@ -44,7 +44,7 @@ export function CategoryCarousel({ categories }: CategoryCarouselProps) {
                                         className="object-cover transition-transform group-hover:scale-105"
                                         sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                                     />
-                                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-muted-foreground/5" />
+                                    {/* <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-muted-foreground/5" /> */}
                                 </div>
                                 <CardContent className="flex flex-col items-center justify-center p-6">
                                     <h3 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors">

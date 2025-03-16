@@ -30,9 +30,11 @@ export function ProductCard({ product }: ProductCardProps) {
                     <Image
                         src={mainImage}
                         alt={name}
-                        fill
+                        // fill
+                        width={500}
+                        height={500}
                         className="object-cover transition-transform group-hover:scale-105"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                    // sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                     />
                     {hasDiscount && discountPercentage && (
                         <span className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 text-xs font-semibold rounded">

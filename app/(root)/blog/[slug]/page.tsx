@@ -26,7 +26,7 @@ export default function BlogPostPage() {
             {/* Featured Image */}
             <div className="relative aspect-[21/9] mb-16">
                 <Image
-                    src="/placeholder.svg?height=900&width=1900&text=Blog+Header+Image"
+                    src="/images/RingImage.jpg"
                     alt="Blog post header image"
                     fill
                     className="object-cover"
