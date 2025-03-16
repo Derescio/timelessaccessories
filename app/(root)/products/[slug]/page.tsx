@@ -62,14 +62,14 @@ const ProductDetailPage = async (props: { params: Promise<{ slug: string }> }) =
                         <span className="text-muted-foreground">{product.name.toUpperCase()}</span>
                     </div>
                     <div className="flex items-center gap-4">
-                        <Link href="#" className="flex items-center gap-2 hover:text-primary">
+                        {/* <Link href="#" className="flex items-center gap-2 hover:text-primary">
                             <ChevronLeft size={20} />
                             <span className="hidden sm:inline">PREV</span>
                         </Link>
                         <Link href="#" className="flex items-center gap-2 hover:text-primary">
                             <span className="hidden sm:inline">NEXT</span>
                             <ChevronRight size={20} />
-                        </Link>
+                        </Link> */}
                     </div>
                 </div>
 

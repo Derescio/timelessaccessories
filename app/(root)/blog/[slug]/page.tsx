@@ -29,6 +29,7 @@ export default function BlogPostPage() {
                     src="/images/RingImage.jpg"
                     alt="Blog post header image"
                     fill
+                    sizes="(min-width: 1024px) 1024px, 100vw"
                     className="object-cover"
                     priority
                 />
