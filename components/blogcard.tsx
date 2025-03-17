@@ -20,6 +20,7 @@ export default function BlogPostCard({ slug, title, excerpt, image, author, date
                         src={image || "/images/RingImage.jpg"}
                         alt={title}
                         fill
+                        sizes="(min-width: 1024px) 1024px, 100vw"
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                 </div>

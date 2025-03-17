@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import '@/app/assets/styles/globals.css'
 import { ThemeProvider } from "@/components/shared/theme-provider";
-import { SessionProvider } from "next-auth/react"
+// import { SessionProvider } from "next-auth/react"
 // const geistSans = Geist({
 //   variable: "--font-geist-sans",
 //   subsets: ["latin"],
@@ -36,18 +36,18 @@ export default function RootLayout({
       <body
         className={`${poppins.variable} ${poppins.variable} antialiased`}
       >
-        <SessionProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-          >
+        {/* <SessionProvider> */}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
 
-            {children}
+          {children}
 
-          </ThemeProvider>
-        </SessionProvider>
+        </ThemeProvider>
+        {/* </SessionProvider> */}
       </body>
     </html>
   );
