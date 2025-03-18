@@ -1,9 +1,8 @@
 'use client'
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { NavigationMenu, NavigationMenuItem, NavigationMenuLink, NavigationMenuList, navigationMenuTriggerStyle } from "@/components/ui/navigation-menu";
-import { ShoppingCart, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "./MobileNav";
 import Logo from '../../public/images/Logo.png'
@@ -11,6 +10,7 @@ import Image from "next/image";
 // import ModeToggle from "./mode-toggle";
 import { useSession, signOut } from "next-auth/react";
 import UserButtonClient from "./user-button-client";
+import CartCount from "./CartCount";
 // import { useEffect } from "react";
 // import { useRouter } from "next/navigation";
 
@@ -96,14 +96,7 @@ export function Header() {
                     </form>
 
                     {/* Cart */}
-                    <Button variant="ghost" size="icon" className="relative" asChild>
-                        <Link href="/cart">
-                            <ShoppingCart className="h-5 w-5" />
-                            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[11px] font-medium text-primary-foreground flex items-center justify-center">
-                                0
-                            </span>
-                        </Link>
-                    </Button>
+                    <CartCount />
 
                     {/* Profile */}
                     <UserButtonClient

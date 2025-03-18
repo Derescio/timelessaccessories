@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import {
+    addToCartSchema,
+    updateCartItemSchema,
+    removeFromCartSchema,
+    checkInventorySchema,
     cartItemSchema,
     insertCartSchema,
     insertProductSchema,
@@ -110,6 +114,8 @@ export interface ProductCardProduct {
     };
     averageRating: number | null;
     reviewCount: number;
+    inventorySku?: string | null;
+    sku?: string | null;
 }
 
 export type Cart = z.infer<typeof insertCartSchema>;
@@ -134,3 +140,24 @@ export type Review = z.infer<typeof insertReviewSchema> & {
     createdAt: Date;
     user?: { name: string };
 };
+
+// New cart action types
+export type AddToCartInput = z.infer<typeof addToCartSchema>;
+export type UpdateCartItemInput = z.infer<typeof updateCartItemSchema>;
+export type RemoveFromCartInput = z.infer<typeof removeFromCartSchema>;
+export type CheckInventoryInput = z.infer<typeof checkInventorySchema>;
+
+// CartItemDetails interface for the internal representation in the app
+export interface CartItemDetails {
+    id: string;
+    productId: string;
+    inventoryId: string;
+    name: string;
+    slug: string;
+    quantity: number;
+    price: number;
+    image: string;
+    discountPercentage: number | null;
+    hasDiscount: boolean;
+    maxQuantity: number; // Available inventory
+}

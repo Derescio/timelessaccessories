@@ -75,7 +75,6 @@ export const cartItemSchema = z.object({
     price: currency,
     isDiscounted: z.boolean(),
     discountRate: z.coerce.number().min(0).max(100),
-
 });
 
 
@@ -187,4 +186,31 @@ export const insertReviewSchema = z.object({
         .int()
         .min(1, 'Rating must be at least 1')
         .max(5, 'Rating must be at most 5'),
+});
+
+// New schemas for Add to Cart functionality
+
+// Schema for adding items to cart
+export const addToCartSchema = z.object({
+    productId: z.string().min(1, 'Product ID is required'),
+    inventoryId: z.string().min(1, 'Inventory ID is required'),
+    quantity: z.number().int().positive('Quantity must be a positive number'),
+    sessionId: z.string().optional(),
+});
+
+// Schema for updating cart item quantity
+export const updateCartItemSchema = z.object({
+    cartItemId: z.string().min(1, 'Cart item ID is required'),
+    quantity: z.number().int().positive('Quantity must be a positive number'),
+});
+
+// Schema for removing items from cart
+export const removeFromCartSchema = z.object({
+    cartItemId: z.string().min(1, 'Cart item ID is required'),
+});
+
+// Schema for checking inventory availability
+export const checkInventorySchema = z.object({
+    inventoryId: z.string().min(1, 'Inventory ID is required'),
+    quantity: z.number().int().positive('Quantity must be a positive number'),
 });
