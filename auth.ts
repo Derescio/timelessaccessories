@@ -1,6 +1,6 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import {prisma} from '@/lib/db/config';
+import { prisma } from '@/lib/db/config';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import type { NextAuthConfig } from 'next-auth';
 import { NextResponse } from 'next/server';
@@ -85,11 +85,11 @@ export const config = {
                 // Assign user properties to the token
                 //token.id = user.id;
                 token.role = user.role;
-
+                console.log(user)
                 if (trigger === 'signIn' || trigger === 'signUp') {
                     const cookiesObject = await cookies();
                     const sessionCartId = cookiesObject.get('sessionCartId')?.value;
-                    //console.log(sessionCartId)
+                    console.log(sessionCartId)
 
                     // if (sessionCartId) {
                     //     const sessionCart = await prisma.cart.findFirst({
@@ -117,7 +117,7 @@ export const config = {
             }
             return token;
         },
-       
+
         //     // Assign user fields to token
         //     if (user) {
         //         token.id = user.id;

@@ -67,17 +67,17 @@ export default function ProductsFilter({
                 </Select>
 
                 <Select
-                    defaultValue="2"
+                    defaultValue="5"
                     onValueChange={handlePerPageChange}
                 >
-                    <SelectTrigger className="w-[100px]">
-                        <SelectValue placeholder="Per Page" />
+                    <SelectTrigger className="w-[130px]">
+                        <SelectValue placeholder="Items per page" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="5">5</SelectItem>
-                        <SelectItem value="10">10</SelectItem>
-                        <SelectItem value="15">15</SelectItem>
-                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="5">5 items</SelectItem>
+                        <SelectItem value="10">10 items</SelectItem>
+                        <SelectItem value="15">15 items</SelectItem>
+                        <SelectItem value="20">20 items</SelectItem>
                     </SelectContent>
                 </Select>
             </div>

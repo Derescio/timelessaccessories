@@ -11,8 +11,8 @@ import Image from "next/image";
 // import ModeToggle from "./mode-toggle";
 import { useSession, signOut } from "next-auth/react";
 import UserButtonClient from "./user-button-client";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+// import { useEffect } from "react";
+// import { useRouter } from "next/navigation";
 
 const mainNavItems = [
     {
@@ -39,20 +39,20 @@ const mainNavItems = [
 
 export function Header() {
     const { data: session } = useSession();
-    const router = useRouter()
+    // const router = useRouter()
     // Create a function to refresh the session and page when the user is authenticated
 
 
-    const refreshSession = async () => {
+    // const refreshSession = async () => {
 
-        if (session?.user) {
-            router.refresh();
-        }
-    }
+    //     if (session?.user) {
+    //         router.refresh();
+    //     }
+    // }
 
-    useEffect(() => {
-        refreshSession();
-    }, [session]);
+    // useEffect(() => {
+    //     refreshSession();
+    // }, [session]);
 
 
     return (
