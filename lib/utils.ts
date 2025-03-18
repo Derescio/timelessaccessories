@@ -158,3 +158,20 @@ export function formatPrice(price: number) {
   }).format(price);
 }
 
+/**
+ * Triggers a cart updated event to refresh the cart UI
+ */
+export function triggerCartUpdate() {
+  if (typeof window !== 'undefined') {
+    console.log('Dispatching cart-updated event');
+    // Use CustomEvent for better browser compatibility
+    const event = new CustomEvent('cart-updated', { 
+      detail: { 
+        timestamp: new Date().getTime() 
+      } 
+    });
+    window.dispatchEvent(event);
+    console.log('Event dispatched');
+  }
+}
+

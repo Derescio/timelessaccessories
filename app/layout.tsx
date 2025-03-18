@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 // import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import { Poppins } from "next/font/google";
 import '@/app/assets/styles/globals.css'
+import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/shared/theme-provider";
 // import { SessionProvider } from "next-auth/react"
 // const geistSans = Geist({
@@ -45,7 +46,7 @@ export default function RootLayout({
         >
 
           {children}
-
+          <Toaster richColors position="top-right" />
         </ThemeProvider>
         {/* </SessionProvider> */}
       </body>

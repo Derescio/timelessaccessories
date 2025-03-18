@@ -151,6 +151,7 @@ export async function getAllProducts(
             images: true,
             attributes: true,
             quantity: true,
+            sku: true,
           },
           ...(sorting.field === 'retailPrice' ? { orderBy: { retailPrice: sorting.order } } : {}),
         },
@@ -234,6 +235,7 @@ export async function getFeaturedProducts(limit = 6) {
             images: true,
             attributes: true,
             quantity: true,
+            sku: true,
           },
         },
         reviews: {
@@ -286,6 +288,7 @@ export async function getProductsByCategory(categoryId: string, page = 1, limit 
               images: true,
               attributes: true,
               quantity: true,
+              sku: true,
             },
           },
           reviews: {
@@ -337,6 +340,7 @@ type TransformableProduct = {
     images: string[];
     attributes: JsonValue;
     quantity: number;
+    sku: string;
   }>;
   reviews: Array<{
     rating: number;
@@ -356,6 +360,8 @@ function transformProducts(products: TransformableProduct[]) {
       slug: product.slug,
       mainImage: defaultInventory?.images[0] || '/placeholder.svg',
       images: (defaultInventory?.images || []).map((url: string) => ({ url })),
+      inventorySku: defaultInventory?.sku || null,
+      sku: defaultInventory?.sku || null,
       category: product.category ? {
         name: product.category.name,
         slug: product.category.slug,
