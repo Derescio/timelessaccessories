@@ -1,19 +1,19 @@
 import { getFeaturedProducts } from "@/lib/actions/product.actions";
 import { ProductCard } from "@/components/cards/ProductCard";
-import type { ProductCardProduct } from "@/types";
+import { ProductCardProduct } from "@/types";
 
 export default async function FeaturedProducts() {
+    // Fetch featured products
     const products = await getFeaturedProducts(8);
-    // console.log(products);
 
-    // Convert Decimal to number for the ProductCard
-    const formattedProducts: ProductCardProduct[] = products.map((product) => ({
+    // Convert to ProductCardProduct type which is what the ProductCard component expects
+    const formattedProducts: ProductCardProduct[] = products.map(product => ({
         id: product.id,
         name: product.name,
         price: Number(product.price),
         compareAtPrice: product.compareAtPrice ? Number(product.compareAtPrice) : null,
         discountPercentage: product.discountPercentage || null,
-        hasDiscount: product.hasDiscount,
+        hasDiscount: product.hasDiscount || false,
         slug: product.slug,
         mainImage: product.mainImage || product.images[0]?.url || '/images/placeholder.svg',
         images: product.images.map(image => ({ url: image.url })),
@@ -23,6 +23,8 @@ export default async function FeaturedProducts() {
         },
         averageRating: product.averageRating || null,
         reviewCount: product.reviewCount || 0,
+        inventorySku: product.sku || null,
+        quantity: product.quantity || 0
     }));
 
     return (

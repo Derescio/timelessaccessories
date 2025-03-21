@@ -22,7 +22,7 @@ export default function ProductCardButton({
     const [isSuccess, setIsSuccess] = useState(false);
 
     const handleAddToCart = async () => {
-        console.log('Add to cart clicked', { productId, inventoryId });
+        //   console.log('Add to cart clicked', { productId, inventoryId });
 
         if (!inventoryId) {
             console.error('Invalid inventory ID:', inventoryId);
@@ -38,7 +38,7 @@ export default function ProductCardButton({
                 quantity: 1,
             });
 
-            console.log('Add to cart result:', result);
+            //console.log('Add to cart result:', result);
 
             if (result.success) {
                 setIsSuccess(true);
@@ -72,6 +72,7 @@ export default function ProductCardButton({
         <Button
             className={`w-full ${className}`}
             size="sm"
+            variant="default"
             onClick={handleAddToCart}
             disabled={isLoading}
         >

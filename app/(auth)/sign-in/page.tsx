@@ -5,15 +5,16 @@ import Link from "next/link";
 import CredentialsSignInForm from "./credentials-sign-in-form";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LogIn } from "lucide-react";
 
 export const metadata: Metadata = {
     title: 'Sign In',
     description: 'Sign in to your account',
 };
 
-const SignInPage = async (props: { searchParams: Promise<{ callbackUrl: string }> }) => {
-    const { callbackUrl } = await props.searchParams;
+const SignInPage = async (props: { searchParams: Promise<{ callbackUrl: string; message?: string }> }) => {
+    const { callbackUrl, message } = await props.searchParams;
     const session = await auth();
 
     // console.log(session)
@@ -29,6 +30,15 @@ const SignInPage = async (props: { searchParams: Promise<{ callbackUrl: string }
                     </Link>
                     <CardTitle className="text-center">Sign In</CardTitle>
                     <CardDescription className="text-center">Sign in to your account</CardDescription>
+
+                    {message && (
+                        <Alert variant="default" className="bg-blue-50 border-blue-200 text-blue-800">
+                            <LogIn className="h-4 w-4 text-blue-500" />
+                            <AlertDescription>
+                                {message}
+                            </AlertDescription>
+                        </Alert>
+                    )}
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <CredentialsSignInForm />

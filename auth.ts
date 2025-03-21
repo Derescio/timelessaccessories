@@ -181,8 +181,13 @@ export const config = {
             const pathname = request?.nextUrl?.pathname;
             // console.log(pathname)
             // const { pathname } = request?.nextUrl?.pathname;
-            if (!auth && excludedPaths.some((p) => p.test(pathname))) return false;
-
+            if (!auth && excludedPaths.some((p) => p.test(pathname))) {
+                // For checkout-related paths, add a clear message in the URL for the UI to display
+                if (pathname === '/shipping' || pathname === '/payment-method' || pathname === '/place-order') {
+                    return NextResponse.redirect(new URL(`/sign-in?callbackUrl=${pathname}&message=Please sign in to continue with checkout`, request.nextUrl.origin));
+                }
+                return false;
+            }
 
             // Check for session cart cookie
             if (!request.cookies.get('sessionCartId')) {

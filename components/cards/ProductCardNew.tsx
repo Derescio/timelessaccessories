@@ -33,6 +33,35 @@ export function ProductCard({ product }: ProductCardProps) {
         console.error(`Product ${id} (${name}) has inventory but missing SKU`);
     }
 
+    // Calculate the display price
+    const displayPrice = hasDiscount && compareAtPrice && discountPercentage
+        ? (Number(compareAtPrice) - (Number(compareAtPrice) * Number(discountPercentage) / 100))
+        : price;
+
+    // Calculate the discount properly
+    if (hasDiscount && discountPercentage && compareAtPrice) {
+        // Log the discount calculation details but don't modify displayPrice directly
+        console.log(`ProductCardNew price calculation for ${name}:`, {
+            hasDiscount,
+            discountPercentage,
+            originalCompareAtPrice: compareAtPrice ? Number(compareAtPrice) : null,
+            originalPrice: price ? Number(price) : null,
+            // Calculate what the display price would be if we could modify it
+            calculatedDisplayPrice: Number(compareAtPrice) - (Number(compareAtPrice) * Number(discountPercentage) / 100)
+        });
+    } else {
+        console.log(`ProductCardNew price calculation for ${name} (no discount):`, {
+            hasDiscount,
+            originalPrice: price ? Number(price) : null
+        });
+    }
+
+    // Determine what price to display as the original price (for strikethrough)
+    let originalPrice = null;
+    if (hasDiscount && compareAtPrice) {
+        originalPrice = Number(compareAtPrice);
+    }
+
     return (
         <Card key={id} className="p-0 flex flex-col justify-between">
             <Link href={`/products/${slug}`} className="block">
@@ -59,10 +88,10 @@ export function ProductCard({ product }: ProductCardProps) {
                     </p>
 
                     <div className="mt-2 space-x-2">
-                        <span className="font-bold">${Number(price).toFixed(2)}</span>
-                        {hasDiscount && compareAtPrice && (
+                        <span className="font-bold">${Number(displayPrice).toFixed(2)}</span>
+                        {originalPrice && (
                             <span className="text-sm text-muted-foreground line-through">
-                                ${Number(compareAtPrice).toFixed(2)}
+                                ${Number(originalPrice).toFixed(2)}
                             </span>
                         )}
                     </div>

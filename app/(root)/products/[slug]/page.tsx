@@ -1,46 +1,47 @@
-import { getProductBySlug } from "@/lib/actions/product.actions";
-import { notFound } from "next/navigation";
-import ProductGallery from "@/components/products/product-gallery";
-import ProductDetails from "@/components/products/product-details";
-import Link from "next/link";
-// import { ChevronLeft, ChevronRight } from "lucide-react";
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import { getProductBySlug } from '@/lib/actions/product.actions';
+import ProductDetails from '@/components/products/product-details';
+import ProductGallery from '@/components/products/product-gallery';
+import type { Product } from '@/types';
 
-// interface Props {
-//     params: {
-//         slug: string;
+interface PageProps {
+    params: Promise<{
+        slug: string;
+    }>;
+    searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+// export default async function ProductDetailPage({ params }: PageProps) {
+//     const { slug } = params;
+//     const product = await getProductBySlug(slug) as Product;
+
+//     if (!product) {
+//         notFound();
+//     }
+
+// if (!product) {
+//     return {
+//         title: 'Product Not Found',
+//         description: 'The requested product could not be found.',
 //     };
 // }
 
-export async function generateMetadata(props: { params: Promise<{ slug: string }> }) {
-    const params = await props.params;
-    const { slug } = params;
+// return {
+//     title: `${product.name} - Timeless Accessories`,
+//     description: product.description,
+//     openGraph: {
+//         title: product.name,
+//         description: product.description,
+//         images: [product.mainImage || '/images/placeholder.svg'],
+//     },
+// };
 
-    const product = await getProductBySlug(slug);
 
-    if (!product) {
-        return {
-            title: 'Product Not Found',
-            description: 'The requested product could not be found.',
-        };
-    }
-
-    return {
-        title: `${product.name} - Timeless Accessories`,
-        description: product.description,
-        openGraph: {
-            title: product.name,
-            description: product.description,
-            images: [product.mainImage || '/images/placeholder.svg'],
-        },
-    };
-}
-
-const ProductDetailPage = async (props: { params: Promise<{ slug: string }> }) => {
-    const params = await props.params;
-    const { slug } = params;
-
-    // export default async function ProductDetailPage({ params }: Props) {
-    const product = await getProductBySlug(slug);
+export default async function ProductDetailPage({ params }: PageProps) {
+    const resolvedParams = await params;
+    const { slug } = resolvedParams;
+    const product = (await getProductBySlug(slug)) as unknown as Product;
 
     if (!product) {
         notFound();
@@ -84,5 +85,3 @@ const ProductDetailPage = async (props: { params: Promise<{ slug: string }> }) =
         </div>
     );
 }
-
-export default ProductDetailPage;

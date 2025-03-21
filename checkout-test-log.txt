@@ -1,0 +1,56 @@
+Starting checkout process simulation...
+Step 1: Saving checkout data
+Checkout data in shipping page: {
+  "shippingAddress": {
+    "fullName": "Test User",
+    "streetAddress": "123 Test St",
+    "city": "Test City",
+    "state": "Test State",
+    "postalCode": "12345",
+    "zipCode": "12345",
+    "country": "Test Country",
+    "shippingPrice": 1000
+  },
+  "paymentMethod": {
+    "type": "Credit Card"
+  },
+  "useCourier": false
+}
+
+Step 2: Preparing order data in confirmation page
+Address data for database: {
+  "userId": "test-user-id",
+  "street": "123 Test St",
+  "city": "Test City",
+  "state": "Test State",
+  "postalCode": "12345",
+  "country": "Test Country"
+}
+
+Step 3: Creating order with shipping address
+Order data for order creation: {
+  "cartId": "test-cart-id",
+  "shippingAddress": {
+    "fullName": "Test User",
+    "email": "test@example.com",
+    "phone": "",
+    "address": "123 Test St",
+    "city": "Test City",
+    "state": "Test State",
+    "zipCode": "12345",
+    "country": "Test Country"
+  },
+  "shipping": {
+    "method": "Standard Shipping",
+    "cost": 1000
+  },
+  "payment": {
+    "method": "Credit Card",
+    "status": "PENDING"
+  },
+  "subtotal": 10000,
+  "tax": 700,
+  "total": 11700
+}
+
+Test complete!
