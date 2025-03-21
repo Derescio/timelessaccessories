@@ -131,8 +131,15 @@ export async function addToCart(data: AddToCartInput) {
           data: { userId },
         });
       }
-    } else if (sessionId) {
-      // For guests with a session ID
+    } else {
+      // For guests, create a cart with session ID
+      if (!sessionId) {
+        return { 
+          success: false, 
+          message: "Session ID is required for guest carts" 
+        };
+      }
+      
       cart = await prisma.cart.findUnique({
         where: { sessionId },
       });
@@ -142,11 +149,6 @@ export async function addToCart(data: AddToCartInput) {
           data: { sessionId },
         });
       }
-    } else {
-      return { 
-        success: false, 
-        message: "User ID or session ID is required" 
-      };
     }
 
     // Check if this inventory item is already in the cart
@@ -231,10 +233,13 @@ export async function updateCartItem(data: UpdateCartItemInput) {
 
     console.log(`Updating cart item ${cartItemId} to quantity ${quantity}`);
 
-    // Find the cart item
+    // Find the cart item with inventory details
     const cartItem = await prisma.cartItem.findUnique({
       where: { id: cartItemId },
-      include: { inventory: true },
+      include: { 
+        inventory: true,
+        product: true
+      },
     });
 
     if (!cartItem) {
@@ -246,12 +251,14 @@ export async function updateCartItem(data: UpdateCartItemInput) {
       id: cartItem.id,
       productId: cartItem.productId,
       inventoryId: cartItem.inventoryId,
-      inventorySku: cartItem.inventory?.sku
+      inventorySku: cartItem.inventory?.sku,
+      currentQuantity: cartItem.quantity,
+      requestedQuantity: quantity
     });
 
     // Check inventory availability
     const inventoryCheck = await checkInventoryAvailability({
-      inventoryId: cartItem.inventory.sku, // Use the SKU from the inventory relation
+      inventoryId: cartItem.inventory.sku,
       quantity,
     });
 
@@ -271,7 +278,11 @@ export async function updateCartItem(data: UpdateCartItemInput) {
     });
 
     console.log(`Cart item updated successfully`);
+    
+    // Revalidate both cart and product pages
     revalidatePath('/cart');
+    revalidatePath(`/products/${cartItem.product.slug}`);
+
     return { 
       success: true, 
       message: "Cart item updated",
@@ -511,13 +522,23 @@ function formatCartResponse(cart: Record<string, unknown>) {
     }, 0),
     total: typedCart.items.reduce((acc: number, item) => {
       const typedItem = item as { 
-        inventory: { retailPrice: string | number; discountPercentage?: number };
+        inventory: { retailPrice: string | number; compareAtPrice?: string | number; discountPercentage?: number; hasDiscount?: boolean };
         quantity: number;
       };
-      const price = Number(typedItem.inventory.retailPrice);
-      const discountPercentage = typedItem.inventory.discountPercentage || 0;
-      const actualPrice = price * (1 - discountPercentage / 100);
-      return acc + (actualPrice * typedItem.quantity);
+      
+      // For items with a discount, use the compareAtPrice as the base for discount calculation
+      let price = Number(typedItem.inventory.retailPrice);
+      
+      // If this item has a discount and a compareAtPrice, calculate the proper discounted price
+      if (typedItem.inventory.hasDiscount && 
+          typedItem.inventory.discountPercentage && 
+          typedItem.inventory.compareAtPrice) {
+        const compareAtPrice = Number(typedItem.inventory.compareAtPrice);
+        const discountPercentage = typedItem.inventory.discountPercentage;
+        price = compareAtPrice * (1 - discountPercentage / 100);
+      }
+      
+      return acc + (price * typedItem.quantity);
     }, 0),
   };
 }
@@ -540,6 +561,7 @@ function formatCartItemResponse(item: Record<string, unknown>): CartItemDetails 
     };
     inventory: {
       retailPrice: string | number;
+      compareAtPrice?: string | number;
       discountPercentage?: number;
       quantity?: number;
       sku?: string;
@@ -550,11 +572,16 @@ function formatCartItemResponse(item: Record<string, unknown>): CartItemDetails 
   };
   
   // Calculate the actual price considering discounts
-  const basePrice = Number(typedItem.inventory.retailPrice);
-  const discountPercentage = typedItem.inventory.discountPercentage ?? null;
-  const price = discountPercentage 
-    ? basePrice * (1 - discountPercentage / 100) 
-    : basePrice;
+  let price = Number(typedItem.inventory.retailPrice);
+  
+  // If this item has a discount and a compareAtPrice, calculate the proper discounted price
+  if (typedItem.inventory.hasDiscount && 
+      typedItem.inventory.discountPercentage && 
+      typedItem.inventory.compareAtPrice) {
+    const compareAtPrice = Number(typedItem.inventory.compareAtPrice);
+    const discountPercentage = typedItem.inventory.discountPercentage;
+    price = compareAtPrice * (1 - discountPercentage / 100);
+  }
 
   return {
     id: typedItem.id,

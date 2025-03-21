@@ -1,8 +1,11 @@
 'use server';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { prismaToJSObject } from '@/lib/utils';
-import { prisma } from "@/lib/prisma";
-import { Product } from "@/types";
+// import { prisma } from "@/lib/prisma";
+// import { Product } from "@/types"; // Commented out as it's not used
+
+// Import types only when used
+// import type { Product as PrismaProduct } from "@prisma/client" // Commented out as it's not used
 
 const prismaClient = new PrismaClient();
 
@@ -28,7 +31,6 @@ interface ProductSorting {
   order?: SortOrder;
 }
 
-
 //fet latestProducts
 
 
@@ -51,6 +53,7 @@ export async function getLatestNeProducts() {
           discountPercentage: true,
           hasDiscount: true,
           images: true,
+          attributes: true,
           quantity: true,
           sku: true,
         },
@@ -66,14 +69,28 @@ export async function getLatestNeProducts() {
 
   const transformedProducts = data.map(product => {
     const defaultInventory = product.inventories[0];
-    const discountedPrice = defaultInventory.hasDiscount && defaultInventory.discountPercentage
-      ? new Prisma.Decimal(defaultInventory.retailPrice).mul(1 - defaultInventory.discountPercentage / 100)
-      : defaultInventory.retailPrice;
+    
+    // Calculate the proper discounted price if needed
+    let displayPrice = defaultInventory.retailPrice;
+    let originalPrice = defaultInventory.compareAtPrice || null;
+    
+    // When there's a discount and a compareAtPrice, recalculate the display price
+    if (defaultInventory.hasDiscount && 
+        defaultInventory.discountPercentage && 
+        defaultInventory.compareAtPrice) {
+      // Calculate the proper discounted price
+      displayPrice = defaultInventory.compareAtPrice.mul(
+        1 - defaultInventory.discountPercentage / 100
+      );
+      
+      // Make sure we use compareAtPrice as the original price
+      originalPrice = defaultInventory.compareAtPrice;
+    }
 
     return {
       ...product,
-      price: discountedPrice,
-      compareAtPrice: defaultInventory.compareAtPrice || new Prisma.Decimal(0),
+      price: displayPrice,
+      compareAtPrice: originalPrice,
       discountPercentage: defaultInventory.discountPercentage || null,
       hasDiscount: defaultInventory.hasDiscount || false,
       mainImage: defaultInventory.images[0] || '/placeholder.svg',
@@ -350,11 +367,29 @@ type TransformableProduct = {
 function transformProducts(products: TransformableProduct[]) {
   return products.map(product => {
     const defaultInventory = product.inventories[0];
+    
+    // Calculate the proper discounted price if needed
+    let displayPrice = defaultInventory?.retailPrice || 0;
+    let originalPrice = defaultInventory?.compareAtPrice || null;
+    
+    // When there's a discount and a compareAtPrice, recalculate the display price
+    if (defaultInventory?.hasDiscount && 
+        defaultInventory?.discountPercentage && 
+        defaultInventory?.compareAtPrice) {
+      // Calculate the proper discounted price
+      displayPrice = defaultInventory.compareAtPrice.mul(
+        1 - defaultInventory.discountPercentage / 100
+      );
+      
+      // Make sure we use compareAtPrice as the original price
+      originalPrice = defaultInventory.compareAtPrice;
+    }
+    
     return {
       id: product.id,
       name: product.name,
-      price: Number(defaultInventory?.retailPrice) || 0,
-      compareAtPrice: defaultInventory?.compareAtPrice ? Number(defaultInventory.compareAtPrice) : null,
+      price: Number(displayPrice) || 0,
+      compareAtPrice: originalPrice ? Number(originalPrice) : null,
       discountPercentage: defaultInventory?.discountPercentage || null,
       hasDiscount: defaultInventory?.hasDiscount || false,
       slug: product.slug,
@@ -373,6 +408,8 @@ function transformProducts(products: TransformableProduct[]) {
         ? product.reviews.reduce((acc: number, review: { rating: number }) => acc + review.rating, 0) / product.reviews.length
         : null,
       reviewCount: product.reviews.length,
+      quantity: defaultInventory?.quantity || 0,
+      inventories: product.inventories || []
     };
   });
 }
@@ -453,80 +490,145 @@ export async function getAllCategories() {
 //   }
 // }
 
-export async function getProductBySlug(slug: string): Promise<Product | null> {
+export async function getProductBySlug(slug: string) {
   try {
-    const rawProduct = await prisma.product.findUnique({
-      where: { slug },
+    if (!slug) throw new Error('Slug is required');
+
+    const rawProduct = await prismaClient.product.findUnique({
+      where: {
+        slug,
+        isActive: true,
+      },
       include: {
         category: true,
-        inventories: true,
-        reviews: true,
+        inventories: true, // Don't try to include images as a relation
+        reviews: {
+          include: {
+            user: {
+              select: {
+                name: true,
+              }
+            }
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
       },
     });
 
-    if (!rawProduct) {
-      return null;
+    if (!rawProduct) return null;
+
+    // Transform the raw product into a structured Product type
+    const product = transformProduct(rawProduct);
+
+    // Log price calculations for debugging
+    const inventory = rawProduct.inventories?.[0];
+    if (inventory) {
+      console.log(`getProductBySlug price calculation for ${rawProduct.name}:`, {
+        hasDiscount: inventory.hasDiscount,
+        discountPercentage: inventory.discountPercentage,
+        originalCompareAtPrice: inventory.compareAtPrice ? Number(inventory.compareAtPrice) : null,
+        originalRetailPrice: inventory.retailPrice ? Number(inventory.retailPrice) : null,
+        calculatedPrice: Number(product.price),
+        displayedOriginalPrice: product.compareAtPrice ? Number(product.compareAtPrice) : null
+      });
     }
 
-    // Calculate average rating
-    const averageRating = rawProduct.reviews.length > 0
-      ? rawProduct.reviews.reduce((acc: number, review: { rating: number }) => acc + review.rating, 0) / rawProduct.reviews.length
-      : null;
+    return product;
+  } catch (error) {
+    console.error('Error fetching product by slug:', error);
+    throw error;
+  } finally {
+    await prismaClient.$disconnect();
+  }
+}
 
-    // Transform the raw product into our Product type
-    const transformedProduct: Product = {
-      id: rawProduct.id,
-      name: rawProduct.name,
-      description: rawProduct.description,
-      price: rawProduct.inventories[0]?.retailPrice || new Prisma.Decimal(0),
-      categoryId: rawProduct.categoryId,
-      inventory: rawProduct.inventories[0]?.quantity || 0,
-      createdAt: rawProduct.createdAt,
-      updatedAt: rawProduct.updatedAt,
-      compareAtPrice: rawProduct.inventories[0]?.compareAtPrice || null,
-      discountPercentage: rawProduct.inventories[0]?.discountPercentage || null,
-      hasDiscount: rawProduct.inventories[0]?.hasDiscount || false,
-      isActive: rawProduct.isActive,
-      isFeatured: Boolean(rawProduct.metadata) || null,
-      metadata: rawProduct.metadata as Record<string, unknown>,
-      sku: rawProduct.inventories[0]?.sku || "",
-      slug: rawProduct.slug,
-      category: {
-        ...rawProduct.category,
-        description: rawProduct.category.description || undefined,
-        imageUrl: rawProduct.category.imageUrl || undefined,
-        parentId: rawProduct.category.parentId || undefined
-      },
-      images: (rawProduct.inventories[0]?.images || []).map((url: string, index: number) => ({
+// Transform a single product
+function transformProduct(rawProduct: Record<string, unknown>) {
+  // Safely access inventories as an array
+  const inventories = (rawProduct.inventories || []) as Array<Record<string, unknown>>;
+  
+  // Get the default inventory (first one if available)
+  const defaultInventory = inventories.length > 0 ? inventories[0] : {} as Record<string, unknown>;
+  
+  // Calculate the proper discounted price if needed
+  let displayPrice = defaultInventory?.retailPrice || 0;
+  let originalPrice = defaultInventory?.compareAtPrice || null;
+  
+  // When there's a discount and a compareAtPrice, recalculate the display price
+  if (defaultInventory?.hasDiscount && 
+      defaultInventory?.discountPercentage && 
+      defaultInventory?.compareAtPrice) {
+    // Calculate the proper discounted price
+    displayPrice = (defaultInventory.compareAtPrice as Prisma.Decimal).mul(
+      1 - (defaultInventory.discountPercentage as number) / 100
+    );
+    
+    // Make sure we use compareAtPrice as the original price
+    originalPrice = defaultInventory.compareAtPrice;
+  }
+
+  // Calculate average rating
+  const reviews = rawProduct.reviews as Array<Record<string, unknown>> || [];
+  const averageRating = reviews.length > 0
+    ? reviews.reduce((acc: number, review) => acc + (review.rating as number), 0) / reviews.length
+    : null;
+
+  // Get image URLs from the inventory - in different environments, the images field structure might vary
+  const imageUrls = defaultInventory?.images as Array<string | Record<string, unknown>> || [];
+  
+  // Get the first image or use placeholder
+  const firstImage = imageUrls.length > 0 ? imageUrls[0] : null;
+  const mainImage = typeof firstImage === 'string' ? firstImage : 
+                   (firstImage as Record<string, unknown>)?.url as string || 
+                   "/images/placeholder.svg";
+  
+  // Transform the raw product into our Product type (converting Decimal to number to avoid serialization issues)
+  return {
+    id: rawProduct.id,
+    name: rawProduct.name,
+    description: rawProduct.description,
+    price: Number(displayPrice),
+    categoryId: rawProduct.categoryId,
+    inventory: defaultInventory?.quantity || 0,
+    createdAt: rawProduct.createdAt,
+    updatedAt: rawProduct.updatedAt,
+    compareAtPrice: originalPrice ? Number(originalPrice) : null,
+    discountPercentage: defaultInventory?.discountPercentage || null,
+    hasDiscount: defaultInventory?.hasDiscount || false,
+    isActive: rawProduct.isActive,
+    isFeatured: Boolean(rawProduct.metadata) || null,
+    metadata: rawProduct.metadata as Record<string, unknown>,
+    sku: defaultInventory?.sku || "",
+    slug: rawProduct.slug,
+    category: {
+      ...(rawProduct.category as Record<string, unknown>),
+      description: (rawProduct.category as Record<string, unknown>)?.description || undefined,
+      imageUrl: (rawProduct.category as Record<string, unknown>)?.imageUrl || undefined,
+      parentId: (rawProduct.category as Record<string, unknown>)?.parentId || undefined
+    },
+    images: (imageUrls).map((image, index: number) => {
+      // Handle both string URLs and object structures
+      const imageUrl = typeof image === 'string' ? image : ((image as Record<string, unknown>)?.url as string || '');
+      return {
         id: `${rawProduct.id}-image-${index}`,
-        url,
+        url: imageUrl,
         alt: null,
         position: index
-      })),
-      mainImage: rawProduct.inventories[0]?.images[0] || "/images/placeholder.svg",
-      averageRating,
-      reviewCount: rawProduct.reviews.length,
-      inventories: rawProduct.inventories.map((inv: {
-        retailPrice: Prisma.Decimal;
-        discountPercentage: number | null;
-        hasDiscount: boolean;
-        images: string[];
-        sku: string;
-        quantity: number;
-      }) => ({
-        retailPrice: inv.retailPrice,
-        discountPercentage: inv.discountPercentage,
-        hasDiscount: inv.hasDiscount,
-        images: inv.images,
-        sku: inv.sku,
-        quantity: inv.quantity
-      })),
-      reviews: rawProduct.reviews
-    };
-
-    return prismaToJSObject(transformedProduct);
-  } catch (error) {
-    console.error("Error fetching product by slug:", error);
-    return null;
-  }
+      };
+    }),
+    mainImage,
+    averageRating,
+    reviewCount: reviews.length || 0,
+    inventories: inventories.map((inv) => ({
+      retailPrice: Number(inv.retailPrice),
+      discountPercentage: inv.discountPercentage,
+      hasDiscount: inv.hasDiscount,
+      images: (inv.images as Array<string | Record<string, unknown>> || []),
+      sku: inv.sku,
+      quantity: inv.quantity
+    })),
+    reviews
+  };
 }

@@ -119,6 +119,8 @@ model OrderItem {
   inventoryId String
   quantity    Int
   price       Decimal          @db.Decimal(10, 2)
+  name        String // Product name at time of order (required since we always have it)
+  image       String? // Product image at time of order (optional since some products might not have images)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   order       Order            @relation(fields: [orderId], references: [id])
@@ -183,7 +185,7 @@ model Address {
   street     String
   city       String
   state      String
-  postalCode String
+  postalCode String?
   country    String
   userId     String
   createdAt  DateTime @default(now())
@@ -195,15 +197,16 @@ model Address {
 }
 
 model Payment {
-  id        String        @id @default(cuid())
-  orderId   String        @unique
-  amount    Decimal       @db.Decimal(10, 2)
-  status    PaymentStatus @default(PENDING)
-  provider  String
-  paymentId String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  order     Order         @relation(fields: [orderId], references: [id])
+  id            String        @id @default(cuid())
+  orderId       String        @unique
+  amount        Decimal       @db.Decimal(10, 2)
+  status        PaymentStatus @default(PENDING)
+  provider      String
+  paymentId     String?
+  paymentResult Json?         @db.Json
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  order         Order         @relation(fields: [orderId], references: [id])
 }
 
 model Wishlist {

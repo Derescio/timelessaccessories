@@ -132,4 +132,30 @@ The application uses a CI/CD pipeline with GitHub Actions:
 
 ## Contributing
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests. 
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## Market Configuration
+
+This application supports two different market configurations:
+
+### 1. GLOBAL Market
+- Standard shipping options based on country and order total
+- Multiple payment options: PayPal, Credit Card, Cash on Delivery
+- Free shipping for orders over $100
+- Shipping costs: $15 for USA/Canada, $35 for other countries
+
+### 2. LASCO Market
+- Courier-based shipping only
+- LascoPay payment integration only
+- Shipping cost based on selected courier
+
+### Switching Markets
+
+To switch between market configurations:
+
+```bash
+# Run the market switcher tool
+npm run switch-market
+```
+
+This will update the `.env` file with the selected market configuration. Remember to restart your development server after switching markets for the changes to take effect. 

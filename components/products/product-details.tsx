@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Heart, Minus, Plus, Share2, Star, Loader } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Product } from "@/types"
@@ -40,13 +40,54 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     const maxStock = product.inventories[0]?.quantity || 1;
     const inventoryId = product.inventories[0]?.sku;
 
-    const displayPrice = product.inventories[0]?.hasDiscount && product.inventories[0]?.discountPercentage
-        ? Number(product.inventories[0].retailPrice) * (1 - product.inventories[0].discountPercentage / 100)
-        : Number(product.inventories[0]?.retailPrice || 0);
+    // Get the active inventory
+    const activeInventory = useMemo(() => {
+        if (!product || !product.inventories || product.inventories.length === 0) return null;
+        return product.inventories[0]; // Always use the first inventory for now
+    }, [product]);
+
+    // Calculate display price based on discount if available
+    const { displayPrice, originalPrice } = useMemo(() => {
+        // Default values
+        const resultValues = {
+            displayPrice: product?.price || 0,
+            originalPrice: null as number | null
+        };
+
+        // If product has a discount and compareAtPrice, calculate the discounted price
+        if (product?.hasDiscount && product?.discountPercentage && product?.compareAtPrice) {
+            resultValues.originalPrice = Number(product.compareAtPrice);
+
+            // Log price calculation for debugging
+            console.log(`ProductDetails price calculation for ${product.name}:`, {
+                hasDiscount: product.hasDiscount,
+                discountPercentage: product.discountPercentage,
+                originalCompareAtPrice: resultValues.originalPrice,
+                originalPrice: Number(product.price),
+                activeInventory: activeInventory ? {
+                    retailPrice: Number(activeInventory.retailPrice),
+                    hasDiscount: activeInventory.hasDiscount,
+                    discountPercentage: activeInventory.discountPercentage
+                } : null
+            });
+        }
+
+        return {
+            displayPrice: Number(resultValues.displayPrice),
+            originalPrice: resultValues.originalPrice
+        };
+    }, [product, activeInventory]);
 
     // Check if this product is already in the cart when component loads
     // Wrap in useCallback to properly handle the dependency array in useEffect
     const checkIfInCart = useCallback(async () => {
+        if (!product) return;
+
+        // Don't check cart if we're updating quantity to prevent the flashing
+        if (isUpdatingQuantity) {
+            return;
+        }
+
         setIsCheckingCart(true);
         try {
             const cart = await getCart();
@@ -100,14 +141,20 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
         } finally {
             setIsCheckingCart(false);
         }
-    }, [product.id, inventoryId]);
+    }, [product, inventoryId, isUpdatingQuantity]);
 
+    // Add the useEffect hook outside of any conditions
     useEffect(() => {
+        if (!product) return;
+
         checkIfInCart();
 
         // Also listen for cart updates to refresh the UI state
         const handleCartUpdate = () => {
-            checkIfInCart();
+            // Only check cart if we're not currently updating quantity
+            if (!isUpdatingQuantity) {
+                checkIfInCart();
+            }
         };
 
         window.addEventListener('cart-updated', handleCartUpdate);
@@ -115,7 +162,11 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
         return () => {
             window.removeEventListener('cart-updated', handleCartUpdate);
         };
-    }, [product.id, inventoryId, checkIfInCart]);
+    }, [checkIfInCart, isUpdatingQuantity, product]);
+
+    if (!product) {
+        return <div>Product not found</div>
+    }
 
     const handleAddToCartSuccess = (result: CartActionResult) => {
         console.log("Add to cart success handler called with:", result);
@@ -151,7 +202,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
 
             if (result.success) {
                 setQuantity(quantity + 1);
-                triggerCartUpdate();
+                // No cart update to avoid flashing
                 toast.success('Quantity updated', {
                     action: {
                         label: "Go to Cart",
@@ -166,7 +217,10 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
             console.error('Error updating cart:', error);
             toast.error('Failed to update quantity');
         } finally {
-            setIsUpdatingQuantity(false);
+            // Give UI a chance to settle before allowing next check
+            setTimeout(() => {
+                setIsUpdatingQuantity(false);
+            }, 500);
         }
     };
 
@@ -186,7 +240,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
 
                 if (result.success) {
                     setQuantity(quantity - 1);
-                    triggerCartUpdate();
+                    // No cart update to avoid flashing
                     toast.success('Quantity updated', {
                         action: {
                             label: "Go to Cart",
@@ -209,6 +263,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                     setInCart(false);
                     setCartItemId(null);
                     setQuantity(1);
+                    // Only trigger cart update for removal
                     triggerCartUpdate();
                     toast.success('Item removed from cart', {
                         action: {
@@ -225,7 +280,10 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
             console.error('Error updating cart:', error);
             toast.error('Failed to update quantity');
         } finally {
-            setIsUpdatingQuantity(false);
+            // Give UI a chance to settle before allowing next check
+            setTimeout(() => {
+                setIsUpdatingQuantity(false);
+            }, 500);
         }
     };
 
@@ -233,27 +291,33 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-light mb-2">{product.name}</h1>
+                    <h3 className="dark:text-gray-300 text-muted-foreground">{product.category.name}</h3>
+                    <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">{product.name}</h1>
                     <div className="flex items-center gap-2">
-                        <div className="flex">
-                            {[...Array(5)].map((_, i) => (
-                                <Star
-                                    key={i}
-                                    size={16}
-                                    className={i < (product.reviews?.length || 0) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
-                                />
+                        <div className="flex items-center">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <Star key={i} className={`w-5 h-5 ${i < Math.round(product.averageRating || 0) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
                             ))}
                         </div>
-                        <span className="text-sm text-gray-500">{product.reviews?.length || 0} reviews</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                            ({product.reviewCount} reviews)
+                        </span>
                     </div>
                 </div>
-                <div className="text-xl md:text-2xl font-light">
-                    {product.inventories[0]?.hasDiscount && (
-                        <span className="text-sm text-muted-foreground line-through mr-2">
-                            ${Number(product.inventories[0].retailPrice).toFixed(2)}
-                        </span>
+                <div className="mt-4 flex items-center">
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                        ${displayPrice.toFixed(2)}
+                    </div>
+                    {originalPrice && (
+                        <div className="ml-4 text-lg text-gray-500 line-through">
+                            ${originalPrice.toFixed(2)}
+                        </div>
                     )}
-                    ${displayPrice.toFixed(2)}
+                    {product.hasDiscount && product.discountPercentage && (
+                        <div className="ml-4 bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300">
+                            Save {product.discountPercentage}%
+                        </div>
+                    )}
                 </div>
             </div>
 

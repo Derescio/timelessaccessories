@@ -47,8 +47,11 @@ function ProductsPageContent() {
                 id: rawProduct.id,
                 name: rawProduct.name,
                 description: rawProduct.description,
-                price: rawProduct.inventories[0]?.hasDiscount && rawProduct.inventories[0]?.discountPercentage
-                    ? new Prisma.Decimal(Number(rawProduct.inventories[0].retailPrice) * (1 - rawProduct.inventories[0].discountPercentage / 100))
+                price: rawProduct.inventories[0]?.hasDiscount &&
+                    rawProduct.inventories[0]?.discountPercentage &&
+                    rawProduct.inventories[0]?.compareAtPrice
+                    ? new Prisma.Decimal(Number(rawProduct.inventories[0].compareAtPrice) *
+                        (1 - rawProduct.inventories[0].discountPercentage / 100))
                     : rawProduct.inventories[0]?.retailPrice || new Prisma.Decimal(0),
                 inventory: rawProduct.inventories[0]?.quantity || 0,
                 discountPercentage: rawProduct.inventories[0]?.discountPercentage,
@@ -60,7 +63,7 @@ function ProductsPageContent() {
                 },
                 inventories: rawProduct.inventories,
                 reviews: rawProduct.reviews,
-                compareAtPrice: rawProduct.inventories[0]?.compareAtPrice || new Prisma.Decimal(0),
+                compareAtPrice: rawProduct.inventories[0]?.compareAtPrice,
                 categoryId: rawProduct.categoryId,
                 isActive: rawProduct.isActive,
                 isFeatured: Boolean(rawProduct.metadata) || null,
@@ -78,6 +81,27 @@ function ProductsPageContent() {
                 })),
             }));
             setProducts(transformedProducts);
+
+            // Log price calculations for the first product (if any) for debugging
+            if (transformedProducts.length > 0) {
+                const firstProduct = transformedProducts[0];
+                const rawFirstProduct = rawProducts[0];
+                console.log(`Products page price calculation for ${firstProduct.name}:`, {
+                    hasDiscount: firstProduct.hasDiscount,
+                    discountPercentage: firstProduct.discountPercentage,
+                    originalCompareAtPrice: rawFirstProduct.inventories[0]?.compareAtPrice
+                        ? Number(rawFirstProduct.inventories[0]?.compareAtPrice)
+                        : null,
+                    originalRetailPrice: rawFirstProduct.inventories[0]?.retailPrice
+                        ? Number(rawFirstProduct.inventories[0]?.retailPrice)
+                        : null,
+                    calculatedPrice: Number(firstProduct.price),
+                    rawInventory: {
+                        hasDiscount: rawFirstProduct.inventories[0]?.hasDiscount,
+                        discountPercentage: rawFirstProduct.inventories[0]?.discountPercentage,
+                    }
+                });
+            }
         } catch (error) {
             console.error("Error fetching products:", error);
         } finally {

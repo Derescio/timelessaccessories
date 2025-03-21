@@ -9,6 +9,8 @@ import { formatError } from '@/lib/utils';
 import { compareSync, hashSync } from 'bcrypt-ts-edge';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { getCart } from './cart.actions';
+import { db } from "@/lib/db"
 // import type { ShippingAddress } from '@/types';
 // import { updateUserProfileSchema } from '@/lib/validators';
 
@@ -26,14 +28,20 @@ export async function signInWithCredentials(prevState: unknown, formData: FormDa
             password: formData.get('password'),
         });
 
-        await signIn('credentials', user);
+        // Get the callbackUrl from form data
+        const callbackUrl = formData.get('callbackUrl')?.toString() || '/';
+        
+        // Pass the callbackUrl to signIn function
+        await signIn('credentials', {
+            ...user,
+            redirectTo: callbackUrl
+        });
+        
         revalidatePath('/');
         return { success: true, message: 'Signed in successfully' };
     } catch (error) {
         if (isRedirectError(error)) {
-
             throw error;
-
         }
 
         return { success: false, message: 'Invalid email or password' };
@@ -41,13 +49,21 @@ export async function signInWithCredentials(prevState: unknown, formData: FormDa
 }
 
 export async function signOutUser() {
-    // const currentCart = await getMyCart();
-    // if (currentCart?.id) {
-    //     await prisma.cart.delete({ where: { id: currentCart.id } });
-    // } else {
-    //     console.warn('No cart found for deletion.');
-    // }
-    await signOut();
+    try {
+        const currentCart = await getCart();
+        if (currentCart?.id) {
+            await db.cart.delete({ where: { id: currentCart.id } });
+            console.log('Cart deleted successfully during sign out');
+        } else {
+            console.warn('No cart found for deletion during sign out.');
+        }
+        await signOut();
+        console.log('User signed out successfully');
+    } catch (error) {
+        console.error('Error during sign out:', error);
+        // Still try to sign out even if cart deletion fails
+        await signOut();
+    }
 }
 
 
@@ -417,15 +433,24 @@ export async function changePassword(data: z.infer<typeof changePasswordSchema>)
 export async function getUserAddresses() {
     try {
         const session = await auth();
-        if (!session?.user?.id) return [];
-
-        const addresses = await prisma.address.findMany({
-            where: { userId: session.user.id },
+        
+        if (!session?.user) {
+            console.log("No user session found");
+            return [];
+        }
+        
+        const userId = session.user.id;
+        
+        const addresses = await db.address.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
         });
-
+        
+        console.log("Retrieved user addresses:", JSON.stringify(addresses, null, 2));
+        
         return addresses;
     } catch (error) {
-        console.error('Error fetching addresses:', error);
+        console.error("Error fetching user addresses:", error);
         return [];
     }
 }

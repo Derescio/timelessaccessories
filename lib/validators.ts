@@ -2,6 +2,16 @@ import { z } from 'zod';
 
 import { PAYMENT_METHODS } from '@/lib/constants'
 
+/**
+ * Validators Module
+ * 
+ * Known Changes:
+ * 1. Schema Cleanup (2024-03-XX)
+ *    - Removed unused shippingAddressSchema and paymentMethodSchema
+ *    - These schemas were previously used for Zod validation in the shipping form
+ *    - Removed as part of the form validation refactoring to use direct validation
+ */
+
 //Schema for inserting products
 //const currency = z.string().refine((value) => /^\d+(\.\d{2})?$/.test(formatNumber(Number(value))),
 // 'Price must be a number and have 2 decimal places')
@@ -98,13 +108,25 @@ export const COURIERS = [
 export const shippingAddressSchema = z.object({
     fullName: z.string().min(3, 'Name must be at least 3 characters'),
     streetAddress: z.string().min(3, 'Address must be at least 3 characters'),
-    city: z.string().min(3, 'city must be at least 3 characters'),
-    postalCode: z.string().min(3, 'Postal code must be at least 3 characters'),
-    country: z.string().min(3, 'Country must be at least 3 characters'),
+    city: z.string().min(3, 'City must be at least 3 characters'),
+    state: z.string().optional(),
+    parish: z.string().min(3, 'Parish must be at least 3 characters').optional(),
+    country: z.string().min(3, 'Country must be at least 3 characters').optional(),
+    zipCode: z.string().optional(),
     lat: z.number().optional(),
     lng: z.number().optional(),
-    courier: z.string().min(1, 'Courier is required'),
-    shippingPrice: z.number(),
+    courier: z.string().optional().default(""),
+    shippingPrice: z.number().optional().default(0),
+}).refine((data) => {
+    // For LASCO market, require parish
+    if (process.env.NEXT_PUBLIC_MARKET === 'LASCO') {
+        return !!data.parish;
+    }
+    // For GLOBAL market, require country
+    return !!data.country;
+}, {
+    message: "Please provide your parish (LASCO) or country (GLOBAL)",
+    path: ["parish", "country"]
 });
 
 
@@ -118,8 +140,15 @@ export const insertOrderSchema = z.object({
     paymentMethod: z.string().refine((data) => PAYMENT_METHODS.includes(data), {
         message: 'Invalid payment method',
     }),
-    shippingAddress: shippingAddressSchema.refine(data => data.courier && data.shippingPrice > 0, {
-        message: "Shipping method must be selected",
+    shippingAddress: shippingAddressSchema.refine(data => {
+        // For LASCO market, require courier and shipping price
+        if (process.env.NEXT_PUBLIC_MARKET === 'LASCO') {
+            return data.courier && data.shippingPrice > 0;
+        }
+        // For GLOBAL market, shipping price is calculated automatically
+        return true;
+    }, {
+        message: "Shipping method must be selected for LASCO market",
         path: ["courier"]
     }),
 });
@@ -152,9 +181,25 @@ export const insertOrderItemSchema = z.object({
 export const paymentResultSchema = z.object({
     id: z.string(),
     status: z.string(),
-    email_address: z.string(),
-    pricePaid: z.string(),
-});
+    intent: z.string().optional(),
+    create_time: z.string().optional(),
+    update_time: z.string().optional(),
+    payer: z.object({
+        email_address: z.string().optional(),
+        payer_id: z.string().optional(),
+        name: z.object({
+            given_name: z.string().optional(),
+            surname: z.string().optional()
+        }).optional()
+    }).optional(),
+    links: z.array(z.object({
+        href: z.string(),
+        rel: z.string(),
+        method: z.string()
+    })).optional(),
+    payment_source: z.object({}).passthrough().optional(),
+    purchase_units: z.array(z.object({}).passthrough()).optional()
+}).passthrough(); // Use passthrough to allow additional fields from PayPal
 
 //Schema for updating user profile
 export const updateUserSchema = z.object({

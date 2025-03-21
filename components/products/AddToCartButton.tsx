@@ -59,8 +59,6 @@ export default function AddToCartButton({
     const [isSuccess, setIsSuccess] = useState(false);
 
     const handleAddToCart = async () => {
-        console.log('AddToCartButton clicked:', { productId, inventoryId, quantity });
-
         if (!inventoryId) {
             console.error('Invalid inventory ID:', inventoryId);
             toast.error('Invalid inventory configuration');
@@ -69,13 +67,18 @@ export default function AddToCartButton({
 
         setIsLoading(true);
         try {
+            // Get session ID from cookie if not logged in
+            const sessionId = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('sessionCartId='))
+                ?.split('=')[1];
+
             const result = await addToCart({
                 productId,
                 inventoryId,
                 quantity,
+                sessionId,
             });
-
-            console.log('Add to cart result:', result);
 
             if (result.success) {
                 setIsSuccess(true);
@@ -84,20 +87,14 @@ export default function AddToCartButton({
                         label: "Go to Cart",
                         onClick: () => window.location.href = "/cart"
                     },
-                    duration: 5000, // Show for 5 seconds to give time to click
+                    duration: 5000,
                 });
-                console.log('Triggering cart update event');
                 triggerCartUpdate();
 
-                // Call onSuccess callback if provided
                 if (onSuccess) {
-                    console.log('Calling onSuccess callback');
-                    // Cast the result to CartActionResult to satisfy TypeScript
                     onSuccess(result as unknown as CartActionResult);
                 } else {
-                    // Reset success state after a delay if no onSuccess callback
                     setTimeout(() => {
-                        console.log('Resetting success state');
                         setIsSuccess(false);
                     }, 2000);
                 }

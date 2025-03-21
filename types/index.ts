@@ -116,6 +116,7 @@ export interface ProductCardProduct {
     reviewCount: number;
     inventorySku?: string | null;
     sku?: string | null;
+    quantity?: number;
 }
 
 export type Cart = z.infer<typeof insertCartSchema>;

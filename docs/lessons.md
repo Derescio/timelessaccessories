@@ -43,6 +43,46 @@ This pattern is particularly useful when:
    - Handle permission issues by cleaning node_modules/.prisma when needed
    - Use proper error handling for database operations
 
+## Checkout Form Handling and Data Flow
+
+### Field Naming Consistency Across Interfaces
+
+When implementing multi-step checkout processes, field naming consistency becomes critical. We encountered issues with postal code data not being properly saved due to inconsistent field naming:
+
+**Key Learnings:**
+1. Field naming must be consistent throughout the entire data flow:
+   - Form state in the frontend (`formData.postalCode`)
+   - LocalStorage data structures (`zipCode` vs `postalCode`)
+   - Server-side interfaces (`data.shippingAddress.zipCode`)
+   - Database schema fields (`address.postalCode`)
+
+2. Data transformations between pages should include explicit field mappings:
+   ```typescript
+   // Ensure postal code is explicitly mapped when saving to localStorage
+   localStorage.setItem('checkoutData', JSON.stringify({
+     shippingAddress: {
+       ...formData,
+       zipCode: formData.postalCode, // Explicit mapping for consistency
+     },
+     // other fields...
+   }));
+   ```
+
+3. Implement fallback logic for different field names:
+   ```typescript
+   // Extract postal code from multiple possible sources
+   const postalCode = checkoutData.shippingAddress.zipCode || 
+                      checkoutData.shippingAddress.postalCode || 
+                      "";
+   ```
+
+**Best Practices:**
+- Add detailed logging throughout the data flow to track field values
+- Use standardized naming conventions across all interfaces
+- Implement explicit type checking when accessing potentially missing fields
+- Add validation to ensure required fields are present before submission
+- Always log raw data objects for debugging complex multi-step forms
+
 ## Authentication Setup
 1. NextAuth.js Integration:
    - Use the beta version for Next.js 14+ compatibility
@@ -90,3 +130,64 @@ This pattern is particularly useful when:
    - Can install multiple components at once: `npx shadcn@latest add component1 component2`
    - Components are added to `@/components/ui/`
    - Tailwind CSS classes can be customized in the component files 
+
+## Next.js 15 Dynamic Parameter Handling
+
+When upgrading to Next.js 15, we encountered issues with dynamic route parameters in the product details page. The application threw runtime errors and build-time type errors related to params handling.
+
+**Key Learnings:**
+1. In Next.js 15, route parameters are now Promises that must be awaited before use:
+   ```typescript
+   // Old approach (worked in Next.js 14)
+   export default async function ProductDetailPage({ params }: PageProps) {
+       const { slug } = params; // Error in Next.js 15: params is now a Promise
+       // ...
+   }
+   
+   // Next.js 15 approach
+   export default async function ProductDetailPage({ params }: PageProps) {
+       const resolvedParams = await params;
+       const { slug } = resolvedParams;
+       // ...
+   }
+   ```
+
+2. TypeScript interfaces need to be updated to reflect the Promise-based params:
+   ```typescript
+   // Old interface (Next.js 14)
+   interface PageProps {
+       params: {
+           slug: string;
+       };
+       searchParams?: { [key: string]: string | string[] | undefined };
+   }
+   
+   // Next.js 15 interface
+   interface PageProps {
+       params: Promise<{
+           slug: string;
+       }>;
+       searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+   }
+   ```
+
+3. This change applies to all route parameters, including searchParams
+
+**Debugging Steps We Used:**
+1. Identified runtime error: `Error: Route "/products/[slug]" used params.slug. params should be awaited before using its properties.`
+2. Fixed runtime error by awaiting params
+3. Encountered build-time type errors when running `npm run build`
+4. Fixed type errors by updating the PageProps interface to use Promise types
+
+**Best Practices:**
+- Always await route parameters in Next.js 15 before accessing their properties
+- Update type definitions to match the new Promise-based parameter pattern
+- Review your entire application for instances of dynamic routes when upgrading
+- Check both runtime behavior and type safety when dealing with changes to framework APIs
+
+**Impact:**
+- Failing to properly handle these Promises can cause both runtime errors and type errors
+- The runtime errors may not be immediately apparent in development mode
+- Build errors will catch type issues, but only if you're using TypeScript properly
+
+This change is part of Next.js 15's improvements to better handle asynchronous data fetching and rendering. 

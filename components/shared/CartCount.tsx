@@ -16,7 +16,7 @@ export default function CartCount() {
             setIsLoading(true);
             try {
                 const cart = await getCart();
-                console.log('Cart data received:', cart);
+                // console.log('Cart data received:', cart);
 
                 if (cart && typeof cart.itemCount === 'number') {
                     console.log(`Setting item count to ${cart.itemCount}`);
@@ -35,20 +35,18 @@ export default function CartCount() {
 
         fetchCartCount();
 
-        // Add event listener for cart updates
-        const handleCartUpdate = (event: Event) => {
-            console.log('Cart update event received', event);
+        // Update cart count when cart is updated
+        const handleCartUpdate = () => {
             fetchCartCount();
         };
 
         window.addEventListener('cart-updated', handleCartUpdate);
-
         return () => {
             window.removeEventListener('cart-updated', handleCartUpdate);
         };
     }, []);
 
-    console.log('CartCount rendering with count:', itemCount);
+    //console.log('CartCount rendering with count:', itemCount);
 
     return (
         <Button variant="ghost" size="icon" className="relative" asChild>
