@@ -89,9 +89,8 @@ export default function PayPalCheckout({ orderId, totalAmount, onSuccess }: PayP
     };
 
     // Get client ID from environment variable
-    // HARDCODE FOR TESTING - USE YOUR ACTUAL CLIENT ID INSTEAD OF SANDBOX
-    const clientId = "AQB2OjTPdbWx7DCCODYKB4vcnGg8dczEO8accLkoCBBiiy3nnQoxoImZ00n5c6BsEWE7QkFkQ9-uCXO_";
-    console.log("Using hardcoded PayPal client ID for testing");
+    const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
+    console.log("Using PayPal client ID from env variable");
 
     return (
         <div className="py-2">
