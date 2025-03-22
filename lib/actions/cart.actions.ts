@@ -603,3 +603,36 @@ function formatCartItemResponse(item: Record<string, unknown>): CartItemDetails 
     maxQuantity: typedItem.inventory.quantity ?? 0,
   };
 }
+
+/**
+ * Clean up cart after successful payment
+ */
+export const cleanupCartAfterSuccessfulPayment = async (orderId: string) => {
+  try {
+    // Get the order to find the cart
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { cartId: true }
+    });
+    
+    if (!order || !order.cartId) {
+      console.warn(`No cart found for order: ${orderId}`);
+      return { success: true, message: "No cart to clean up" };
+    }
+    
+    // Delete cart items first
+    await prisma.cartItem.deleteMany({
+      where: { cartId: order.cartId }
+    });
+    
+    // Delete the cart
+    await prisma.cart.delete({
+      where: { id: order.cartId }
+    });
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Error cleaning up cart:", error);
+    return { success: false, error: error };
+  }
+};

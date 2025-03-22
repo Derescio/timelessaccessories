@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "Order" ADD COLUMN     "cartId" TEXT;
+
+-- AlterTable
+ALTER TABLE "Payment" ADD COLUMN     "attemptCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "lastUpdated" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;

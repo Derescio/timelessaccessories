@@ -70,8 +70,23 @@ export async function savePaymentResult(data: PaymentResultData) {
     }
     
     // Save payment result to database with or without paymentResult
-    const payment = await db.payment.create({
-      data: details 
+    const payment = await db.payment.upsert({
+      where: { orderId },
+      update: details 
+        ? { 
+            paymentId,
+            provider: paymentProvider,
+            amount: new Decimal(amount),
+            status: paymentStatusMap[status] || PaymentStatus.PENDING,
+            paymentResult: JSON.parse(details)
+          }
+        : {
+            paymentId,
+            provider: paymentProvider,
+            amount: new Decimal(amount),
+            status: paymentStatusMap[status] || PaymentStatus.PENDING,
+          },
+      create: details 
         ? { 
             ...basePaymentData,
             paymentResult: JSON.parse(details)
@@ -124,4 +139,45 @@ export async function processPayment(): Promise<PaymentResult> {
             message: error instanceof Error ? error.message : 'Failed to process payment'
         };
     }
-} 
+}
+
+/**
+ * Update order payment status
+ */
+export const updateOrderPaymentStatus = async ({
+  orderId,
+  status,
+  paymentId,
+  paymentMethod
+}: {
+  orderId: string;
+  status: PaymentStatus;
+  paymentId?: string;
+  paymentMethod: string;
+}) => {
+  try {
+    // Update order status
+    await db.order.update({
+      where: { id: orderId },
+      data: { 
+        status: status === PaymentStatus.COMPLETED ? OrderStatus.PROCESSING : OrderStatus.PENDING 
+      }
+    });
+    
+    // Update payment record
+    await db.payment.update({
+      where: { orderId },
+      data: {
+        status,
+        paymentId: paymentId || undefined,
+        provider: paymentMethod,
+        updatedAt: new Date(),
+      }
+    });
+    revalidatePath(`/order-success?orderId=${orderId}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating payment status:", error);
+    return { success: false, error: error };
+  }
+}; 

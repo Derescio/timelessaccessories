@@ -480,3 +480,97 @@ export async function getUserOrders() {
         return [];
     }
 }
+
+export async function createOrUpdateUserAddress(addressData: {
+    fullName?: string;
+    street: string;
+    city: string;
+    state: string;
+    postalCode?: string;
+    country: string;
+}) {
+    try {
+        const session = await auth();
+        
+        if (!session?.user?.id) {
+            console.error("User not authenticated");
+            return { success: false, message: "You must be logged in to save an address" };
+        }
+        
+        const userId = session.user.id;
+        
+        console.log("Creating/updating address for user:", userId, "with data:", addressData);
+        
+        // Check if user already has an address
+        const existingAddresses = await db.address.findMany({
+            where: { userId },
+        });
+        
+        let address;
+        
+        if (existingAddresses.length > 0) {
+            // Update the first address
+            address = await db.address.update({
+                where: { id: existingAddresses[0].id },
+                data: {
+                    street: addressData.street,
+                    city: addressData.city,
+                    state: addressData.state,
+                    postalCode: addressData.postalCode || "",
+                    country: addressData.country,
+                    updatedAt: new Date()
+                }
+            });
+            console.log("Updated existing address:", address.id);
+        } else {
+            // Create a new address
+            address = await db.address.create({
+                data: {
+                    userId,
+                    street: addressData.street,
+                    city: addressData.city,
+                    state: addressData.state,
+                    postalCode: addressData.postalCode || "",
+                    country: addressData.country
+                }
+            });
+            console.log("Created new address:", address.id);
+        }
+        
+        return {
+            success: true,
+            message: "Address saved successfully",
+            data: address
+        };
+    } catch (error) {
+        console.error("Error saving address:", error);
+        return {
+            success: false,
+            message: formatError(error)
+        };
+    }
+}
+
+// Function to get the first address for a user (or null if none exists)
+export async function getUserPrimaryAddress() {
+    try {
+        const session = await auth();
+        
+        if (!session?.user?.id) {
+            console.log("No user session found");
+            return null;
+        }
+        
+        const userId = session.user.id;
+        
+        const address = await db.address.findFirst({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+        });
+        
+        return address;
+    } catch (error) {
+        console.error("Error fetching user's primary address:", error);
+        return null;
+    }
+}

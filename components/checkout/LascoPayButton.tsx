@@ -10,6 +10,10 @@
  *    - Improved type safety by removing unnecessary props
  */
 
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
+
 interface LascoPayButtonProps {
     onClick?: () => void;
     disabled?: boolean;
@@ -20,67 +24,63 @@ export default function LascoPayButton({
     disabled = false,
 }: LascoPayButtonProps) {
     return (
-        <div
-            onClick={disabled ? undefined : onClick}
-            style={{ cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.7 : 1 }}
+        <Button
+            onClick={onClick}
+            disabled={disabled}
+            className="w-full text-white bg-[#40e0d0] hover:bg-[#3cc0b0] border-0"
+            style={{
+                fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+                borderRadius: "12px",
+                overflow: "hidden",
+                padding: 0,
+                display: "flex",
+                alignItems: "stretch",
+                justifyContent: "space-between",
+                minHeight: "44px",
+            }}
         >
-            <a
-                id="btn-btn-TANTIG"
-                href={onClick ? "#" : "https://pay.lascobizja.com/btn/YFxrwuD1qO9k"}
-                onClick={e => {
-                    if (onClick) {
-                        e.preventDefault();
-                        onClick();
-                    }
-                }}
-                style={{ textDecoration: "none" }}
-            >
-                <div style={{ width: "230px", display: "flex" }}>
+            {disabled ? (
+                <div className="flex items-center justify-center w-full py-2">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <span>Processing...</span>
+                </div>
+            ) : (
+                <>
                     <div
                         style={{
-                            background: "#40e0d0",
-                            color: "#fff",
-                            borderRight: "1px solid #fff",
-                            width: "55px",
+                            background: "#fff",
+                            minWidth: "55px",
                             padding: "1%",
                             textAlign: "center",
                             borderRadius: "12px 0px 0px 12px",
                         }}
                     >
-                        <img
-                            src="https://merchant-portal.lascobizja.com/template/assets/images/lasco-favicon.png"
-                            style={{ width: "90%", marginTop: "8px" }}
-                            alt="Lasco Pay"
-                        />
+                        <div className="relative w-[90%] h-[30px] mx-auto my-[8px]">
+                            <Image
+                                src="https://merchant-portal.lascobizja.com/template/assets/images/lasco-favicon.png"
+                                fill
+                                style={{ objectFit: "contain" }}
+                                alt="Lasco Pay"
+                            />
+                        </div>
                     </div>
                     <div
                         style={{
                             background: "#40e0d0",
                             color: "#fff",
                             padding: "7.5px 15px",
-                            borderRadius: "0px 12px 12px 0px",
+                            flex: 1,
+                            textAlign: "center",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            fontWeight: "bold",
                         }}
                     >
-                        <span
-                            style={{
-                                fontSize: "14px",
-                                display: "block",
-                                textTransform: "capitalize",
-                                lineHeight: "10px",
-                                marginTop: "4px",
-                                color: "black",
-                                fontWeight: "bold",
-                            }}
-                        >
-                            Pay Now
-                        </span>
-                        <span style={{
-                            fontSize: "10px", color: "black",
-                            fontWeight: "bold",
-                        }}>Powered by Lasco</span>
+                        Pay with LascoPay
                     </div>
-                </div>
-            </a>
-        </div>
+                </>
+            )}
+        </Button>
     );
 } 

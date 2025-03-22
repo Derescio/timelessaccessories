@@ -44,7 +44,7 @@ import {
 import ProgressSteps from "@/components/cart/cart-progress-steps"
 import { Card } from "@/components/ui/card"
 import { getCart } from "@/lib/actions/cart.actions"
-import { getUserAddresses } from "@/lib/actions/user.actions"
+import { getUserAddresses, createOrUpdateUserAddress } from "@/lib/actions/user.actions"
 import { PAYMENT_METHODS } from "@/lib/constants"
 import { Check, Info, Loader2 } from "lucide-react"
 import { COURIERS } from "@/lib/validators"
@@ -56,10 +56,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 // import { Separator } from "@/components/ui/separator"
 // import { Switch } from "@/components/ui/switch"
 // import { formatCurrency } from "@/lib/utils"
-import { createOrder } from "@/lib/actions/order.actions"
+import { createOrder, createOrderWithoutDeletingCart } from "@/lib/actions/order.actions"
 import { OrderStatus, PaymentStatus } from "@prisma/client"
 import { ArrowLeft } from "lucide-react"
 import { useSession } from "next-auth/react"
+// import PaymentMethodSelector from "./PaymentMethodSelector"
 // import { useForm } from "react-hook-form"
 // import { zodResolver } from "@hookform/resolvers/zod"
 
@@ -186,20 +187,21 @@ export default function ShippingPage() {
                     const address = addresses[0] as Address
                     console.log('Populating form with address:', {
                         address,
-                        isLascMarket: IS_LASCO_MARKET
+                        isLascoMarket: IS_LASCO_MARKET
                     })
 
+                    // Ensure we properly map the fields from the address to the form
                     setFormData(prev => ({
                         ...prev,
                         fullName: session?.user?.name || "",
                         streetAddress: address.street || "",
                         city: address.city || "",
-                        state: address.state || "",
+                        state: IS_LASCO_MARKET ? "Jamaica" : (address.state || ""),
                         parish: IS_LASCO_MARKET ? (address.country || "") : "",
                         country: !IS_LASCO_MARKET ? (address.country || "") : "",
                         postalCode: address.postalCode || "",
-                        courier: "",
-                        shippingPrice: 0,
+                        courier: prev.courier,
+                        shippingPrice: prev.shippingPrice,
                     }))
                 }
             } catch (error) {
@@ -244,16 +246,19 @@ export default function ShippingPage() {
         }));
     }, [useCourier, formData.parish, formData.country, calculateStandardShipping]);
 
-    // Calculate order summary
+    // Calculate order summary - Updated to include tax
     const calculateOrderSummary = () => {
-        if (!cart) return { subtotal: 0, shipping: 0, total: 0 };
+        if (!cart) return { subtotal: 0, tax: 0, shipping: 0, total: 0 };
 
         const subtotal = cart.items.reduce((total, item) =>
             total + (item.price * item.quantity), 0);
         const shipping = formData.shippingPrice;
-        const total = subtotal + shipping;
+        // Calculate tax based on the region (parish or country)
+        const tax = calculateTax(formData.parish || formData.country || 'DEFAULT', subtotal);
+        // Include tax in the total calculation
+        const total = subtotal + shipping + tax;
 
-        return { subtotal, shipping, total };
+        return { subtotal, tax, shipping, total };
     };
 
     // Check if this order qualifies for free shipping
@@ -295,12 +300,29 @@ export default function ShippingPage() {
         try {
             setIsCreatingOrder(true)
 
+            // Triple check that we have a valid cart
             if (!cart) {
-                throw new Error("Cart is not available")
+                console.error("Cart is not available during order creation");
+                toast.error("Your cart could not be found. Please try refreshing the page.");
+                return null;
             }
 
-            // Create order in database
-            const response = await createOrder({
+            if (!cart.items || cart.items.length === 0) {
+                console.error("Cart exists but has no items");
+                toast.error("Your cart is empty. Please add items before checkout.");
+                router.push("/cart");
+                return null;
+            }
+
+            // Add extra logging for debugging
+            console.log("Creating order with cart:", cart.id, "containing", cart.items.length, "items");
+
+            // Calculate tax for the order
+            const tax = calculateTax(formData.parish || formData.country || 'DEFAULT', calculateOrderSummary().subtotal);
+            const orderSummary = calculateOrderSummary();
+
+            // Prepare order data
+            const orderData = {
                 cartId: cart.id,
                 shippingAddress: {
                     fullName: formData.fullName || "",
@@ -323,22 +345,29 @@ export default function ShippingPage() {
                     status: PaymentStatus.PENDING,
                     providerId: "", // Will be filled after payment
                 },
-                subtotal: calculateOrderSummary().subtotal,
-                tax: calculateTax(formData.parish || 'DEFAULT', calculateOrderSummary().subtotal),
-                total: calculateOrderSummary().total,
+                subtotal: orderSummary.subtotal,
+                tax: tax,
+                total: orderSummary.total, // Now properly includes tax
                 status: OrderStatus.PENDING,
-            })
+            };
+
+            // For LascoPay, don't delete the cart since we need it on the confirmation page
+            const response = IS_LASCO_MARKET && paymentMethod === 'LascoPay'
+                ? await createOrderWithoutDeletingCart(orderData)
+                : await createOrder(orderData);
 
             if (!response.success) {
-                throw new Error(response.error || "Failed to create order")
+                console.error("Order creation API response error:", response.error);
+                throw new Error(response?.error as string || "Failed to create order");
             }
 
-            return response.data
+            return response.data;
         } catch (error) {
-            console.error("Error creating order:", error)
-            throw error
+            console.error("Error creating order:", error);
+            // Don't throw the error, just return null so we can handle it gracefully
+            return null;
         } finally {
-            setIsCreatingOrder(false)
+            setIsCreatingOrder(false);
         }
     }
 
@@ -366,108 +395,129 @@ export default function ShippingPage() {
     };
 
     // Handle form submission
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        console.log('Form submitted')
-        console.log('Form Data:', formData)
-        console.log('Market Type:', IS_LASCO_MARKET ? 'LASCO' : 'GLOBAL')
-
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
         try {
-            // Validate form first
-            if (!validateForm()) {
-                toast.error("Please fill in all required fields");
+            setIsCreatingOrder(true);
+
+            // Validate the form
+            const formIsValid = validateForm();
+            if (!formIsValid) {
+                console.log("Form validation failed:", formErrors);
+                setIsCreatingOrder(false);
                 return;
             }
 
-            // For LASCO market (courier with LascoPay)
-            if (IS_LASCO_MARKET) {
-                console.log('Processing LASCO market submission')
-                // Validate courier selection
-                if (!selectedCourier) {
-                    console.log('Courier validation failed')
-                    setFormErrors({ courier: "Please select a courier" })
-                    toast.error("Please select a courier before continuing")
-                    return
+            // Check if cart still exists by getting a fresh copy
+            try {
+                const freshCart = await getCart();
+                if (!freshCart || !freshCart.items || freshCart.items.length === 0) {
+                    toast.error("Your cart is empty or could not be found. Please add items to your cart first.");
+                    router.push("/cart");
+                    setIsCreatingOrder(false);
+                    return;
                 }
 
-                // Create order in database
-                console.log('Creating order in database...')
-                const order = await createOrderInDatabase()
-
-                // Check if order was created successfully
-                if (!order) {
-                    console.log('Order creation failed')
-                    toast.error("Failed to create order")
-                    return
-                }
-
-                console.log('Order created successfully:', order)
-
-                // Set order created state to show LascoPay button
-                setOrderCreated({
-                    orderId: order.id,
-                    total: calculateOrderSummary().total
-                })
-
-                // Force re-render by logging state
-                console.log('Set orderCreated state:', {
-                    orderId: order.id,
-                    total: calculateOrderSummary().total
-                })
-
-                // Save checkout data to localStorage for reference
-                localStorage.setItem('checkoutData', JSON.stringify({
-                    shippingAddress: {
-                        ...formData,
-                        zipCode: formData.postalCode, // Ensure postalCode is saved as zipCode
-                    },
-                    paymentMethod: { type: "LascoPay" },
-                    useCourier: true,
-                    orderId: order.id
-                }))
-
-                // Clear cart from localStorage
-                localStorage.removeItem('cart')
-
-                toast.success("Order saved. Please complete payment with LascoPay")
-                return
+                // Update cart with fresh data
+                setCart(freshCart);
+            } catch (cartError) {
+                console.error("Error validating cart:", cartError);
+                toast.error("There was a problem with your cart. Please try again.");
+                setIsCreatingOrder(false);
+                return;
             }
 
-            // For GLOBAL market (standard shipping with regular payment methods)
-            if (!IS_LASCO_MARKET) {
-                console.log('Processing GLOBAL market submission')
-                // Form is already validated at this point
+            console.log("Creating order with data:", {
+                cart: cart?.id,
+                paymentMethod,
+                shippingAddress: {
+                    fullName: formData.fullName,
+                    streetAddress: formData.streetAddress,
+                    city: formData.city,
+                    state: formData.state,
+                    parish: formData.parish,
+                    country: formData.country,
+                    postalCode: formData.postalCode
+                },
+                selectedCourier
+            });
 
-                console.log('Form validation passed, saving to localStorage')
-                console.log('Saving postal code:', formData.postalCode);
+            // Save the address to the database for the user
+            try {
+                // Determine which field to use for country based on market type
+                const countryValue = IS_LASCO_MARKET ? formData.parish : formData.country;
 
-                // Save checkout data to localStorage
-                const checkoutData = {
-                    shippingAddress: {
-                        ...formData,
-                        zipCode: formData.postalCode, // Explicitly save postalCode as zipCode
-                    },
-                    paymentMethod: { type: paymentMethod },
-                    useCourier: false
+                // Call the address creation/update function
+                const addressResponse = await createOrUpdateUserAddress({
+                    street: formData.streetAddress,
+                    city: formData.city,
+                    state: formData.state,
+                    postalCode: formData.postalCode,
+                    country: countryValue || ""
+                });
+
+                console.log("Address save response:", addressResponse);
+
+                if (!addressResponse.success) {
+                    console.warn("Non-critical: Address save was not successful:", addressResponse.message);
+                    // Continue with order creation even if address save fails
                 }
-
-                console.log('Saving checkout data with postal code:', formData.postalCode);
-                localStorage.setItem('checkoutData', JSON.stringify(checkoutData))
-
-                // Clear cart from localStorage
-                console.log('Clearing cart from localStorage')
-                localStorage.removeItem('cart')
-
-                // Proceed to confirmation page
-                toast.success("Shipping and payment details saved")
-                router.push("/confirmation")
+            } catch (addressError) {
+                console.error("Error saving address:", addressError);
+                // Continue with order creation even if address save fails
             }
 
-        } catch (error) {
-            console.error("Error processing form:", error)
-            toast.error("An error occurred while processing your information")
+            // Create the order
+            const orderData = await createOrderInDatabase();
+            if (!orderData) {
+                toast.error("Failed to create your order. Please try again.");
+                setIsCreatingOrder(false);
+                return;
+            }
+
+            console.log("Order created successfully:", orderData);
+
+            // Store checkout data in local storage for confirmation page
+            const checkoutDataToSave = {
+                ...formData,
+                orderId: orderData.id,
+                subtotal: calculateOrderSummary().subtotal,
+                tax: calculateOrderSummary().tax,
+                total: calculateOrderSummary().total,
+                paymentMethod: { type: paymentMethod },
+                useCourier: selectedCourier !== null,
+                courierName: selectedCourier,
+            };
+
+            console.log("Saving checkout data to localStorage:", {
+                paymentMethod,
+                paymentMethodType: typeof paymentMethod,
+                formattedPaymentMethod: { type: paymentMethod },
+                checkoutData: checkoutDataToSave,
+                orderSummary: calculateOrderSummary()
+            });
+
+            // Log the actual JSON that will be stored
+            const jsonToStore = JSON.stringify(checkoutDataToSave);
+            console.log("JSON being stored in localStorage:", jsonToStore);
+            console.log("After parse check:", JSON.parse(jsonToStore).paymentMethod);
+
+            localStorage.setItem("checkoutData", jsonToStore);
+
+            // Also store the payment method directly to help with debugging
+            localStorage.setItem("debugPaymentMethod", paymentMethod);
+
+            // Directly navigate to confirmation with the order ID
+            console.log(`Redirecting to confirmation page with orderId: ${orderData.id}`);
+            router.push(`/confirmation?orderId=${orderData.id}`);
+
+        } catch (err) {
+            console.error("Form submission error:", err);
+            toast.error("An error occurred. Please try again later.");
+        } finally {
+            setIsCreatingOrder(false);
         }
-    }
+    };
 
     // Determine the total number of steps based on market type
     const totalSteps = IS_LASCO_MARKET ? 2 : 3;
@@ -756,39 +806,58 @@ export default function ShippingPage() {
                             {/* Payment Method for Global Market */}
                             <div className="border p-6 rounded-md">
                                 <h2 className="text-xl font-medium mb-4">Payment Method</h2>
-                                <RadioGroup
-                                    value={paymentMethod}
-                                    onValueChange={handlePaymentMethodChange}
-                                    className="space-y-3"
-                                >
-                                    {PAYMENT_METHODS.map((method) => (
-                                        <div key={method} className="flex items-center space-x-2 border p-3 rounded-md">
-                                            <RadioGroupItem value={method} id={`payment-${method}`} />
-                                            <Label htmlFor={`payment-${method}`} className="flex-1 cursor-pointer">
-                                                <div className="flex flex-col">
-                                                    <span>{method}</span>
-                                                    {method === "PayPal" && (
-                                                        <span className="text-xs text-muted-foreground mt-1">
-                                                            Pay securely using your PayPal account or credit card
-                                                        </span>
-                                                    )}
-                                                    {method === "Credit Card" && (
-                                                        <span className="text-xs text-muted-foreground mt-1">
-                                                            Pay directly with your credit or debit card
-                                                        </span>
-                                                    )}
-                                                    {method === "Cash On Delivery" && (
-                                                        <span className="text-xs text-muted-foreground mt-1">
-                                                            Pay when you receive your order
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </Label>
+                                {orderCreated ? (
+                                    <div className="space-y-4">
+                                        <div className="bg-muted/50 p-4 rounded-md">
+                                            <h3 className="font-medium mb-2">Complete your payment</h3>
+                                            <p className="text-sm text-muted-foreground">
+                                                Your order has been placed. Please proceed to the confirmation page to complete your payment.
+                                            </p>
                                         </div>
-                                    ))}
-                                </RadioGroup>
-                                {formErrors.paymentMethod && (
-                                    <p className="text-red-500 text-sm mt-2">{formErrors.paymentMethod}</p>
+                                        <Button
+                                            className="w-full"
+                                            onClick={() => router.push(`/confirmation?orderId=${orderCreated.orderId}`)}
+                                        >
+                                            Proceed to Payment
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <RadioGroup
+                                            value={paymentMethod}
+                                            onValueChange={handlePaymentMethodChange}
+                                            className="space-y-3"
+                                        >
+                                            {PAYMENT_METHODS.map((method) => (
+                                                <div key={method} className="flex items-center space-x-2 border p-3 rounded-md">
+                                                    <RadioGroupItem value={method} id={`payment-${method}`} />
+                                                    <Label htmlFor={`payment-${method}`} className="flex-1 cursor-pointer">
+                                                        <div className="flex flex-col">
+                                                            <span>{method}</span>
+                                                            {method === "PayPal" && (
+                                                                <span className="text-xs text-muted-foreground mt-1">
+                                                                    Pay securely using your PayPal account or credit card
+                                                                </span>
+                                                            )}
+                                                            {method === "Stripe" && (
+                                                                <span className="text-xs text-muted-foreground mt-1">
+                                                                    Pay directly with your credit or debit card
+                                                                </span>
+                                                            )}
+                                                            {method === "COD" && (
+                                                                <span className="text-xs text-muted-foreground mt-1">
+                                                                    Pay when you receive your order
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </Label>
+                                                </div>
+                                            ))}
+                                        </RadioGroup>
+                                        {formErrors.paymentMethod && (
+                                            <p className="text-red-500 text-sm mt-2">{formErrors.paymentMethod}</p>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </>
@@ -824,7 +893,7 @@ export default function ShippingPage() {
                                         </div>
                                         <div className="flex justify-between">
                                             <span>Tax</span>
-                                            <span>${calculateTax(formData.parish || 'DEFAULT', calculateOrderSummary().subtotal).toFixed(2)}</span>
+                                            <span>${calculateOrderSummary().tax.toFixed(2)}</span>
                                         </div>
                                     </div>
 

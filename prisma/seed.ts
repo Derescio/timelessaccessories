@@ -241,6 +241,7 @@ async function main() {
       role: 'USER',
     },
   });
+  console.log(`Created test user: ${user.email}`);
 
   // Create an admin user
   const adminUser = await prisma.user.create({
@@ -251,6 +252,7 @@ async function main() {
       role: 'ADMIN',
     },
   });
+  console.log(`Created admin user: ${adminUser.email}`);
 
   console.log('Seed data created successfully!');
 }
