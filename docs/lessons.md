@@ -383,4 +383,143 @@ When deploying to production, proper environment variable management is crucial.
 4. Always include fallbacks for environment variables to prevent crashes
 5. Test the application with production environment settings before deploying
 
-By following these practices, we were able to ensure our application functions correctly in both development and production environments. 
+By following these practices, we were able to ensure our application functions correctly in both development and production environments.
+
+## Address Management in E-commerce Applications
+
+When implementing address management in our e-commerce application, we encountered the challenge of distinguishing between addresses created during checkout and those explicitly managed by users in their account settings.
+
+### Separating Checkout Addresses from User-Managed Addresses
+
+**Problem:**
+Initially, all addresses were displayed in the user's address book, including those created during checkout. This led to cluttered address books filled with one-time delivery addresses that users didn't necessarily want to save.
+
+**Key Learnings:**
+1. Checkout-created addresses and user-managed addresses serve different purposes:
+   - Checkout addresses are created for one-time use during the ordering process
+   - User-managed addresses are explicitly saved by users for future orders
+2. The user interface should only show addresses that users explicitly want to manage
+3. Addresses created during checkout should still be associated with the user for order history
+
+**Solution:**
+1. Added an `isUserManaged` boolean field to the Address model with a default value of `false`:
+   ```prisma
+   model Address {
+     // ... other fields
+     isUserManaged Boolean @default(false)
+   }
+   ```
+
+2. Modified address creation and retrieval logic:
+   ```typescript
+   // Only retrieve addresses that users explicitly want to manage
+   export async function getUserAddresses() {
+     // ... authentication check
+     const addresses = await db.address.findMany({
+       where: { 
+         userId,
+         isUserManaged: true // Only get addresses marked as user-managed
+       },
+       // ... other query options
+     });
+     // ... return addresses
+   }
+   ```
+
+3. Updated address creation in checkout to ensure addresses are not automatically added to the user's address book:
+   ```typescript
+   await db.address.create({
+     data: {
+       userId,
+       // ... address fields
+       isUserManaged: false // Checkout-created addresses aren't user-managed by default
+     }
+   });
+   ```
+
+4. Created a function for users to explicitly mark addresses as managed:
+   ```typescript
+   export async function markAddressAsUserManaged(addressId: string) {
+     // ... authentication check
+     // Update address to mark as user-managed
+     const address = await db.address.update({
+       where: { id: addressId },
+       data: { isUserManaged: true }
+     });
+     // ... return result
+   }
+   ```
+
+5. Ensured addresses created directly in the user's address management UI are always marked as user-managed:
+   ```typescript
+   export async function addUserAddress(addressData) {
+     // ... authentication check
+     const address = await db.address.create({
+       data: {
+         // ... address fields
+         isUserManaged: true // User explicitly created this address
+       }
+     });
+     // ... return result
+   }
+   ```
+
+**Best Practices:**
+- Clearly distinguish between system-created and user-managed data in your schema
+- Design database schemas with flags that control visibility in different contexts
+- Use boolean flags with meaningful defaults for toggleable behavior
+- Keep data for historical records even if not shown in the UI
+- Provide mechanisms for users to "import" or "save" system-created data for future use
+
+This approach has significantly improved our user experience by keeping address books clean and focused while still maintaining all address data for order history and analytics.
+
+## Handling Intermittent Client-Side Errors
+
+When dealing with third-party integrations like payment providers, certain errors may occur that are expected and should be handled gracefully without alarming users or cluttering error logs.
+
+### PayPal Error Silencing for Improved UX
+
+**Problem:**
+The PayPal integration would log a console error "Target window is closed" when users navigated away from the payment flow or closed the PayPal popup. While this is expected behavior, it resulted in confusing error logs and potentially triggered monitoring alerts.
+
+**Key Learnings:**
+1. Some client-side errors are expected and don't represent actual problems
+2. Error logging systems can be overwhelmed by non-actionable errors
+3. Clean console logs improve development experience and customer support
+
+**Solution:**
+We implemented a targeted approach to intercept and silence specific known PayPal errors:
+
+1. Used a global error handler to intercept PayPal-specific errors:
+   ```javascript
+   // Listen for errors in the PayPal SDK
+   window.addEventListener('error', (event) => {
+     // Check if the error is from PayPal and is about a closed window
+     if (
+       event.message.includes('Target window is closed') &&
+       event.filename.includes('paypal')
+     ) {
+       // Prevent the error from being logged to console
+       event.preventDefault();
+     }
+   });
+   ```
+
+2. Added clear documentation about the silenced errors:
+   ```javascript
+   /**
+    * This error handler prevents PayPal's "Target window is closed" errors 
+    * from being logged to the console when a user closes the PayPal popup
+    * or navigates away from the payment flow. This is expected behavior
+    * and not an actual error.
+    */
+   ```
+
+**Best Practices:**
+- Only silence errors that are well-understood and expected
+- Document any error silencing with clear explanations
+- Be specific in error matching to avoid hiding unexpected issues
+- Consider implementing different handling for development vs. production
+- Monitor silenced errors periodically to ensure they remain non-actionable
+
+This approach has resulted in cleaner logs, better developer experience, and less noise in our monitoring systems, while still ensuring that actual issues are properly reported and addressed. 

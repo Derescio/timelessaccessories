@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { createPayPalOrder, approvePayPalOrder } from "@/lib/actions/order.actions";
 import { cleanupCartAfterSuccessfulPayment } from "@/lib/actions/cart.actions";
+import { updateOrderPaymentStatus } from "@/lib/actions/payment.actions";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -15,6 +16,8 @@ import {
 } from "@paypal/react-paypal-js";
 import { Spinner } from '@/components/ui/spinner';
 import { AlertCircle, CheckCircle } from 'lucide-react';
+import LascoPayButton from "@/components/checkout/LascoPayButton";
+import { PaymentStatus } from "@prisma/client";
 
 // Define the props interface with optional paymentMethod
 interface PaymentSectionProps {
@@ -27,6 +30,7 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
     const router = useRouter();
     const [isProcessing, setIsProcessing] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [isPending, setIsPending] = useState(false); // New state for LascoPay pending status
     const [error, setError] = useState<string | null>(null);
 
     // Normalize payment method to handle variations
@@ -34,6 +38,18 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
         typeof paymentMethod === 'object' && paymentMethod !== null
             ? paymentMethod.type || "PayPal"
             : paymentMethod || "PayPal";
+
+    // Check if we have a valid order ID
+    const hasValidOrderId = orderId && orderId !== "" && orderId !== "pending";
+
+    // If we don't have a valid order ID, show an error message
+    if (!hasValidOrderId) {
+        return (
+            <div className="p-4 bg-yellow-50 rounded-md border border-yellow-200 text-center">
+                <p className="text-yellow-700">Please confirm your order to proceed with payment.</p>
+            </div>
+        );
+    }
 
     // PayPal client ID - in production this should come from an environment variable
     const paypalClientId = "AQB2OjTPdbWx7DCCODYKB4vcnGg8dczEO8accLkoCBBiiy3nnQoxoImZ00n5c6BsEWE7QkFkQ9-uCXO_";
@@ -110,6 +126,91 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
             });
     };
 
+    // Function to handle LascoPay redirect
+    const handleLascoPayRedirect = async () => {
+        console.log('LascoPay button clicked. Checking for existing order...');
+        setIsProcessing(true);
+
+        try {
+            // Check if we already have an order ID in localStorage
+            const existingOrderId = localStorage.getItem("lascoPayOrderId");
+
+            // If there's an existing order ID and it doesn't match the current one, 
+            // it means we might be creating a duplicate order
+            if (existingOrderId && existingOrderId !== orderId) {
+                console.log("Found existing order ID:", existingOrderId, "Current order ID:", orderId);
+                console.log("Using existing order ID to prevent duplication");
+
+                // Show toast and redirect using the existing order ID
+                toast.success("Redirecting to payment page...", {
+                    duration: 2000,
+                    position: "top-center"
+                });
+
+                setTimeout(() => {
+                    window.location.href = `https://pay.lascobizja.com/btn/YFxrwuD1qO9k?orderId=${existingOrderId}`;
+                }, 1500);
+
+                return;
+            }
+
+            // If we just created the order through the confirmation screen,
+            // the payment is already in PENDING state, so we can skip this step
+            const skipPaymentUpdate = localStorage.getItem("skipPaymentUpdate") === "true";
+
+            // If not skipping payment update, update the payment record
+            if (!skipPaymentUpdate) {
+                // Double-check that the payment record is properly created
+                const paymentUpdateResult = await updateOrderPaymentStatus({
+                    orderId,
+                    status: PaymentStatus.PENDING,
+                    paymentMethod: "LascoPay"
+                });
+
+                if (!paymentUpdateResult.success) {
+                    console.error("Failed to update payment status:", paymentUpdateResult.error);
+                    toast.error("Could not process payment information. Please try again.");
+                    setIsProcessing(false);
+                    return;
+                }
+
+                console.log("Payment status updated to PENDING for LascoPay");
+            } else {
+                console.log("Skipping payment update as we just created the order");
+                localStorage.removeItem("skipPaymentUpdate");
+            }
+
+            // Clean up the cart after order creation
+            try {
+                await cleanupCartAfterSuccessfulPayment(orderId);
+                console.log("Cart cleaned up successfully");
+            } catch (cleanupError) {
+                console.error("Error cleaning up cart:", cleanupError);
+                // Continue with the flow even if cart cleanup fails
+            }
+
+            // Set pending state to show success message
+            setIsPending(true);
+
+            // Show success toast message
+            toast.success("Redirecting to payment page. You'll be able to view your order status in your account after payment.", {
+                duration: 3000, // Shorter duration since we're just redirecting
+                position: "top-center",
+            });
+
+            // Allow some time for the toast to be seen
+            setTimeout(() => {
+                console.log('Redirecting to LascoPay payment page...');
+                window.location.href = `https://pay.lascobizja.com/btn/YFxrwuD1qO9k?orderId=${orderId}`;
+            }, 2000); // Shorter timeout for redirection
+        } catch (err) {
+            console.error("Error processing LascoPay order:", err);
+            setError(err instanceof Error ? err.message : "Failed to process payment");
+            toast.error("Failed to process payment. Please try again.");
+            setIsProcessing(false);
+        }
+    };
+
     // Helper component to show loading state for PayPal
     function PayPalLoadingState() {
         const [{ isPending, isRejected }] = usePayPalScriptReducer();
@@ -138,6 +239,21 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
                 </div>
                 <h3 className="text-xl font-medium text-green-800 mb-2">Payment Successful!</h3>
                 <p className="text-green-700">Your order has been paid successfully. Redirecting to order confirmation...</p>
+                {isProcessing && <Spinner className="mt-4 mx-auto" />}
+            </div>
+        );
+    }
+
+    // Show pending state for LascoPay
+    if (isPending) {
+        return (
+            <div className="p-6 bg-green-50 rounded-lg border border-green-200 text-center">
+                <div className="flex justify-center mb-4">
+                    <CheckCircle className="w-12 h-12 text-green-500" />
+                </div>
+                <h3 className="text-xl font-medium text-green-800 mb-2">Order Created!</h3>
+                <p className="text-green-700 mb-2">Your order has been recorded successfully.</p>
+                <p className="text-green-700">Redirecting to LascoPay to complete your payment...</p>
                 {isProcessing && <Spinner className="mt-4 mx-auto" />}
             </div>
         );
@@ -189,6 +305,22 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
                                 disabled={isProcessing}
                             />
                         </PayPalScriptProvider>
+                    </div>
+                )}
+
+                {displayedPaymentMethod === "LascoPay" && (
+                    <div className="space-y-4">
+                        <div className="p-4 bg-gray-50 rounded-md">
+                            <p className="text-sm text-gray-600">
+                                Complete your payment using LascoPay&apos;s secure payment system.
+                            </p>
+                        </div>
+                        <div className="flex justify-center">
+                            <LascoPayButton
+                                onClick={handleLascoPayRedirect}
+                                disabled={isProcessing}
+                            />
+                        </div>
                     </div>
                 )}
 

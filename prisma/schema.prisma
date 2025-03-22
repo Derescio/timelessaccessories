@@ -19,13 +19,13 @@ model User {
   role          Role      @default(USER)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  Account       Account[]
   addresses     Address[]
   cart          Cart?
   orders        Order[]
   reviews       Review[]
-  wishlist      Wishlist?
-  Account       Account[]
   Session       Session[]
+  wishlist      Wishlist?
 }
 
 model Product {
@@ -38,10 +38,10 @@ model Product {
   metadata      Json?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
-  category      Category           @relation(fields: [categoryId], references: [id])
-  inventories   ProductInventory[]
   cartItems     CartItem[]
   orderItems    OrderItem[]
+  category      Category           @relation(fields: [categoryId], references: [id])
+  inventories   ProductInventory[]
   reviews       Review[]
   wishlistItems WishlistItem[]
 
@@ -65,9 +65,9 @@ model ProductInventory {
   isDefault          Boolean     @default(false)
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
-  product            Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   cartItems          CartItem[]
   orderItems         OrderItem[]
+  product            Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
   @@index([sku])
@@ -104,11 +104,11 @@ model Order {
   notes           String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+  cartId          String?
   address         Address?    @relation(fields: [addressId], references: [id])
   user            User        @relation(fields: [userId], references: [id])
   items           OrderItem[]
   payment         Payment?
-  cartId          String?
 
   @@index([userId])
 }
@@ -120,13 +120,13 @@ model OrderItem {
   inventoryId String
   quantity    Int
   price       Decimal          @db.Decimal(10, 2)
-  name        String // Product name at time of order (required since we always have it)
-  image       String? // Product image at time of order (optional since some products might not have images)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
+  image       String?
+  name        String
+  inventory   ProductInventory @relation(fields: [inventoryId], references: [id])
   order       Order            @relation(fields: [orderId], references: [id])
   product     Product          @relation(fields: [productId], references: [id])
-  inventory   ProductInventory @relation(fields: [inventoryId], references: [id])
 
   @@index([orderId])
   @@index([productId])
@@ -137,9 +137,9 @@ model Cart {
   id        String     @id @default(cuid())
   userId    String?    @unique
   sessionId String?    @unique
-  processed Boolean    @default(false)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+  processed Boolean    @default(false)
   user      User?      @relation(fields: [userId], references: [id])
   items     CartItem[]
 
@@ -156,8 +156,8 @@ model CartItem {
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   cart        Cart             @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product     Product          @relation(fields: [productId], references: [id])
   inventory   ProductInventory @relation(fields: [inventoryId], references: [id])
+  product     Product          @relation(fields: [productId], references: [id])
 
   @@unique([cartId, inventoryId])
   @@index([cartId])
@@ -183,17 +183,18 @@ model Review {
 }
 
 model Address {
-  id         String   @id @default(cuid())
-  street     String
-  city       String
-  state      String
-  postalCode String?
-  country    String
-  userId     String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  user       User     @relation(fields: [userId], references: [id])
-  orders     Order[]
+  id            String   @id @default(cuid())
+  street        String
+  city          String
+  state         String
+  postalCode    String?
+  country       String
+  userId        String
+  isUserManaged Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id])
+  orders        Order[]
 
   @@index([userId])
 }
@@ -205,12 +206,12 @@ model Payment {
   status        PaymentStatus @default(PENDING)
   provider      String
   paymentId     String?
-  paymentResult Json?         @db.Json
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
-  order         Order         @relation(fields: [orderId], references: [id])
-  lastUpdated   DateTime      @default(now())
+  paymentResult Json?         @db.Json
   attemptCount  Int           @default(0)
+  lastUpdated   DateTime      @default(now())
+  order         Order         @relation(fields: [orderId], references: [id])
 }
 
 model Wishlist {
@@ -243,15 +244,14 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@index([userId])

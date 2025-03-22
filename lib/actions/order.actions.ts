@@ -349,15 +349,32 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
     
     // Create payment record if payment details are provided
     if (data.payment) {
-      await db.payment.create({
-        data: {
-          orderId: order.id,
-          amount: new Decimal(data.total),
-          status: paymentStatusValue,
-          provider: data.payment.method || "unknown",
-          paymentId: data.payment.providerId || null,
-        }
-      })
+      console.log("Creating payment record for order:", order.id, "with method:", data.payment.method);
+      
+      try {
+        const payment = await db.payment.create({
+          data: {
+            orderId: order.id,
+            amount: new Decimal(data.total),
+            status: paymentStatusValue,
+            provider: data.payment.method || "unknown",
+            paymentId: data.payment.providerId || null,
+          }
+        });
+        
+        console.log("Payment record created successfully:", {
+          id: payment.id,
+          orderId: payment.orderId,
+          provider: payment.provider,
+          status: payment.status,
+          amount: payment.amount.toString(),
+        });
+      } catch (error) {
+        console.error("Error creating payment record:", error);
+        // Don't throw here, just log the error to prevent order creation failure
+      }
+    } else {
+      console.error("No payment details provided for order:", order.id);
     }
 
     // NOTE: We're not deleting the cart here, which is the key difference from createOrder

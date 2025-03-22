@@ -8,6 +8,8 @@
  *    - Removed unused totalAmount prop
  *    - Simplified interface to only include onClick and disabled props
  *    - Improved type safety by removing unnecessary props
+ * 2. Image Source Update (2024-05-XX)
+ *    - Changed remote image URL to local image path to avoid Next.js image domain restrictions
  */
 
 import Image from "next/image";
@@ -39,6 +41,7 @@ export default function LascoPayButton({
                 minHeight: "44px",
             }}
         >
+
             {disabled ? (
                 <div className="flex items-center justify-center w-full py-2">
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -57,7 +60,7 @@ export default function LascoPayButton({
                     >
                         <div className="relative w-[90%] h-[30px] mx-auto my-[8px]">
                             <Image
-                                src="https://merchant-portal.lascobizja.com/template/assets/images/lasco-favicon.png"
+                                src="/images/lasco-favicon.png"
                                 fill
                                 style={{ objectFit: "contain" }}
                                 alt="Lasco Pay"

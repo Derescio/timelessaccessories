@@ -16,6 +16,7 @@ const nextConfig = {
     domains: [
       "www.paypalobjects.com",
       "hebbkx1anhila5yf.public.blob.vercel-storage.com",
+      "merchant-portal.lascobizja.com",
     ],
     remotePatterns: [
       {

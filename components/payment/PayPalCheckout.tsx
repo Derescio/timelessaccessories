@@ -41,9 +41,32 @@ export default function PayPalCheckout({ orderId, totalAmount, onSuccess }: PayP
 
     // Handle window communication errors globally
     useEffect(() => {
+        // This patch addresses the "Target window is closed" PayPal error that occurs
+        // when the PayPal popup window is closed after a successful payment.
+        // This error is harmless but appears in console logs.
         const handleError = (event: ErrorEvent) => {
-            // Only handle PayPal related errors
-            if (event.message?.includes('paypal') || event.error?.toString().includes('paypal')) {
+            // Check if this is a PayPal window closed error
+            if (
+                event.message?.includes('postrobot_method') ||
+                event.message?.includes('Target window is closed') ||
+                (typeof event.error === 'object' &&
+                    event.error !== null &&
+                    'message' in event.error &&
+                    typeof event.error.message === 'string' &&
+                    (event.error.message.includes('postrobot_method') ||
+                        event.error.message.includes('Target window is closed')))
+            ) {
+                // Prevent error from propagating to console
+                event.preventDefault();
+                event.stopPropagation();
+                console.log("PayPal window communication error silenced (expected behavior)");
+                return;
+            }
+
+            // Only handle other PayPal related errors
+            if (event.message?.includes('paypal') ||
+                (event.error && typeof event.error.toString === 'function' &&
+                    event.error.toString().includes('paypal'))) {
                 console.error("PayPal error intercepted:", event);
                 // Don't show these specific errors to users as they're often just 
                 // communication errors that don't affect the payment
@@ -54,10 +77,25 @@ export default function PayPalCheckout({ orderId, totalAmount, onSuccess }: PayP
             }
         };
 
-        window.addEventListener('error', handleError);
+        window.addEventListener('error', handleError, true); // Use capture phase
+
+        // Also add unhandledrejection listener for Promise-based errors
+        const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+            const reason = event.reason;
+            const reasonStr = String(reason);
+
+            if (reasonStr.includes('Target window is closed') || reasonStr.includes('postrobot_method')) {
+                // Prevent rejection from propagating to console
+                event.preventDefault();
+                console.log("PayPal promise rejection silenced (expected behavior)");
+            }
+        };
+
+        window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
         return () => {
-            window.removeEventListener('error', handleError);
+            window.removeEventListener('error', handleError, true);
+            window.removeEventListener('unhandledrejection', handleUnhandledRejection);
         };
     }, []);
 
