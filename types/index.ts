@@ -6,6 +6,7 @@ import {
     checkInventorySchema,
     cartItemSchema,
     insertCartSchema,
+   // insertProductSchema,
     shippingAddressSchema,
     insertOrderItemSchema,
     insertOrderSchema,
@@ -47,16 +48,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 //     reviewCount?: number;
 // }
 
-// Define ProductMetadata type
-export interface ProductMetadata {
-    style?: string;
-    materials?: string[];
-    dimensions?: string;
-    weight?: string;
-    color?: string;
-    collection?: string;
-    [key: string]: unknown;
-}
+
 
 export interface Product {
     id: string;
@@ -72,7 +64,7 @@ export interface Product {
     hasDiscount: boolean;
     isActive: boolean;
     isFeatured: boolean | null;
-    metadata?: ProductMetadata | null;
+    metadata?: Record<string, unknown> | null;
     sku: string;
     slug: string;
     category: {
