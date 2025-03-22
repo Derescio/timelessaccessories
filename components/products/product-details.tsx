@@ -9,8 +9,19 @@ import { updateCartItem, removeFromCart, getCart } from "@/lib/actions/cart.acti
 import { triggerCartUpdate } from "@/lib/utils"
 import { toast } from "sonner"
 
+interface ProductMetadata {
+    style?: string;
+    materials?: string[];
+    dimensions?: string;
+    weight?: string;
+    color?: string;
+    [key: string]: unknown;
+}
+
 interface ProductDetailsProps {
-    product: Product;
+    product: Product & {
+        metadata?: ProductMetadata | null;
+    };
 }
 
 // Define a type for the cart action result
@@ -388,21 +399,31 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                 <div>
                     <span className="text-gray-500">Category:</span> {product.category.name}
                 </div>
-                {product.metadata && (
+                {product.metadata && typeof product.metadata === 'object' && (
                     <>
-                        {product.metadata.style && (
+                        {('style' in product.metadata) && product.metadata.style && (
                             <div>
                                 <span className="text-gray-500">Style:</span> {product.metadata.style}
                             </div>
                         )}
-                        {product.metadata.materials && (
+                        {('materials' in product.metadata) && product.metadata.materials && Array.isArray(product.metadata.materials) && (
                             <div>
                                 <span className="text-gray-500">Materials:</span> {product.metadata.materials.join(", ")}
                             </div>
                         )}
-                        {product.metadata.collection && (
+                        {('dimensions' in product.metadata) && product.metadata.dimensions && (
                             <div>
-                                <span className="text-gray-500">Collection:</span> {product.metadata.collection}
+                                <span className="text-gray-500">Dimensions:</span> {product.metadata.dimensions}
+                            </div>
+                        )}
+                        {('weight' in product.metadata) && product.metadata.weight && (
+                            <div>
+                                <span className="text-gray-500">Weight:</span> {product.metadata.weight}
+                            </div>
+                        )}
+                        {('color' in product.metadata) && product.metadata.color && (
+                            <div>
+                                <span className="text-gray-500">Color:</span> {product.metadata.color}
                             </div>
                         )}
                     </>

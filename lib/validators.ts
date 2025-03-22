@@ -178,28 +178,36 @@ export const insertOrderItemSchema = z.object({
 });
 
 //Schema for payment result
+// export const paymentResultSchema = z.object({
+//     id: z.string(),
+//     status: z.string(),
+//     intent: z.string().optional(),
+//     create_time: z.string().optional(),
+//     update_time: z.string().optional(),
+//     payer: z.object({
+//         email_address: z.string().optional(),
+//         payer_id: z.string().optional(),
+//         name: z.object({
+//             given_name: z.string().optional(),
+//             surname: z.string().optional()
+//         }).optional()
+//     }).optional(),
+//     links: z.array(z.object({
+//         href: z.string(),
+//         rel: z.string(),
+//         method: z.string()
+//     })).optional(),
+//     payment_source: z.object({}).passthrough().optional(),
+//     purchase_units: z.array(z.object({}).passthrough()).optional()
+// }).passthrough(); // Use passthrough to allow additional fields from PayPal
+
+//Schema for payment result
 export const paymentResultSchema = z.object({
     id: z.string(),
     status: z.string(),
-    intent: z.string().optional(),
-    create_time: z.string().optional(),
-    update_time: z.string().optional(),
-    payer: z.object({
-        email_address: z.string().optional(),
-        payer_id: z.string().optional(),
-        name: z.object({
-            given_name: z.string().optional(),
-            surname: z.string().optional()
-        }).optional()
-    }).optional(),
-    links: z.array(z.object({
-        href: z.string(),
-        rel: z.string(),
-        method: z.string()
-    })).optional(),
-    payment_source: z.object({}).passthrough().optional(),
-    purchase_units: z.array(z.object({}).passthrough()).optional()
-}).passthrough(); // Use passthrough to allow additional fields from PayPal
+    email_address: z.string(),
+    pricePaid: z.string(),
+});
 
 //Schema for updating user profile
 export const updateUserSchema = z.object({

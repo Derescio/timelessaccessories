@@ -4,17 +4,12 @@ import { Button } from "@/components/ui/button"
 //import { auth } from "@/auth"
 
 interface Address {
-    firstName: string
-    lastName: string
-    company?: string
-    address1: string
-    address2?: string
+    street: string
     city: string
     state: string
-    postalCode: string
+    postalCode?: string
     country: string
-    phone: string
-    email: string
+
 }
 
 function AddressCard({
@@ -32,17 +27,17 @@ function AddressCard({
             </div>
             <div className="space-y-1 text-gray-600">
                 <p>
-                    {address.firstName} {address.lastName}
+                    {address.street} {address.city}
                 </p>
-                {address.company && <p>{address.company}</p>}
-                <p>{address.address1}</p>
-                {address.address2 && <p>{address.address2}</p>}
+                {address.state && <p>{address.country}</p>}
+                <p>{address.postalCode}</p>
+                {/* {address.address2 && <p>{address.address2}</p>} */}
                 <p>
                     {address.city}, {address.state} {address.postalCode}
                 </p>
                 <p>{address.country}</p>
-                <p>{address.email}</p>
-                <p>{address.phone}</p>
+                {/* <p>{address.email}</p>
+                <p>{address.phone}</p> */}
             </div>
         </div>
     )
@@ -63,7 +58,7 @@ export default function AddressesPage() {
             <p className="text-gray-600">The following addresses will be used on the checkout page by default.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <AddressCard
+                {/* <AddressCard
                     type="billing"
                     address={{
                         firstName: "Daniel",
@@ -77,20 +72,17 @@ export default function AddressesPage() {
                         email: "sale@uomo.com",
                     }}
                     onEdit={() => handleEditAddress("billing")}
-                />
+                /> */}
 
                 <AddressCard
                     type="shipping"
                     address={{
-                        firstName: "Daniel",
-                        lastName: "Robinson",
-                        address1: "1418 River Drive, Suite 35",
+                        street: "1418 River Drive, Suite 35",
                         city: "Cottonhall",
                         state: "CA",
                         postalCode: "9622",
                         country: "United States",
-                        phone: "+1 246-345-0695",
-                        email: "sale@uomo.com",
+
                     }}
                     onEdit={() => handleEditAddress("shipping")}
                 />

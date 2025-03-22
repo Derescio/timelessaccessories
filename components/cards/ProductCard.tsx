@@ -38,20 +38,15 @@ export function ProductCard({ product }: ProductCardProps) {
         console.warn(`Product ${id} (${name}) is using product ID as inventory ID. This should be fixed in the product transformation.`);
     }
 
-    // Calculate display price based on discount if available
-    const displayPrice = useMemo(() => {
-        // If there's a valid discount, calculate the discounted price
-        if (hasDiscount && discountPercentage && compareAtPrice) {
-            const discountAmount = (Number(compareAtPrice) * Number(discountPercentage)) / 100;
-            const discountedPrice = Number(compareAtPrice) - discountAmount;
-
-            // Log price calculation for debugging
-            // console.log(`ProductCard price calculation for ${name}:`, {
-            //     hasDiscount,
-            //     discountPercentage,
-            //     originalCompareAtPrice: compareAtPrice ? Number(compareAtPrice) : null,
-            //     originalPrice: price ? Number(price) : null,
-            //     calculatedDiscountedPrice: discountedPrice
+    // Calculate the current price, handling discounts
+    const currentPrice = useMemo(() => {
+        // If the product has a discount, apply discount logic
+        if (hasDiscount && discountPercentage && discountPercentage > 0) {
+            const discountedPrice = Number(price) - (Number(price) * (discountPercentage / 100));
+            // console.log(`Calculating discounted price for ${name}:`, {
+            //   originalPrice: price,
+            //   discountPercentage,
+            //   discountedPrice
             // });
 
             return discountedPrice;
@@ -59,7 +54,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
         // If no discount, use the original price
         return Number(price);
-    }, [hasDiscount, discountPercentage, compareAtPrice, price, name]);
+    }, [hasDiscount, discountPercentage, price]);
 
     // Determine what price to display as the original price (for strikethrough)
     const originalPrice = useMemo(() => {
@@ -96,11 +91,11 @@ export function ProductCard({ product }: ProductCardProps) {
                     <div className="mt-2 space-x-2">
                         {originalPrice ? (
                             <div className="flex flex-col items-end">
-                                <span className="text-sm font-medium">${displayPrice.toFixed(2)}</span>
+                                <span className="text-sm font-medium">${currentPrice.toFixed(2)}</span>
                                 <span className="text-sm text-muted-foreground line-through">${originalPrice.toFixed(2)}</span>
                             </div>
                         ) : (
-                            <span className="font-bold">${displayPrice.toFixed(2)}</span>
+                            <span className="font-bold">${currentPrice.toFixed(2)}</span>
                         )}
                     </div>
                     {averageRating !== null && (
