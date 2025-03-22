@@ -248,14 +248,22 @@ The original checkout flow deleted the cart immediately after creating an order,
 The PayPal JavaScript SDK script failed to load with errors when the client ID was missing or invalid.
 
 **Key Learnings:**
-1. Environment variables must be properly configured and accessible to client-side code
-2. Client-side errors need user-friendly handling
-3. Descriptive error messages help with debugging
+1. Client-side environment variables in Next.js must be prefixed with `NEXT_PUBLIC_`
+2. Hard-coded credentials are a security risk and cause maintenance issues
+3. Always include fallback values for environment variables to prevent runtime errors:
+   ```typescript
+   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
+   ```
 
 **Solution:**
-1. Added error state and friendly user feedback for script loading failures
-2. Implemented validation for the PayPal client ID before attempting to load the SDK
-3. Added detailed console logging with troubleshooting steps
+1. Fixed environment variable names in `.env` file:
+   ```
+   PAYPAL_CLIENT_ID=... # Server-side only
+   NEXT_PUBLIC_PAYPAL_CLIENT_ID=... # Available on client
+   ```
+2. Removed hardcoded credentials from the PayPalCheckout component
+3. Added console logging to verify the correct values are being used
+4. Implemented proper error handling for missing credentials
 
 ### Best Practices for Payment Integration:
 
@@ -284,4 +292,95 @@ The PayPal JavaScript SDK script failed to load with errors when the client ID w
    - Validate all payment data on the server
    - Implement proper error handling that doesn't expose sensitive information
 
-These lessons have significantly improved our payment processing workflow and created a more robust checkout experience for users. 
+These lessons have significantly improved our payment processing workflow and created a more robust checkout experience for users.
+
+## Next.js Image Configuration Challenges
+
+When working with Next.js's built-in Image component for optimized images, we encountered issues with images from external domains, particularly with Vercel Blob Storage and PayPal.
+
+### Unconfigured Host Error
+
+**Problem:**
+Images failed to load with the following error:
+```
+⨯ Error: Invalid src prop (https://hebbkx1anhila5yf.public.blob.vercel-storage.com/HeroImage-Wl3RWWw6YOnIN9bl2xJRPITHuYRdIw.png) on `next/image`, hostname "hebbkx1anhila5yf.public.blob.vercel-storage.com" is not configured under images in your `next.config.js`
+```
+
+**Key Learnings:**
+1. Next.js requires explicit configuration for external image domains for security
+2. Both the `domains` array and `remotePatterns` configurations may be needed
+3. `domains` is simpler but less secure (whole domain is allowed)
+4. `remotePatterns` is more flexible and secure (can specify protocol, pathname patterns)
+
+**Solution:**
+We updated `next.config.js` to properly handle all required image domains:
+
+```javascript
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // ... other config
+  images: {
+    domains: [
+      "www.paypalobjects.com",
+      "hebbkx1anhila5yf.public.blob.vercel-storage.com"
+    ],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.paypal.com",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.vercel-storage.com",
+        pathname: "**",
+      },
+    ],
+  },
+};
+```
+
+This configuration is important for:
+1. PayPal button images that are loaded from PayPal's CDN
+2. Vercel Blob Storage images used throughout the site
+3. Any other third-party image services integrated with the application
+
+**Debugging Note:**
+When the Next.js development server emits an image domain error, it provides the exact hostname that needs to be added to the configuration, making it straightforward to fix.
+
+## Environment Variable Configuration For Production
+
+When deploying to production, proper environment variable management is crucial. We encountered issues with our application working in development but failing in production due to environment variable misconfigurations.
+
+**Key Learnings:**
+1. Different environments (dev/prod) should have consistent variable naming
+2. Development-only workarounds must be properly conditioned:
+   ```typescript
+   // Good approach - only applies in development
+   if (process.env.NODE_ENV === 'development') {
+     // Development-only code
+   }
+   
+   // Bad approach - hardcoded values that will cause issues in production
+   const clientId = "hardcoded_value"; // Will prevent proper production behavior
+   ```
+
+3. The `.env` file's `NODE_ENV` setting affects server behavior:
+   ```
+   # For local development
+   NODE_ENV="development"
+   
+   # For production-like testing
+   NODE_ENV="production"
+   ```
+
+**Best Practices:**
+1. Use a `.env.local` file for local development overrides (not committed to git)
+2. Set `NODE_ENV="development"` for local testing
+3. Consistently use environment variable prefixes:
+   - `NEXT_PUBLIC_` for client-side variables
+   - No prefix for server-side only variables
+4. Always include fallbacks for environment variables to prevent crashes
+5. Test the application with production environment settings before deploying
+
+By following these practices, we were able to ensure our application functions correctly in both development and production environments. 
