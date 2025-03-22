@@ -12,6 +12,24 @@ const nextConfig = {
     // Run TypeScript validation during builds
     ignoreBuildErrors: false,
   },
+  images: {
+    domains: [
+      "www.paypalobjects.com",
+      "hebbkx1anhila5yf.public.blob.vercel-storage.com",
+    ],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.paypal.com",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.vercel-storage.com",
+        pathname: "**",
+      },
+    ],
+  },
 };
 
 module.exports = nextConfig;
