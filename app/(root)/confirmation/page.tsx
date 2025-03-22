@@ -5,31 +5,43 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import ProgressSteps from "@/components/cart/cart-progress-steps";
 import { Card } from "@/components/ui/card";
-import { getCart, updateCartItem, removeFromCart } from "@/lib/actions/cart.actions";
-import { createOrder, getOrderWithItems } from "@/lib/actions/order.actions";
+import { getCart } from "@/lib/actions/cart.actions";
+import { createOrder, getOrderWithItems, createOrderWithoutDeletingCart } from "@/lib/actions/order.actions";
 import { toast } from "sonner";
-import { CreditCard, MapPin, Package, Truck, Plus, Minus, Trash2, Loader2 } from "lucide-react";
+import { CreditCard, MapPin, Package, Truck, Loader2, Check } from "lucide-react";
 import { z } from "zod";
-import { shippingAddressSchema, paymentMethodSchema } from "@/lib/validators";
+import { shippingAddressSchema } from "@/lib/validators";
 import Image from "next/image";
-import { triggerCartUpdate } from "@/lib/utils";
 import PaymentSection from "./PaymentSection";
+import { PaymentStatus, OrderStatus } from "@prisma/client";
+import { createOrUpdateUserAddress } from "@/lib/actions/user.actions";
 
-// Define interfaces for type safety
+// Define CartItemDetails interface
 interface CartItemDetails {
     id: string;
-    quantity: number;
-    price: number;
     name: string;
+    description?: string;
+    price: number;
+    quantity: number;
     image?: string;
-    product?: {
-        id: string;
-        name: string;
-    };
+    productId: string;
     inventory?: {
         id: string;
         images: string[];
     };
+}
+
+interface OrderItemDetails {
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    image?: string;
+    productId: string;
+    orderId: string;
+    inventoryId: string;
+    createdAt: Date;
+    updatedAt: Date;
 }
 
 interface Cart {
@@ -40,17 +52,37 @@ interface Cart {
 
 // Define the type for the checkout data
 interface CheckoutData {
+    fullName?: string;
+    streetAddress?: string;
+    city?: string;
+    state?: string;
+    parish?: string;
+    country?: string;
+    postalCode?: string;
+    courier?: string;
+    shippingPrice?: number;
     shippingAddress?: z.infer<typeof shippingAddressSchema> & {
         state?: string;
         courier?: string;
         shippingPrice?: number;
+        address?: string;
+        zipCode?: string;
+        postalCode?: string;
     };
-    paymentMethod: z.infer<typeof paymentMethodSchema>;
+    cartId?: string;
+    subtotal?: number;
+    tax?: number;
+    shipping?: number;
+    total?: number;
+    paymentMethod?: { type: string; provider?: string };
     useCourier?: boolean;
+    courierName?: string;
     orderId?: string;
+    pendingCreation?: boolean;
+    timestamp?: string;
 }
 
-// Add fetch functions
+// Add fetch function
 async function fetchCart() {
     try {
         const result = await getCart();
@@ -73,162 +105,216 @@ export default function ConfirmationPage() {
 
     // State for cart data
     const [cart, setCart] = useState<Cart | null>(null);
-    const [checkoutData, setCheckoutData] = useState<CheckoutData | null>(null);
+    const [cartItems, setCartItems] = useState<CartItemDetails[] | OrderItemDetails[]>([]);
+    const [checkoutData, setCheckoutData] = useState<CheckoutData>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
+
+    // State variables for the enhanced flow
+    const [isPendingCreation, setIsPendingCreation] = useState(false);
+    const [isOrderCreated, setIsOrderCreated] = useState(false);
+    const [orderCreationError, setOrderCreationError] = useState<string | null>(null);
+    const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+
+    // Get market from environment variable
+    const MARKET = process.env.NEXT_PUBLIC_MARKET || 'GLOBAL';
+    const IS_LASCO_MARKET = MARKET === 'LASCO';
+
+    // Check if we should redirect directly to LascoPay
+    useEffect(() => {
+        const directRedirect = searchParams.get('directRedirect');
+        const orderId = searchParams.get('orderId');
+
+        if (IS_LASCO_MARKET && directRedirect === 'true' && orderId) {
+            console.log('Direct redirect to LascoPay payment page detected');
+            toast.success("Redirecting to LascoPay payment page...");
+
+            // Allow a moment for the page to load before redirecting
+            setTimeout(() => {
+                window.location.href = `https://pay.lascobizja.com/btn/YFxrwuD1qO9k?orderId=${orderId}`;
+            }, 1500);
+        }
+    }, [searchParams, IS_LASCO_MARKET]);
 
     // Load cart and checkout data
     useEffect(() => {
-        // Function to load cart data
-        const loadData = async () => {
+        async function loadData() {
             setIsLoading(true);
-
             try {
-                // Get orderId from URL params
                 const urlOrderId = searchParams.get('orderId');
+                const savedCheckoutData = localStorage.getItem('checkoutData');
+                const savedCartId = localStorage.getItem('cartId');
 
-                if (!urlOrderId) {
-                    console.error("No order ID in URL params");
-                    toast.error("No order ID provided");
-                    setIsLoading(false);
-                    return;
-                }
+                // If we have checkout data with pending creation flag
+                if (savedCheckoutData) {
+                    const parsedCheckoutData = JSON.parse(savedCheckoutData);
+                    console.log("Found saved checkout data:", parsedCheckoutData);
 
-                console.log("Loading order data for ID:", urlOrderId);
-
-                // Fetch order directly from the database
-                const orderResult = await getOrderWithItems(urlOrderId);
-
-                if (orderResult.success && orderResult.data) {
-                    const order = orderResult.data;
-
-                    console.log("Successfully loaded order:", {
-                        id: order.id,
-                        status: order.status,
-                        total: order.total,
-                        shipping: order.shipping,
-                        subtotal: order.subtotal,
-                        tax: order.tax,
-                        notes: order.notes,
-                        paymentMethod: order.payment?.provider,
-                        shippingAddressRaw: order.shippingAddress,
-                        itemsCount: order.items.length
-                    });
-
-                    // Extract payment method from order notes
-                    let paymentMethod = "PayPal"; // Default
-                    if (order.notes) {
-                        const match = order.notes.match(/Payment Method: ([^,]+)/);
-                        if (match && match[1]) {
-                            paymentMethod = match[1];
-                            console.log("Extracted payment method from notes:", paymentMethod);
-                        }
-                    }
-
-                    // Extract shipping method from order notes
-                    let shippingMethod = "Standard Shipping"; // Default
-                    if (order.notes) {
-                        const match = order.notes.match(/Shipping Method: ([^,]+)/);
-                        if (match && match[1]) {
-                            shippingMethod = match[1];
-                            console.log("Extracted shipping method from notes:", shippingMethod);
-                        }
-                    }
-
-                    // Define ShippingAddressType interface 
-                    interface ShippingAddressType {
-                        fullName?: string;
-                        email?: string;
-                        phone?: string;
-                        address?: string;
-                        city?: string;
-                        state?: string;
-                        zipCode?: string;
-                        country?: string;
-                        [key: string]: string | undefined;
-                    }
-
-                    // Parse shipping address
-                    let shippingAddress: ShippingAddressType = {};
-                    try {
-                        shippingAddress = order.shippingAddress
-                            ? typeof order.shippingAddress === 'string'
-                                ? JSON.parse(order.shippingAddress)
-                                : order.shippingAddress
-                            : {};
-
-                        // Ensure required fields exist
-                        if (!shippingAddress.fullName) shippingAddress.fullName = "";
-                        if (!shippingAddress.streetAddress) shippingAddress.streetAddress = "";
-                        if (!shippingAddress.city) shippingAddress.city = "";
-                    } catch (e) {
-                        console.error("Error parsing shipping address:", e);
-                        // Set default values for required fields
-                        shippingAddress = {
-                            fullName: "",
-                            streetAddress: "",
-                            city: "",
-                        };
-                    }
-
-                    // Create cart-like structure from order items
-                    const orderItems = order.items.map(item => ({
-                        id: item.id,
-                        price: Number(item.price),
-                        quantity: item.quantity,
-                        name: item.name,
-                        image: item.image || undefined, // Ensure image is string | undefined, not null
-                    }));
-
-                    // Set the cart data
-                    setCart({
-                        id: `order-${urlOrderId}`,
-                        items: orderItems,
-                    });
-
-                    // Set checkout data
-                    const orderCheckoutData = {
-                        fullName: shippingAddress.fullName || "",
-                        streetAddress: shippingAddress.address || "",
-                        city: shippingAddress.city || "",
-                        state: shippingAddress.state || "",
-                        country: shippingAddress.country || "",
-                        zipCode: shippingAddress.zipCode || "",
-                        courier: shippingMethod.includes('Courier') ? shippingMethod.replace('Courier - ', '') : '',
-                        shippingPrice: order.shipping || 0
-                    };
-
-                    setCheckoutData({
-                        orderId: urlOrderId,
-                        shippingAddress: orderCheckoutData,
-                        paymentMethod: { type: paymentMethod }
-                    });
-                } else {
-                    console.error("Error loading order data:", orderResult.error);
-                    toast.error("Failed to load order information");
-
-                    // Fall back to localStorage if available
-                    const savedCheckoutData = localStorage.getItem('checkoutData');
-                    if (savedCheckoutData) {
-                        const parsedCheckoutData = JSON.parse(savedCheckoutData) as CheckoutData;
-
-                        console.log("Falling back to localStorage data:", parsedCheckoutData);
-
-                        if (urlOrderId) {
-                            parsedCheckoutData.orderId = urlOrderId;
+                    // For LASCO market, orders are created on the shipping page
+                    if (IS_LASCO_MARKET) {
+                        // Always get order details for LASCO market since order is already created
+                        const orderId = urlOrderId || parsedCheckoutData.orderId;
+                        if (!orderId) {
+                            console.error("No order ID found for LASCO market");
+                            toast.error("Order information is missing. Please return to shipping.");
+                            router.push("/shipping");
+                            return;
                         }
 
+                        console.log("LASCO market: Loading order with ID:", orderId);
+                        const orderResult = await getOrderWithItems(orderId);
+
+                        if (orderResult.success && orderResult.data) {
+                            const order = orderResult.data;
+
+                            // Set cart from order items
+                            if (order.items) {
+                                const orderItems = order.items.map(item => ({
+                                    ...item,
+                                    name: item.name || "Unknown Product",
+                                    price: parseFloat(String(item.price)),
+                                    image: item.image || "/images/placeholder.jpg"
+                                }));
+
+                                setCart({ id: order.id, items: orderItems });
+                                setCartItems(orderItems);
+                            }
+
+                            // Extract shipping address from order
+                            let shippingAddress = null;
+                            try {
+                                shippingAddress = typeof order.shippingAddress === 'string'
+                                    ? JSON.parse(order.shippingAddress)
+                                    : order.shippingAddress;
+                            } catch (e) {
+                                console.error("Error parsing shipping address:", e);
+                                shippingAddress = {
+                                    fullName: "N/A",
+                                    address: "N/A",
+                                    city: "N/A",
+                                    country: "N/A"
+                                };
+                            }
+
+                            // Update checkout data with order information
+                            setCheckoutData({
+                                shippingAddress,
+                                orderId: order.id,
+                                shipping: parseFloat(String(order.shipping)),
+                                subtotal: parseFloat(String(order.subtotal)),
+                                tax: parseFloat(String(order.tax)),
+                                total: parseFloat(String(order.total)),
+                                paymentMethod: { type: "LascoPay" },
+                                pendingCreation: false,
+                                courierName: parsedCheckoutData.courierName
+                            });
+                        } else {
+                            console.error("Failed to load LASCO order:", orderResult.error);
+                            toast.error("Could not find your order. Please try again.");
+                            router.push("/shipping");
+                            return;
+                        }
+                    } else if (parsedCheckoutData.pendingCreation === true) {
+                        // For GLOBAL market, check if the order needs to be created
+                        console.log("GLOBAL market: This is pending creation data that needs to be processed");
+                        setIsPendingCreation(true);
                         setCheckoutData(parsedCheckoutData);
 
-                        // Try to load cart data
+                        // Load cart data
                         const cartResult = await fetchCart();
                         if (cartResult.success && cartResult.data) {
                             setCart(cartResult.data);
+                            setCartItems(cartResult.data.items);
+                        } else {
+                            console.error("Failed to load cart for pending order");
+                            toast.error("Could not load your cart. Please try again.");
+                        }
+
+                        setIsLoading(false);
+                        return;
+                    }
+
+                    // If we have a regular order with checkout data and order ID
+                    if (urlOrderId || parsedCheckoutData.orderId) {
+                        const orderId = urlOrderId || parsedCheckoutData.orderId;
+                        console.log("Order ID found:", orderId);
+
+                        // Fetch order data from the database
+                        const orderResult = await getOrderWithItems(orderId);
+
+                        if (orderResult.success && orderResult.data) {
+                            const order = orderResult.data;
+                            console.log("Order data loaded:", order);
+
+                            // Set cart from order items
+                            if (order.items) {
+                                const orderItems = order.items.map(item => ({
+                                    ...item,
+                                    name: item.name || "Unknown Product",
+                                    price: parseFloat(String(item.price)),
+                                    image: item.image || "/images/placeholder.jpg"
+                                }));
+
+                                setCart({ id: order.id, items: orderItems });
+                                setCartItems(orderItems);
+                            }
+
+                            // Extract shipping address from order
+                            let shippingAddress = null;
+                            try {
+                                shippingAddress = typeof order.shippingAddress === 'string'
+                                    ? JSON.parse(order.shippingAddress)
+                                    : order.shippingAddress;
+                            } catch (e) {
+                                console.error("Error parsing shipping address:", e);
+                                // Set default values for required fields
+                                shippingAddress = {
+                                    fullName: "N/A",
+                                    address: "N/A",
+                                    city: "N/A",
+                                    country: "N/A"
+                                };
+                            }
+
+                            // Get payment method from order
+                            const paymentMethod = order.payment?.provider || "PayPal";
+
+                            // Update checkout data with order information
+                            setCheckoutData({
+                                shippingAddress,
+                                orderId: order.id,
+                                shipping: parseFloat(String(order.shipping)),
+                                subtotal: parseFloat(String(order.subtotal)),
+                                tax: parseFloat(String(order.tax)),
+                                total: parseFloat(String(order.total)),
+                                paymentMethod: { type: paymentMethod },
+                                pendingCreation: false
+                            });
+                        } else {
+                            console.error("Failed to load order:", orderResult.error);
+                            toast.error("Failed to load order information");
+
+                            // Fall back to checkout data from localStorage if available
+                            if (savedCheckoutData) {
+                                setCheckoutData(JSON.parse(savedCheckoutData));
+
+                                // Try to load cart if we have a cart ID
+                                if (savedCartId) {
+                                    const cartResult = await fetchCart();
+                                    if (cartResult.success && cartResult.data) {
+                                        setCart(cartResult.data);
+                                        setCartItems(cartResult.data.items);
+                                    }
+                                }
+                            }
                         }
                     } else {
-                        console.error("No fallback data available");
+                        console.error("No order ID in URL params and no valid checkout data");
+                        toast.error("No valid order information found");
                     }
+                } else {
+                    console.error("No order ID in URL params and no pending creation data");
+                    toast.error("No order information provided");
                 }
             } catch (error) {
                 console.error("Error loading data:", error);
@@ -236,167 +322,167 @@ export default function ConfirmationPage() {
             } finally {
                 setIsLoading(false);
             }
-        };
+        }
 
         loadData();
-    }, [searchParams]);
+    }, [searchParams, router, IS_LASCO_MARKET]);
 
     // Calculate order summary
-    const subtotal = cart?.items?.reduce((total: number, item: CartItemDetails) => total + (item.price * item.quantity), 0) || 0;
+    const subtotal = cartItems?.reduce((total, item) => total + (item.price * item.quantity), 0) || 0;
     const estimatedTax = subtotal * 0.07; // 7% tax rate
-    const shippingCost = checkoutData?.shippingAddress?.shippingPrice || 0;
-    const total = subtotal + estimatedTax + (shippingCost / 100);
 
-    // Handle place order
-    const handlePlaceOrder = async () => {
+    // Fix shipping cost calculation with better logging
+    const rawShippingCost = checkoutData?.shippingPrice || checkoutData?.shipping || 0;
+    console.log('Raw shipping cost:', rawShippingCost, 'type:', typeof rawShippingCost);
+
+    // Get normalized shipping cost with proper handling
+    let normalizedShippingCost = 0;
+    if (typeof rawShippingCost === 'number') {
+        // For LASCO market, shipping is usually stored directly
+        normalizedShippingCost = rawShippingCost;
+    } else if (typeof rawShippingCost === 'string') {
+        // Try to parse string to number
+        normalizedShippingCost = parseFloat(rawShippingCost) || 0;
+    }
+
+    // Debug logging
+    console.log('Shipping cost debug:', {
+        raw: rawShippingCost,
+        normalized: normalizedShippingCost,
+        shippingPrice: checkoutData?.shippingPrice,
+        shipping: checkoutData?.shipping,
+        checkoutData: checkoutData
+    });
+
+    // Calculate total with the correct shipping cost
+    const total = subtotal + estimatedTax + normalizedShippingCost;
+
+    // Format price helper
+    const formatPrice = (price: number) => {
+        return price.toFixed(2);
+    };
+
+    // Create order in database from pending creation data
+    const handleCreateOrder = async () => {
+        if (!checkoutData || !cart) {
+            toast.error("Missing order information. Please go back to the shipping page.");
+            return;
+        }
+
         setIsSubmitting(true);
+        setOrderCreationError(null);
 
         try {
-            if (!cart || !checkoutData) {
-                throw new Error("Missing cart or checkout data");
+            console.log("Creating order with data:", { checkoutData, cart });
+
+            // Save the user's address to their profile
+            let addressResult;
+            try {
+                // Determine which field to use for country based on market type
+                const countryValue = IS_LASCO_MARKET ? checkoutData.parish : checkoutData.country;
+
+                // Call the address creation/update function
+                addressResult = await createOrUpdateUserAddress({
+                    street: checkoutData.streetAddress || "",
+                    city: checkoutData.city || "",
+                    state: checkoutData.state || "",
+                    postalCode: checkoutData.postalCode || "",
+                    country: countryValue || "",
+                    isUserManaged: false // Explicitly mark as not user-managed so it won't appear in address book
+                });
+
+                console.log("Address save response:", addressResult);
+            } catch (addressError) {
+                console.error("Error saving address:", addressError);
+                // Continue with order creation even if address save fails
             }
 
-            // Get current cart values
-            const currentSubtotal = cart.items.reduce((total: number, item: CartItemDetails) =>
-                total + (item.price * item.quantity), 0);
-            const currentTax = currentSubtotal * 0.07;
-            const currentTotal = currentSubtotal + currentTax + (shippingCost / 100);
-
-            if (!checkoutData.shippingAddress) {
-                throw new Error("Missing shipping address");
-            }
-
-            // Extract and standardize postal code from shipping address data
-            const shippingAddressData = checkoutData.shippingAddress;
-            const postalCode = shippingAddressData.zipCode || "";
-
-            // Create order in database
+            // Prepare order data
+            const paymentMethod = IS_LASCO_MARKET ? "LascoPay" : checkoutData.paymentMethod?.type || "PayPal";
             const orderData = {
                 cartId: cart.id,
                 shippingAddress: {
-                    fullName: shippingAddressData.fullName || "",
+                    fullName: checkoutData.fullName || "",
                     email: "", // Will be populated from session
                     phone: "", // Optional
-                    address: shippingAddressData.streetAddress || "",
-                    city: shippingAddressData.city || "",
-                    state: shippingAddressData.state || "",
-                    zipCode: postalCode, // Use standardized postal code
-                    country: shippingAddressData.country || shippingAddressData.parish || "",
+                    address: checkoutData.streetAddress || "",
+                    city: checkoutData.city || "",
+                    state: checkoutData.state || "",
+                    zipCode: checkoutData.postalCode || "",
+                    country: checkoutData.country || checkoutData.parish || "",
                 },
                 shipping: {
-                    method: shippingAddressData.courier
-                        ? `Courier - ${shippingAddressData.courier}`
+                    method: checkoutData.courierName
+                        ? `Courier - ${checkoutData.courierName}`
                         : "Standard Shipping",
-                    cost: shippingAddressData.shippingPrice || 0,
+                    cost: checkoutData.shipping || 0,
                 },
                 payment: {
-                    method: checkoutData.paymentMethod.type,
-                    status: "PENDING",
+                    method: paymentMethod,
+                    status: PaymentStatus.PENDING,
                     providerId: "", // Will be filled after payment
                 },
-                subtotal: currentSubtotal,
-                tax: currentTax,
-                total: currentTotal,
-                status: "PENDING",
+                subtotal: checkoutData.subtotal || 0,
+                tax: checkoutData.tax || 0,
+                total: checkoutData.total || 0,
+                status: OrderStatus.PENDING,
             };
 
-            const response = await createOrder(orderData);
+            console.log("Creating order with payment method:", paymentMethod);
+
+            // Use the appropriate order creation function based on market
+            const response = IS_LASCO_MARKET
+                ? await createOrderWithoutDeletingCart(orderData)
+                : await createOrder(orderData);
 
             if (!response.success || !response.data) {
-                throw new Error(response.error ? String(response.error) : "Failed to create order");
+                console.error("Order creation failed:", response.error);
+                setOrderCreationError(response.error as string || "Failed to create your order");
+                toast.error("Failed to create your order. Please try again.");
+                return;
             }
 
-            // Update checkout data with order ID
+            console.log("Order created successfully:", response.data);
+
+            // Update checkoutData with the new order ID
             const updatedCheckoutData = {
                 ...checkoutData,
-                orderId: response.data.id
+                orderId: response.data?.id || "",
+                pendingCreation: false
             };
 
-            // Save the updated checkout data with the order ID
-            localStorage.setItem('checkoutData', JSON.stringify(updatedCheckoutData));
+            // Update state and localStorage
             setCheckoutData(updatedCheckoutData);
+            setCreatedOrderId(response.data?.id || "");
+            setIsOrderCreated(true);
+            localStorage.setItem("checkoutData", JSON.stringify(updatedCheckoutData));
 
-            // Clear checkout data
-            localStorage.removeItem('checkoutData');
-
-            // Trigger cart update to refresh cart state in UI
-            triggerCartUpdate();
-
-            // Show success message based on payment method
-            if (checkoutData.paymentMethod.type === "COD") {
-                toast.success("Order placed successfully! You'll pay upon delivery.");
-            } else {
-                toast.success("Order placed successfully. Please complete payment.");
+            // For LASCO market, store order ID to prevent duplicates
+            if (IS_LASCO_MARKET && response.data?.id) {
+                localStorage.setItem("lascoPayOrderId", response.data.id);
+                // Also set a flag to skip payment update since we just created the payment
+                localStorage.setItem("skipPaymentUpdate", "true");
             }
+
+            // Show success toast
+            toast.success("Order created successfully! Please proceed with payment.");
+
         } catch (error) {
-            console.error("Error placing order:", error);
-            toast.error("Failed to place order. Please try again.");
+            console.error("Error creating order:", error);
+            const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
+            setOrderCreationError(errorMessage);
+            toast.error("Failed to create your order. Please try again.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    // Handle quantity update
-    const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
-        if (newQuantity < 1) return;
-
-        setUpdatingItemId(itemId);
-        try {
-            if (newQuantity === 0) {
-                // Remove item
-                const result = await removeFromCart({ cartItemId: itemId });
-
-                if (result.success) {
-                    toast.success("Item removed from cart");
-                    // Update local cart data
-                    if (cart) {
-                        setCart({
-                            ...cart,
-                            items: cart.items.filter(item => item.id !== itemId)
-                        });
-                    }
-                    triggerCartUpdate();
-                } else {
-                    toast.error(result.message || "Failed to remove item");
-                }
-            } else {
-                // Update quantity
-                const result = await updateCartItem({
-                    cartItemId: itemId,
-                    quantity: newQuantity
-                });
-
-                if (result.success) {
-                    toast.success("Quantity updated");
-                    // Update local cart data
-                    if (cart) {
-                        setCart({
-                            ...cart,
-                            items: cart.items.map(item =>
-                                item.id === itemId
-                                    ? { ...item, quantity: newQuantity }
-                                    : item
-                            )
-                        });
-                    }
-                } else {
-                    toast.error(result.message || "Failed to update quantity");
-                }
-            }
-        } catch (error) {
-            console.error("Error updating item:", error);
-            toast.error("Failed to update item");
-        } finally {
-            setUpdatingItemId(null);
-        }
-    };
-
-    // If data is loading, show loading state
+    // Loading state
     if (isLoading) {
         return (
             <div className="container mx-auto px-4 py-8">
                 <h1 className="text-3xl font-light mb-8">ORDER CONFIRMATION</h1>
-                <ProgressSteps currentStep={3} />
+                <ProgressSteps currentStep={3} totalSteps={3} />
                 <div className="flex justify-center my-12">
                     <p>Loading order information...</p>
                 </div>
@@ -405,11 +491,11 @@ export default function ConfirmationPage() {
     }
 
     // If no checkout data or cart, redirect
-    if (!checkoutData || !cart || !cart.items || cart.items.length === 0) {
+    if (!checkoutData || !cart || !cartItems || cartItems.length === 0) {
         return (
             <div className="container mx-auto px-4 py-8">
                 <h1 className="text-3xl font-light mb-8">ORDER CONFIRMATION</h1>
-                <ProgressSteps currentStep={3} />
+                <ProgressSteps currentStep={3} totalSteps={3} />
                 <div className="flex flex-col items-center justify-center my-12">
                     <p className="mb-4">Missing order information. Please complete shipping details.</p>
                     <Button onClick={() => router.push("/shipping")}>Return to Shipping</Button>
@@ -421,7 +507,7 @@ export default function ConfirmationPage() {
     return (
         <div className="container mx-auto px-4 py-8">
             <h1 className="text-3xl font-light mb-8">ORDER CONFIRMATION</h1>
-            <ProgressSteps currentStep={3} />
+            <ProgressSteps currentStep={3} totalSteps={3} />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
                 {/* Order Details */}
@@ -434,12 +520,19 @@ export default function ConfirmationPage() {
                                 <h3 className="text-lg font-medium flex items-center">
                                     Shipping Address
                                 </h3>
-                                {checkoutData.shippingAddress && (
+                                {checkoutData.shippingAddress ? (
                                     <div>
                                         <p className="font-medium">{checkoutData.shippingAddress.fullName}</p>
-                                        <p>{checkoutData.shippingAddress.streetAddress}</p>
-                                        <p>{checkoutData.shippingAddress.city}, {checkoutData.shippingAddress.state || ''} {checkoutData.shippingAddress.zipCode || ''}</p>
+                                        <p>{checkoutData.shippingAddress.streetAddress || checkoutData.shippingAddress.address || ""}</p>
+                                        <p>{checkoutData.shippingAddress.city}, {checkoutData.shippingAddress.state || ''} {checkoutData.shippingAddress.zipCode || checkoutData.shippingAddress.postalCode || ''}</p>
                                         <p>{checkoutData.shippingAddress.country}</p>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <p className="font-medium">{checkoutData.fullName}</p>
+                                        <p>{checkoutData.streetAddress}</p>
+                                        <p>{checkoutData.city}, {checkoutData.state || ''} {checkoutData.postalCode || ''}</p>
+                                        <p>{checkoutData.country || checkoutData.parish}</p>
                                     </div>
                                 )}
                                 <Button variant="outline" size="sm" onClick={() => router.push("/shipping")}>
@@ -455,96 +548,76 @@ export default function ConfirmationPage() {
                             <Truck className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
                             <div className="space-y-2">
                                 <h3 className="text-lg font-medium">Shipping Method</h3>
-                                {checkoutData.shippingAddress?.courier ? (
-                                    <div className="flex items-center justify-between">
-                                        <p>{checkoutData.shippingAddress.courier}</p>
-                                        <p className="font-medium">${((checkoutData.shippingAddress.shippingPrice || 0) / 100).toFixed(2)}</p>
-                                    </div>
-                                ) : (
-                                    <p className="text-muted-foreground">Standard Shipping</p>
-                                )}
-                                <Button variant="outline" size="sm" onClick={() => router.push("/shipping")}>
-                                    Edit
-                                </Button>
+                                <p>
+                                    {checkoutData.courierName
+                                        ? `Courier - ${checkoutData.courierName}`
+                                        : "Standard Shipping"}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                    Estimated delivery:
+                                    {IS_LASCO_MARKET
+                                        ? " 2-3 business days"
+                                        : " 7-14 business days"}
+                                </p>
                             </div>
                         </div>
                     </Card>
 
-                    {/* Payment Method */}
-                    <Card className="p-6">
-                        <div className="flex items-start gap-4">
-                            <CreditCard className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
-                            <div className="space-y-2">
-                                <h3 className="text-lg font-medium">Payment Method</h3>
-                                <p>{checkoutData.paymentMethod.type}</p>
-                                <Button variant="outline" size="sm" onClick={() => router.push("/shipping")}>
-                                    Edit
-                                </Button>
-                            </div>
-                        </div>
-                    </Card>
-
-                    {/* Item List */}
+                    {/* Order Items */}
                     <Card className="p-6">
                         <div className="flex items-start gap-4">
                             <Package className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
-                            <div className="space-y-4">
+                            <div className="space-y-4 w-full">
                                 <h3 className="text-lg font-medium">Order Items</h3>
-                                <div className="space-y-4">
-                                    {cart.items.map((item: CartItemDetails) => (
-                                        <div key={item.id} className="flex items-center justify-between border-b pb-4">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-16 h-16 bg-gray-100 rounded-md overflow-hidden relative">
-                                                    {item.image && (
-                                                        <Image
-                                                            src={item.image}
-                                                            alt={item.name || ''}
-                                                            fill
-                                                            className="object-cover"
-                                                        />
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium">{item.name || (item.product?.name)}</p>
-                                                    <div className="flex items-center mt-2 space-x-2">
-                                                        <Button
-                                                            variant="outline"
-                                                            size="icon"
-                                                            className="h-7 w-7"
-                                                            onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                                                            disabled={updatingItemId === item.id}
-                                                        >
-                                                            {updatingItemId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Minus className="h-3 w-3" />}
-                                                        </Button>
-                                                        <span className="text-sm w-6 text-center">{item.quantity}</span>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="icon"
-                                                            className="h-7 w-7"
-                                                            onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                                                            disabled={updatingItemId === item.id}
-                                                        >
-                                                            {updatingItemId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-                                                        </Button>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="icon"
-                                                            className="h-7 w-7 ml-2 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                                            onClick={() => handleUpdateQuantity(item.id, 0)}
-                                                            disabled={updatingItemId === item.id}
-                                                        >
-                                                            {updatingItemId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                                                        </Button>
-                                                    </div>
-                                                </div>
+                                <div className="flex flex-col gap-4 mt-3">
+                                    {cartItems.map((item) => (
+                                        <div key={item.id} className="flex gap-4 py-3 border-b">
+                                            <div className="relative overflow-hidden rounded-md w-16 h-16">
+                                                <Image
+                                                    src={item.image || "/images/placeholder.jpg"}
+                                                    alt={item.name}
+                                                    fill
+                                                    sizes="(max-width: 768px) 100vw, 50vw"
+                                                    className="object-cover"
+                                                />
                                             </div>
-                                            <p className="font-medium">${(item.price * item.quantity).toFixed(2)}</p>
+                                            <div className="flex-grow">
+                                                <h4 className="font-medium line-clamp-1">{item.name}</h4>
+                                                <p className="text-muted-foreground text-sm">
+                                                    Qty: {item.quantity}
+                                                </p>
+                                                <p>
+                                                    <span className="font-medium">${formatPrice(item.price)}</span>
+                                                </p>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         </div>
                     </Card>
+
+                    {/* Payment Method - Only shown if not pending creation */}
+                    {!isPendingCreation && (
+                        <Card className="p-6">
+                            <div className="flex items-start gap-4">
+                                <CreditCard className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
+                                <div className="space-y-2">
+                                    <h3 className="text-lg font-medium">Payment Method</h3>
+                                    <p>
+                                        {IS_LASCO_MARKET
+                                            ? "LascoPay"
+                                            : (checkoutData.paymentMethod?.type || "PayPal")}
+                                    </p>
+                                    {checkoutData.paymentMethod?.provider && (
+                                        <p className="text-sm text-muted-foreground">
+                                            Payment: {checkoutData.paymentMethod?.type || "Unknown"}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </Card>
+                    )}
                 </div>
 
                 {/* Order Summary */}
@@ -553,13 +626,24 @@ export default function ConfirmationPage() {
                         <h2 className="text-xl font-medium mb-4">Order Summary</h2>
                         <div className="space-y-4">
                             <div className="space-y-2">
+                                {cartItems.map((item) => (
+                                    <div key={item.id} className="flex justify-between">
+                                        <span className="text-sm">
+                                            {item.name} × {item.quantity}
+                                        </span>
+                                        <span className="text-sm">${(item.price * item.quantity).toFixed(2)}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="border-t pt-4 space-y-2">
                                 <div className="flex justify-between">
-                                    <span>Subtotal ({cart.items.length} items)</span>
+                                    <span>Subtotal</span>
                                     <span>${subtotal.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span>Shipping</span>
-                                    <span>${(shippingCost / 100).toFixed(2)}</span>
+                                    <span>${normalizedShippingCost.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span>Estimated Tax</span>
@@ -575,34 +659,60 @@ export default function ConfirmationPage() {
                             </div>
 
                             <div>
-                                {checkoutData && !isSubmitting ? (
+                                {IS_LASCO_MARKET ? (
+                                    // For LASCO market, directly show payment section (order is already created)
                                     <PaymentSection
-                                        orderId={checkoutData.orderId || "pending"}
-                                        totalAmount={total as number}
-                                        paymentMethod={checkoutData.paymentMethod?.type || "PayPal"}
+                                        orderId={checkoutData?.orderId || ""}
+                                        totalAmount={total}
+                                        paymentMethod="LascoPay"
                                     />
-                                ) : (
-                                    <Button
-                                        onClick={handlePlaceOrder}
-                                        disabled={isSubmitting}
-                                        size="lg"
-                                        className="w-full mt-6"
-                                    >
-                                        {isSubmitting ? (
-                                            <div className="flex items-center gap-2">
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                                Processing...
-                                            </div>
-                                        ) : (
-                                            "Place Order"
+                                ) : isPendingCreation && !isOrderCreated ? (
+                                    <div className="mt-4">
+                                        <div className="bg-blue-50 p-3 rounded-md border border-blue-200 mb-4">
+                                            <p className="text-sm text-blue-800">
+                                                Please confirm your order to proceed with payment.
+                                            </p>
+                                        </div>
+                                        <Button
+                                            onClick={handleCreateOrder}
+                                            disabled={isSubmitting}
+                                            className="w-full"
+                                        >
+                                            {isSubmitting ? (
+                                                <span className="flex items-center gap-2">
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                    Creating order...
+                                                </span>
+                                            ) : (
+                                                "Confirm Order"
+                                            )}
+                                        </Button>
+                                        {orderCreationError && (
+                                            <p className="text-red-500 text-sm mt-2">{orderCreationError}</p>
                                         )}
-                                    </Button>
-                                )}
+                                    </div>
+                                ) : isOrderCreated ? (
+                                    <div className="mt-4">
+                                        <div className="bg-green-50 p-3 rounded-md border border-green-200 mb-4">
+                                            <p className="text-sm text-green-800 flex items-center gap-2">
+                                                <Check className="h-4 w-4" />
+                                                Order confirmed! Please complete payment below.
+                                            </p>
+                                        </div>
+                                        <PaymentSection
+                                            orderId={checkoutData?.orderId || createdOrderId || ""}
+                                            totalAmount={total}
+                                            paymentMethod={checkoutData.paymentMethod?.type}
+                                        />
+                                    </div>
+                                ) : checkoutData.orderId ? (
+                                    <PaymentSection
+                                        orderId={checkoutData.orderId}
+                                        totalAmount={total}
+                                        paymentMethod={checkoutData.paymentMethod?.type}
+                                    />
+                                ) : null}
                             </div>
-
-                            <p className="text-sm text-center text-muted-foreground">
-                                By placing your order, you agree to our Terms of Service and Privacy Policy
-                            </p>
                         </div>
                     </Card>
                 </div>

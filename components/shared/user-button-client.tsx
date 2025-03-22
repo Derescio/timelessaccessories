@@ -66,14 +66,14 @@ const UserButtonClient = ({ session, signOutAction }: UserButtonProps) => {
                     </DropdownMenuLabel>
                     <DropdownMenuItem>
                         <Link className="w-full" href="/user/account">
-                            User Profile
+                            My Account
                         </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    {/* <DropdownMenuItem>
                         <Link className='w-full' href='/user/orders'>
                             Order History
                         </Link>
-                    </DropdownMenuItem>
+                    </DropdownMenuItem> */}
                     {session?.user?.role === 'ADMIN' && (
                         <DropdownMenuItem>
                             <Link className='w-full' href='/admin/overview'>

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 const navigation = [
     { name: "DASHBOARD", href: "/user/account" },
     { name: "ORDERS", href: "/user/account/orders" },
-    { name: "ADDRESSES", href: "/user/account/address" },
+    { name: "ADDRESS", href: "/user/account/address" },
     { name: "ACCOUNT DETAILS", href: "/user/account/acct-details" },
     { name: "WISHLIST", href: "/user/account/wishlist" },
 ]
@@ -41,12 +41,12 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
                                     {item.name}
                                 </Link>
                             ))}
-                            <button
+                            {/* <button
                                 onClick={() => { }}
                                 className="block w-full text-left px-3 py-2 text-sm font-normal text-gray-600 hover:text-primary transition-colors"
                             >
                                 LOGOUT
-                            </button>
+                            </button> */}
                             <Link href="/" className="text-primary hover:underline">
                                 <Button className="mt-4">Go Back Home</Button>
                             </Link>

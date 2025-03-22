@@ -56,7 +56,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 // import { Separator } from "@/components/ui/separator"
 // import { Switch } from "@/components/ui/switch"
 // import { formatCurrency } from "@/lib/utils"
-import { createOrder, createOrderWithoutDeletingCart } from "@/lib/actions/order.actions"
+import { createOrderWithoutDeletingCart } from "@/lib/actions/order.actions"
 import { OrderStatus, PaymentStatus } from "@prisma/client"
 import { ArrowLeft } from "lucide-react"
 import { useSession } from "next-auth/react"
@@ -295,105 +295,6 @@ export default function ShippingPage() {
         setFormErrors({ ...formErrors, paymentMethod: "" })
     }
 
-    // Create order in database and return order data
-    const createOrderInDatabase = async () => {
-        try {
-            setIsCreatingOrder(true)
-
-            // Triple check that we have a valid cart
-            if (!cart) {
-                console.error("Cart is not available during order creation");
-                toast.error("Your cart could not be found. Please try refreshing the page.");
-                return null;
-            }
-
-            if (!cart.items || cart.items.length === 0) {
-                console.error("Cart exists but has no items");
-                toast.error("Your cart is empty. Please add items before checkout.");
-                router.push("/cart");
-                return null;
-            }
-
-            // Add extra logging for debugging
-            console.log("Creating order with cart:", cart.id, "containing", cart.items.length, "items");
-
-            // Calculate tax for the order
-            const tax = calculateTax(formData.parish || formData.country || 'DEFAULT', calculateOrderSummary().subtotal);
-            const orderSummary = calculateOrderSummary();
-
-            // Prepare order data
-            const orderData = {
-                cartId: cart.id,
-                shippingAddress: {
-                    fullName: formData.fullName || "",
-                    email: "", // Will be populated from session
-                    phone: "", // Optional
-                    address: formData.streetAddress || "",
-                    city: formData.city || "",
-                    state: formData.state || "",
-                    zipCode: formData.postalCode || "",
-                    country: formData.country || formData.parish || "",
-                },
-                shipping: {
-                    method: selectedCourier
-                        ? `Courier - ${selectedCourier}`
-                        : "Standard Shipping",
-                    cost: formData.shippingPrice || 0,
-                },
-                payment: {
-                    method: paymentMethod,
-                    status: PaymentStatus.PENDING,
-                    providerId: "", // Will be filled after payment
-                },
-                subtotal: orderSummary.subtotal,
-                tax: tax,
-                total: orderSummary.total, // Now properly includes tax
-                status: OrderStatus.PENDING,
-            };
-
-            // For LascoPay, don't delete the cart since we need it on the confirmation page
-            const response = IS_LASCO_MARKET && paymentMethod === 'LascoPay'
-                ? await createOrderWithoutDeletingCart(orderData)
-                : await createOrder(orderData);
-
-            if (!response.success) {
-                console.error("Order creation API response error:", response.error);
-                throw new Error(response?.error as string || "Failed to create order");
-            }
-
-            return response.data;
-        } catch (error) {
-            console.error("Error creating order:", error);
-            // Don't throw the error, just return null so we can handle it gracefully
-            return null;
-        } finally {
-            setIsCreatingOrder(false);
-        }
-    }
-
-    // Add validation function that was missing
-    const validateForm = () => {
-        const errors: Record<string, string> = {};
-
-        // Check required fields
-        if (!formData.fullName) errors.fullName = "Full name is required";
-        if (!formData.streetAddress) errors.streetAddress = "Street address is required";
-        if (!formData.city) errors.city = "City is required";
-
-        // Check for either country or parish depending on market type
-        if (IS_LASCO_MARKET && !formData.parish) {
-            errors.parish = "Parish is required";
-        } else if (!IS_LASCO_MARKET && !formData.country) {
-            errors.country = "Country is required";
-        }
-
-        // Update form errors
-        setFormErrors(errors);
-
-        // Form is valid if no errors
-        return Object.keys(errors).length === 0;
-    };
-
     // Handle form submission
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -427,96 +328,162 @@ export default function ShippingPage() {
                 return;
             }
 
-            console.log("Creating order with data:", {
-                cart: cart?.id,
-                paymentMethod,
-                shippingAddress: {
-                    fullName: formData.fullName,
-                    streetAddress: formData.streetAddress,
-                    city: formData.city,
-                    state: formData.state,
-                    parish: formData.parish,
-                    country: formData.country,
-                    postalCode: formData.postalCode
-                },
-                selectedCourier
-            });
+            // Calculate tax and order summary
+            const orderSummary = calculateOrderSummary();
 
-            // Save the address to the database for the user
-            try {
-                // Determine which field to use for country based on market type
-                const countryValue = IS_LASCO_MARKET ? formData.parish : formData.country;
+            if (IS_LASCO_MARKET) {
+                // For LASCO market, create the order directly in the database
+                console.log("LASCO market: Creating order directly in database");
 
-                // Call the address creation/update function
-                const addressResponse = await createOrUpdateUserAddress({
-                    street: formData.streetAddress,
-                    city: formData.city,
-                    state: formData.state,
-                    postalCode: formData.postalCode,
-                    country: countryValue || ""
-                });
+                try {
+                    // Save the user's address to their profile
+                    try {
+                        const addressResult = await createOrUpdateUserAddress({
+                            street: formData.streetAddress || "",
+                            city: formData.city || "",
+                            state: formData.state || "",
+                            postalCode: formData.postalCode || "",
+                            country: formData.parish || "",
+                            isUserManaged: false // Explicitly mark as not user-managed so it won't appear in address book
+                        });
+                        console.log("Address save response:", addressResult);
+                    } catch (addressError) {
+                        console.error("Error saving address:", addressError);
+                        // Continue with order creation even if address save fails
+                    }
 
-                console.log("Address save response:", addressResponse);
+                    // Prepare order data for LASCO market
+                    const orderData = {
+                        cartId: cart?.id || "",
+                        shippingAddress: {
+                            fullName: formData.fullName || "",
+                            email: "", // Will be populated from session
+                            phone: "", // Optional
+                            address: formData.streetAddress || "",
+                            city: formData.city || "",
+                            state: formData.state || "",
+                            zipCode: formData.postalCode || "",
+                            country: formData.parish || "",
+                        },
+                        shipping: {
+                            method: selectedCourier
+                                ? `Courier - ${selectedCourier}`
+                                : "Standard Shipping",
+                            cost: formData.shippingPrice || 0,
+                        },
+                        payment: {
+                            method: "LascoPay",
+                            status: PaymentStatus.PENDING,
+                            providerId: "", // Will be filled after payment
+                        },
+                        subtotal: orderSummary.subtotal,
+                        tax: orderSummary.tax,
+                        total: orderSummary.total,
+                        status: OrderStatus.PENDING,
+                    };
 
-                if (!addressResponse.success) {
-                    console.warn("Non-critical: Address save was not successful:", addressResponse.message);
-                    // Continue with order creation even if address save fails
+                    console.log("Creating LASCO order with data:", orderData);
+
+                    // Create order without deleting cart
+                    const response = await createOrderWithoutDeletingCart(orderData);
+
+                    if (!response.success || !response.data) {
+                        throw new Error(response.error ? String(response.error) : "Failed to create order");
+                    }
+
+                    const orderId = response.data.id;
+                    console.log("Order created successfully with ID:", orderId);
+
+                    // Store minimal data in localStorage for confirmation page
+                    const checkoutDataToSave = {
+                        ...formData,
+                        orderId: orderId,
+                        subtotal: orderSummary.subtotal,
+                        tax: orderSummary.tax,
+                        shipping: orderSummary.shipping,
+                        total: orderSummary.total,
+                        paymentMethod: { type: "LascoPay" },
+                        useCourier: selectedCourier ? true : false,
+                        courierName: selectedCourier,
+                        pendingCreation: false, // Order is already created
+                        timestamp: new Date().toISOString()
+                    };
+
+                    localStorage.setItem("checkoutData", JSON.stringify(checkoutDataToSave));
+                    localStorage.setItem("cartId", cart?.id || "");
+                    localStorage.setItem("lascoPayOrderId", orderId);
+
+                    // Redirect to confirmation page with order ID
+                    console.log("Redirecting to confirmation page for LASCO payment");
+                    router.push(`/confirmation?orderId=${orderId}`);
+
+                } catch (orderError) {
+                    console.error("Error creating order:", orderError);
+                    toast.error("Failed to create your order. Please try again.");
+                    setIsCreatingOrder(false);
                 }
-            } catch (addressError) {
-                console.error("Error saving address:", addressError);
-                // Continue with order creation even if address save fails
+
+            } else {
+                // For GLOBAL market, store checkout data and redirect to confirmation page
+                console.log("GLOBAL market: Storing checkout data for confirmation page");
+
+                // Store checkout data in local storage for confirmation page
+                const checkoutDataToSave = {
+                    ...formData,
+                    cartId: cart?.id,
+                    subtotal: orderSummary.subtotal,
+                    tax: orderSummary.tax,
+                    shipping: orderSummary.shipping,
+                    total: orderSummary.total,
+                    paymentMethod: { type: paymentMethod },
+                    useCourier: selectedCourier !== null,
+                    courierName: selectedCourier,
+                    pendingCreation: true,  // Flag to indicate this needs to be created in the database
+                    timestamp: new Date().toISOString()  // Add timestamp for tracking
+                };
+
+                console.log("Saving checkout data to localStorage:", checkoutDataToSave);
+
+                // Log the actual JSON that will be stored
+                const jsonToStore = JSON.stringify(checkoutDataToSave);
+                console.log("JSON being stored in localStorage:", jsonToStore);
+
+                localStorage.setItem("checkoutData", jsonToStore);
+                localStorage.setItem("cartId", cart?.id || "");
+
+                // Directly navigate to confirmation page for order creation and review
+                console.log(`Redirecting to confirmation page for order creation and payment`);
+                router.push(`/confirmation`);
             }
-
-            // Create the order
-            const orderData = await createOrderInDatabase();
-            if (!orderData) {
-                toast.error("Failed to create your order. Please try again.");
-                setIsCreatingOrder(false);
-                return;
-            }
-
-            console.log("Order created successfully:", orderData);
-
-            // Store checkout data in local storage for confirmation page
-            const checkoutDataToSave = {
-                ...formData,
-                orderId: orderData.id,
-                subtotal: calculateOrderSummary().subtotal,
-                tax: calculateOrderSummary().tax,
-                total: calculateOrderSummary().total,
-                paymentMethod: { type: paymentMethod },
-                useCourier: selectedCourier !== null,
-                courierName: selectedCourier,
-            };
-
-            console.log("Saving checkout data to localStorage:", {
-                paymentMethod,
-                paymentMethodType: typeof paymentMethod,
-                formattedPaymentMethod: { type: paymentMethod },
-                checkoutData: checkoutDataToSave,
-                orderSummary: calculateOrderSummary()
-            });
-
-            // Log the actual JSON that will be stored
-            const jsonToStore = JSON.stringify(checkoutDataToSave);
-            console.log("JSON being stored in localStorage:", jsonToStore);
-            console.log("After parse check:", JSON.parse(jsonToStore).paymentMethod);
-
-            localStorage.setItem("checkoutData", jsonToStore);
-
-            // Also store the payment method directly to help with debugging
-            localStorage.setItem("debugPaymentMethod", paymentMethod);
-
-            // Directly navigate to confirmation with the order ID
-            console.log(`Redirecting to confirmation page with orderId: ${orderData.id}`);
-            router.push(`/confirmation?orderId=${orderData.id}`);
 
         } catch (err) {
             console.error("Form submission error:", err);
             toast.error("An error occurred. Please try again later.");
-        } finally {
             setIsCreatingOrder(false);
         }
+    };
+
+    // Add validation function that was missing
+    const validateForm = () => {
+        const errors: Record<string, string> = {};
+
+        // Check required fields
+        if (!formData.fullName) errors.fullName = "Full name is required";
+        if (!formData.streetAddress) errors.streetAddress = "Street address is required";
+        if (!formData.city) errors.city = "City is required";
+
+        // Check for either country or parish depending on market type
+        if (IS_LASCO_MARKET && !formData.parish) {
+            errors.parish = "Parish is required";
+        } else if (!IS_LASCO_MARKET && !formData.country) {
+            errors.country = "Country is required";
+        }
+
+        // Update form errors
+        setFormErrors(errors);
+
+        // Form is valid if no errors
+        return Object.keys(errors).length === 0;
     };
 
     // Determine the total number of steps based on market type
@@ -773,9 +740,16 @@ export default function ShippingPage() {
                                             <div className="flex justify-center">
                                                 <LascoPayButton
                                                     onClick={() => {
-                                                        console.log('LascoPay button clicked. Redirecting to payment page...');
-                                                        // Redirect to the LascoPay payment page with the order ID
-                                                        window.location.href = `https://pay.lascobizja.com/btn/YFxrwuD1qO9k?orderId=${orderCreated.orderId}`;
+                                                        console.log('LascoPay button clicked on shipping page. Redirecting directly to payment page...');
+                                                        // Show toast before redirecting
+                                                        toast.success("Redirecting to LascoPay payment page...", {
+                                                            duration: 2000,
+                                                            position: "top-center"
+                                                        });
+                                                        // Redirect directly to the LascoPay payment page
+                                                        setTimeout(() => {
+                                                            window.location.href = `https://pay.lascobizja.com/btn/YFxrwuD1qO9k?orderId=${orderCreated.orderId}`;
+                                                        }, 1500);
                                                     }}
                                                 />
                                             </div>

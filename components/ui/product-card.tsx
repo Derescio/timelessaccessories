@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import AddToWishlistButton from "@/components/wishlist/add-to-wishlist-button";
 
 interface ProductCardProps {
     product: Product;
@@ -26,6 +27,12 @@ export function ProductCard({ product, className }: ProductCardProps) {
                             fill
                             className="object-cover"
                         />
+                        <div className="absolute top-4 right-4">
+                            <AddToWishlistButton
+                                productId={product.id}
+                                className="bg-white/80 backdrop-blur-sm hover:bg-white"
+                            />
+                        </div>
                     </div>
                 </Link>
             </CardHeader>

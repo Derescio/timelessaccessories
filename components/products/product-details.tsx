@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { Heart, Minus, Plus, Share2, Star, Loader } from "lucide-react"
+import { Minus, Plus, Share2, Star, Loader } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Product } from "@/types"
 import AddToCartButton from "./AddToCartButton"
+import AddToWishlistButton from "@/components/wishlist/add-to-wishlist-button"
 import { updateCartItem, removeFromCart, getCart } from "@/lib/actions/cart.actions"
 import { triggerCartUpdate } from "@/lib/utils"
 import { toast } from "sonner"
@@ -382,10 +383,11 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
-                <button className="flex items-center gap-2 text-sm hover:text-primary">
-                    <Heart size={20} />
-                    <span className="whitespace-nowrap">ADD TO WISHLIST</span>
-                </button>
+                <AddToWishlistButton
+                    productId={product.id}
+                    variant="button"
+                    withText
+                />
                 <button className="flex items-center gap-2 text-sm hover:text-primary">
                     <Share2 size={20} />
                     <span>SHARE</span>
