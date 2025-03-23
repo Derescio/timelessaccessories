@@ -579,6 +579,111 @@ export async function getUserOrders() {
         return [];
     }
 }
+export async function getLascoUserOrders() {
+    try {
+        const session = await auth();
+        if (!session?.user?.id) return [];
+
+        const orders = await prisma.order.findMany({
+            where: { 
+                userId: session.user.id,
+                payment: {
+                    provider: 'LascoPay'
+                }
+            },
+            include: {
+                items: {
+                    include: {
+                        product: {
+                            select: {
+                                id: true,
+                                name: true,
+                                slug: true,
+                                description: true,
+                            }
+                        },
+                        inventory: {
+                            select: {
+                                id: true,
+                                sku: true,
+                                retailPrice: true,
+                                compareAtPrice: true,
+                                hasDiscount: true,
+                                discountPercentage: true,
+                                images: true,
+                            }
+                        },
+                    },
+                },
+                payment: {
+                    select: {
+                        id: true,
+                        status: true,
+                        provider: true,
+                        amount: true,
+                        lastUpdated: true,
+                    }
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        // Serialize each order individually with deep property conversion
+        return orders.map(order => ({
+            id: order.id,
+            status: order.status,
+            subtotal: order.subtotal.toString(),
+            tax: order.tax.toString(),
+            shipping: order.shipping.toString(),
+            total: order.total.toString(),
+            createdAt: order.createdAt.toISOString(),
+            updatedAt: order.updatedAt.toISOString(),
+            addressId: order.addressId,
+            // Convert JSON to string if exists, otherwise null
+            billingAddress: order.billingAddress ? JSON.stringify(order.billingAddress) : null,
+            shippingAddress: order.shippingAddress ? JSON.stringify(order.shippingAddress) : null,
+            paymentIntent: order.paymentIntent,
+            notes: order.notes,
+            cartId: order.cartId,
+            // Map over items with deep serialization
+            items: order.items.map(item => ({
+                id: item.id,
+                quantity: item.quantity,
+                price: item.price.toString(),
+                name: item.name,
+                image: item.image,
+                // Serialize the product to only include basic properties
+                product: {
+                    id: item.product.id,
+                    name: item.product.name,
+                    slug: item.product.slug,
+                    description: item.product.description,
+                },
+                // Serialize the inventory to only include necessary properties
+                inventory: {
+                    id: item.inventory.id,
+                    sku: item.inventory.sku,
+                    retailPrice: item.inventory.retailPrice.toString(),
+                    compareAtPrice: item.inventory.compareAtPrice ? item.inventory.compareAtPrice.toString() : null,
+                    hasDiscount: item.inventory.hasDiscount,
+                    discountPercentage: item.inventory.discountPercentage,
+                    images: item.inventory.images,
+                }
+            })),
+            // Handle payment serialization
+            payment: order.payment ? {
+                id: order.payment.id,
+                status: order.payment.status,
+                provider: order.payment.provider,
+                amount: order.payment.amount.toString(),
+                lastUpdated: order.payment.lastUpdated.toISOString(),
+            } : null
+        }));
+    } catch (error) {
+        console.error('Error fetching orders:', error);
+        return [];
+    }
+}
 
 export async function getOrderById(orderId: string) {
     try {

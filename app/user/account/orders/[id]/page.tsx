@@ -9,7 +9,7 @@ import {
     Card,
     CardContent,
     CardDescription,
-    CardFooter,
+    // CardFooter,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { getOrderById, getOrderStatusActions } from "@/lib/actions/user.actions"
+import { getOrderById, getOrderStatusActions, getUserAddress } from "@/lib/actions/user.actions"
 import { formatPrice } from "@/lib/utils"
 import { ArrowLeft, Package, CreditCard, Truck, CheckCircle, AlertCircle, Clock } from "lucide-react"
 
@@ -43,13 +43,13 @@ interface Payment {
     lastUpdated: string;
 }
 
-interface ShippingAddress {
-    street: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-}
+// interface ShippingAddress {
+//     street: string;
+//     city: string;
+//     state: string;
+//     postalCode: string;
+//     country: string;
+// }
 
 interface Order {
     id: string;
@@ -70,6 +70,8 @@ export default function OrderDetailPage() {
     const [order, setOrder] = useState<Order | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [shippingAddress, setShippingAddress] = useState<string | null>(null);
+    const [isLoadingAddress, setIsLoadingAddress] = useState(true);
     const [paymentStatus, setPaymentStatus] = useState<string>("PENDING")
     const [statusActions, setStatusActions] = useState({
         message: '',
@@ -84,6 +86,7 @@ export default function OrderDetailPage() {
                 setIsLoading(true)
                 const orderId = params.id as string
                 const result = await getOrderById(orderId)
+                //console.log('order details', result?.data?.shippingAddress)
 
                 if (!result.success) {
                     setError(result.message)
@@ -106,6 +109,7 @@ export default function OrderDetailPage() {
                     };
                     setOrder(orderData)
                     setPaymentStatus(result.data.payment?.status || "PENDING")
+
                 } else {
                     setError("Order data is missing")
                 }
@@ -132,6 +136,30 @@ export default function OrderDetailPage() {
             fetchStatusActions()
         }
     }, [order, paymentStatus])
+
+    useEffect(() => {
+        async function fetchShippingAddress() {
+            try {
+                const address = await getUserAddress(); // Fetch the address from the server
+                setShippingAddress(address ? JSON.stringify(address) : null); // Store the address as a string
+            } catch (error) {
+                console.error("Error fetching shipping address:", error);
+                setShippingAddress(null);
+            } finally {
+                setIsLoadingAddress(false); // Stop the loading state
+            }
+        }
+
+        fetchShippingAddress();
+    }, []);
+
+    if (isLoadingAddress) {
+        return (
+            <div className="flex justify-center py-12">
+                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+            </div>
+        );
+    }
 
     // Format the date to a readable string
     function formatDate(dateString: string | Date) {
@@ -203,18 +231,18 @@ export default function OrderDetailPage() {
     }
 
     // Parse shipping address from JSON string
-    const getShippingAddress = (): ShippingAddress | null => {
-        if (!order?.shippingAddress) return null;
+    // const getShippingAddress = (): ShippingAddress | null => {
+    //     if (!order?.shippingAddress) return null;
 
-        try {
-            return typeof order.shippingAddress === 'string'
-                ? JSON.parse(order.shippingAddress)
-                : order.shippingAddress;
-        } catch (e) {
-            console.error("Error parsing shipping address:", e);
-            return null;
-        }
-    }
+    //     try {
+    //         return typeof order.shippingAddress === 'string'
+    //             ? JSON.parse(order.shippingAddress)
+    //             : order.shippingAddress;
+    //     } catch (e) {
+    //         console.error("Error parsing shipping address:", e);
+    //         return null;
+    //     }
+    // }
 
     if (isLoading) {
         return (
@@ -253,7 +281,10 @@ export default function OrderDetailPage() {
         )
     }
 
-    const shippingAddress = getShippingAddress();
+    //const shippingAddress = getUserAddress();
+    //console.log("Shipping address:", shippingAddress)
+    // const newShippingAddress = result?.data?.shippingAddress
+
 
     return (
         <div className="space-y-6">
@@ -294,7 +325,7 @@ export default function OrderDetailPage() {
                                 </div>
                             </div>
                         </CardContent>
-                        {statusActions.cta && (
+                        {/* {statusActions.cta && (
                             <CardFooter>
                                 <Button asChild>
                                     <Link href={statusActions.ctaLink || "#"}>
@@ -302,7 +333,7 @@ export default function OrderDetailPage() {
                                     </Link>
                                 </Button>
                             </CardFooter>
-                        )}
+                        )} */}
                     </Card>
 
                     {/* Order Items */}
@@ -412,6 +443,9 @@ export default function OrderDetailPage() {
                     </Card>
 
                     {/* Shipping Address */}
+                    {/* <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="space-y-6"> */}
                     {shippingAddress && (
                         <Card>
                             <CardHeader>
@@ -419,15 +453,34 @@ export default function OrderDetailPage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-1">
-                                    <p>{shippingAddress.street}</p>
-                                    <p>
-                                        {shippingAddress.city}, {shippingAddress.state} {shippingAddress.postalCode}
-                                    </p>
-                                    <p>{shippingAddress.country}</p>
+                                    {shippingAddress && typeof shippingAddress === "string" && (
+                                        (() => {
+                                            try {
+                                                const parsedAddress = JSON.parse(shippingAddress);
+                                                // console.log("Parsed shippingAddress:", parsedAddress); // Debugging
+
+                                                return (
+                                                    <>
+                                                        <p><strong>Street:</strong> {parsedAddress.street || "N/A"}</p>
+                                                        <p><strong>City:</strong> {parsedAddress.city || "N/A"}</p>
+                                                        <p><strong>State:</strong> {parsedAddress.state || "N/A"}</p>
+                                                        <p><strong>Postal Code:</strong> {parsedAddress.postalCode || "N/A"}</p>
+                                                        <p><strong>Country:</strong> {parsedAddress.country || "N/A"}</p>
+                                                    </>
+                                                );
+                                            } catch (error) {
+                                                console.error("Error parsing shipping address:", error);
+                                                return <p className="text-red-500">Invalid shipping address format.</p>;
+                                            }
+                                        })()
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
                     )}
+                    {/* </div>
+                        </div>
+                    </div> */}
                 </div>
             </div>
         </div>
