@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { getUserOrders } from "@/lib/actions/user.actions"
+import { getLascoUserOrders, getUserOrders } from "@/lib/actions/user.actions"
 import { formatPrice } from "@/lib/utils"
 import { Loader2 } from "lucide-react"
 
@@ -43,7 +43,8 @@ export default function OrdersPage() {
         async function fetchOrders() {
             try {
                 setIsLoading(true)
-                const data = await getUserOrders()
+                const data = process.env.NEXT_PUBLIC_MARKET === 'LASCO' ? await getLascoUserOrders() : await getUserOrders()
+                console.log("Orders data:", data[0].shippingAddress)
                 // Cast the fetched data to our Order type
                 setOrders(data as Order[])
             } catch (error) {
