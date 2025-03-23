@@ -50,7 +50,7 @@ export default function OrderSuccessPage() {
                     )}
 
                     <div className="flex gap-4 mt-6">
-                        <Link href="/orders">
+                        <Link href="/user/account/orders">
                             <Button variant="outline">View Orders</Button>
                         </Link>
                         <Link href="/products">
