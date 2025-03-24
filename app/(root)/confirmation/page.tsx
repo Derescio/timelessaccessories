@@ -14,7 +14,7 @@ import { shippingAddressSchema } from "@/lib/validators";
 import Image from "next/image";
 import PaymentSection from "./PaymentSection";
 import { PaymentStatus, OrderStatus } from "@prisma/client";
-import { createOrUpdateUserAddress } from "@/lib/actions/user.actions";
+
 
 // Define CartItemDetails interface
 interface CartItemDetails {
@@ -126,7 +126,7 @@ export default function ConfirmationPage() {
         const orderId = searchParams.get('orderId');
 
         if (IS_LASCO_MARKET && directRedirect === 'true' && orderId) {
-            console.log('Direct redirect to LascoPay payment page detected');
+            // console.log('Direct redirect to LascoPay payment page detected');
             toast.success("Redirecting to LascoPay payment page...");
 
             // Allow a moment for the page to load before redirecting
@@ -148,7 +148,7 @@ export default function ConfirmationPage() {
                 // If we have checkout data with pending creation flag
                 if (savedCheckoutData) {
                     const parsedCheckoutData = JSON.parse(savedCheckoutData);
-                    console.log("Found saved checkout data:", parsedCheckoutData);
+                    //console.log("Found saved checkout data:", parsedCheckoutData);
 
                     // For LASCO market, orders are created on the shipping page
                     if (IS_LASCO_MARKET) {
@@ -161,7 +161,7 @@ export default function ConfirmationPage() {
                             return;
                         }
 
-                        console.log("LASCO market: Loading order with ID:", orderId);
+                        // console.log("LASCO market: Loading order with ID:", orderId);
                         const orderResult = await getOrderWithItems(orderId);
 
                         if (orderResult.success && orderResult.data) {
@@ -216,7 +216,7 @@ export default function ConfirmationPage() {
                         }
                     } else if (parsedCheckoutData.pendingCreation === true) {
                         // For GLOBAL market, check if the order needs to be created
-                        console.log("GLOBAL market: This is pending creation data that needs to be processed");
+                        // console.log("GLOBAL market: This is pending creation data that needs to be processed");
                         setIsPendingCreation(true);
                         setCheckoutData(parsedCheckoutData);
 
@@ -237,14 +237,14 @@ export default function ConfirmationPage() {
                     // If we have a regular order with checkout data and order ID
                     if (urlOrderId || parsedCheckoutData.orderId) {
                         const orderId = urlOrderId || parsedCheckoutData.orderId;
-                        console.log("Order ID found:", orderId);
+                        //  console.log("Order ID found:", orderId);
 
                         // Fetch order data from the database
                         const orderResult = await getOrderWithItems(orderId);
 
                         if (orderResult.success && orderResult.data) {
                             const order = orderResult.data;
-                            console.log("Order data loaded:", order);
+                            //console.log("Order data loaded:", order);
 
                             // Set cart from order items
                             if (order.items) {
@@ -276,8 +276,9 @@ export default function ConfirmationPage() {
                                 };
                             }
 
-                            // Get payment method from order
-                            const paymentMethod = order.payment?.provider || "PayPal";
+                            // Get payment method from order or use the paymentMethod fromLocalStorage
+
+                            const paymentMethod = order.payment?.provider || localStorage.getItem("paymentMethod") || "PayPal";
 
                             // Update checkout data with order information
                             setCheckoutData({
@@ -333,7 +334,7 @@ export default function ConfirmationPage() {
 
     // Fix shipping cost calculation with better logging
     const rawShippingCost = checkoutData?.shippingPrice || checkoutData?.shipping || 0;
-    console.log('Raw shipping cost:', rawShippingCost, 'type:', typeof rawShippingCost);
+    //console.log('Raw shipping cost:', rawShippingCost, 'type:', typeof rawShippingCost);
 
     // Get normalized shipping cost with proper handling
     let normalizedShippingCost = 0;
@@ -346,13 +347,13 @@ export default function ConfirmationPage() {
     }
 
     // Debug logging
-    console.log('Shipping cost debug:', {
-        raw: rawShippingCost,
-        normalized: normalizedShippingCost,
-        shippingPrice: checkoutData?.shippingPrice,
-        shipping: checkoutData?.shipping,
-        checkoutData: checkoutData
-    });
+    // console.log('Shipping cost debug:', {
+    //     raw: rawShippingCost,
+    //     normalized: normalizedShippingCost,
+    //     shippingPrice: checkoutData?.shippingPrice,
+    //     shipping: checkoutData?.shipping,
+    //     checkoutData: checkoutData
+    // });
 
     // Calculate total with the correct shipping cost
     const total = subtotal + estimatedTax + normalizedShippingCost;
@@ -373,29 +374,29 @@ export default function ConfirmationPage() {
         setOrderCreationError(null);
 
         try {
-            console.log("Creating order with data:", { checkoutData, cart });
+            //console.log("Creating order with data:", { checkoutData, cart });
 
             // Save the user's address to their profile
-            let addressResult;
-            try {
-                // Determine which field to use for country based on market type
-                const countryValue = IS_LASCO_MARKET ? checkoutData.parish : checkoutData.country;
+            //let addressResult;
+            // try {
+            //     // Determine which field to use for country based on market type
+            //     const countryValue = IS_LASCO_MARKET ? checkoutData.parish : checkoutData.country;
 
-                // Call the address creation/update function
-                addressResult = await createOrUpdateUserAddress({
-                    street: checkoutData.streetAddress || "",
-                    city: checkoutData.city || "",
-                    state: checkoutData.state || "",
-                    postalCode: checkoutData.postalCode || "",
-                    country: countryValue || "",
-                    isUserManaged: false // Explicitly mark as not user-managed so it won't appear in address book
-                });
+            //     // Call the address creation/update function
+            //     // const addressResult = await createOrUpdateUserAddress({
+            //     //     street: checkoutData.streetAddress || "",
+            //     //     city: checkoutData.city || "",
+            //     //     state: checkoutData.state || "",
+            //     //     postalCode: checkoutData.postalCode || "",
+            //     //     country: countryValue || "",
+            //     //     isUserManaged: false // Explicitly mark as not user-managed so it won't appear in address book
+            //     // });
 
-                console.log("Address save response:", addressResult);
-            } catch (addressError) {
-                console.error("Error saving address:", addressError);
-                // Continue with order creation even if address save fails
-            }
+            //     //console.log("Address save response:", addressResult);
+            // } catch (addressError) {
+            //     console.error("Error saving address:", addressError);
+            //     // Continue with order creation even if address save fails
+            // }
 
             // Prepare order data
             const paymentMethod = IS_LASCO_MARKET ? "LascoPay" : checkoutData.paymentMethod?.type || "PayPal";
@@ -428,7 +429,7 @@ export default function ConfirmationPage() {
                 status: OrderStatus.PENDING,
             };
 
-            console.log("Creating order with payment method:", paymentMethod);
+            //console.log("Creating order with payment method:", paymentMethod);
 
             // Use the appropriate order creation function based on market
             const response = IS_LASCO_MARKET
@@ -442,7 +443,7 @@ export default function ConfirmationPage() {
                 return;
             }
 
-            console.log("Order created successfully:", response.data);
+            // console.log("Order created successfully:", response.data);
 
             // Update checkoutData with the new order ID
             const updatedCheckoutData = {
@@ -705,6 +706,7 @@ export default function ConfirmationPage() {
                                             paymentMethod={checkoutData.paymentMethod?.type}
                                         />
                                     </div>
+
                                 ) : checkoutData.orderId ? (
                                     <PaymentSection
                                         orderId={checkoutData.orderId}

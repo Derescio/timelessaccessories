@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Metadata } from "next";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signInDefaultValues } from "@/lib/constants";
+import { signInDefaultValues } from "@/lib/constants/index";
 import Link from "next/link";
 import { signInWithCredentials } from "@/lib/actions/user.actions";
 import { useFormStatus } from "react-dom";

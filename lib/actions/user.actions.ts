@@ -4,13 +4,13 @@ import { auth, signIn, signOut } from '@/auth';
 import { signInFormSchema, signUpFormSchema, updateUserSchema, changePasswordSchema } from '@/lib/validators';
 // import { shippingAddressSchema , paymentMethodSchema } from '@/lib/validators';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
-import { prisma } from '@/lib/db/config';
+import { prisma } from '@/lib/prisma';
 import { formatError } from '@/lib/utils';
 import { compareSync, hashSync } from 'bcrypt-ts-edge';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getCart } from './cart.actions';
-import { db } from "@/lib/db"
+// import { db } from "@/lib/db"
 // import type { ShippingAddress } from '@/types';
 // import { updateUserProfileSchema } from '@/lib/validators';
 
@@ -51,8 +51,9 @@ export async function signInWithCredentials(prevState: unknown, formData: FormDa
 export async function signOutUser() {
     try {
         const currentCart = await getCart();
+        console.log(currentCart?.id);
         if (currentCart?.id) {
-            await db.cart.delete({ where: { id: currentCart.id } });
+            await prisma.cart.delete({ where: { id: currentCart.id } });
             console.log('Cart deleted successfully during sign out');
         } else {
             console.warn('No cart found for deletion during sign out.');
@@ -353,6 +354,7 @@ export async function getUserProfile() {
 
 
 export async function updateProfile(data: z.infer<typeof updateUserSchema>) {
+    // console.log(data)
     try {
         const session = await auth();
         if (!session?.user?.id) {
@@ -369,9 +371,9 @@ export async function updateProfile(data: z.infer<typeof updateUserSchema>) {
             return { success: false, message: 'User not found' };
         }
 
-        console.log('data', data)
+        //console.log('data', data)
         const validatedData = updateUserSchema.parse(data);
-        console.log('validatedData', validatedData)
+        // console.log('validatedData', validatedData)
 
         await prisma.user.update({
             where: { id: currentUser.id },
@@ -456,8 +458,8 @@ export async function getUserAddresses() {
 
         // Only get addresses that were explicitly created in the address management UI
         // or have been specifically marked as user-managed
-        const addresses = await db.address.findMany({
-            where: { 
+        const addresses = await prisma.address.findMany({
+            where: {
                 userId,
                 isUserManaged: true // Only get addresses explicitly managed by the user
             },
@@ -480,7 +482,7 @@ export async function getUserOrders() {
         if (!session?.user?.id) return [];
 
         const orders = await prisma.order.findMany({
-            where: { 
+            where: {
                 userId: session.user.id,
                 payment: {
                     status: 'COMPLETED'
@@ -585,7 +587,7 @@ export async function getLascoUserOrders() {
         if (!session?.user?.id) return [];
 
         const orders = await prisma.order.findMany({
-            where: { 
+            where: {
                 userId: session.user.id,
                 payment: {
                     provider: 'LascoPay'
@@ -693,7 +695,7 @@ export async function getOrderById(orderId: string) {
         }
 
         const order = await prisma.order.findUnique({
-            where: { 
+            where: {
                 id: orderId,
                 userId: session.user.id // Ensure order belongs to current user
             },
@@ -884,8 +886,8 @@ export async function createOrUpdateUserAddress(addressData: {
         console.log("Creating/updating address for user:", userId, "with data:", addressData);
 
         // Check if user already has an address with same data to avoid duplicates
-        const existingAddresses = await db.address.findMany({
-            where: { 
+        const existingAddresses = await prisma.address.findMany({
+            where: {
                 userId,
                 street: addressData.street,
                 city: addressData.city,
@@ -900,7 +902,7 @@ export async function createOrUpdateUserAddress(addressData: {
 
         if (existingAddresses.length > 0) {
             // Update the first matching address
-            address = await db.address.update({
+            address = await prisma.address.update({
                 where: { id: existingAddresses[0].id },
                 data: {
                     street: addressData.street,
@@ -917,7 +919,7 @@ export async function createOrUpdateUserAddress(addressData: {
             console.log("Updated existing address:", address.id);
         } else {
             // Create a new address
-            address = await db.address.create({
+            address = await prisma.address.create({
                 data: {
                     userId,
                     street: addressData.street,
@@ -925,7 +927,7 @@ export async function createOrUpdateUserAddress(addressData: {
                     state: addressData.state,
                     postalCode: addressData.postalCode || "",
                     country: addressData.country,
-                    isUserManaged // Set explicitly for new addresses
+                    isUserManaged// Set explicitly for new addresses
                 }
             });
             console.log("Created new address:", address.id);
@@ -957,7 +959,7 @@ export async function getUserPrimaryAddress() {
 
         const userId = session.user.id;
 
-        const address = await db.address.findFirst({
+        const address = await prisma.address.findFirst({
             where: { userId },
             orderBy: { createdAt: 'desc' },
         });
@@ -986,7 +988,7 @@ export async function addUserAddress(addressData: {
 
         const userId = session.user.id;
 
-        const address = await db.address.create({
+        const address = await prisma.address.create({
             data: {
                 userId,
                 street: addressData.street,
@@ -1028,7 +1030,7 @@ export async function updateUserAddress(addressId: string, addressData: {
         }
 
         // Check if address belongs to user
-        const existingAddress = await db.address.findFirst({
+        const existingAddress = await prisma.address.findFirst({
             where: {
                 id: addressId,
                 userId: session.user.id
@@ -1039,7 +1041,7 @@ export async function updateUserAddress(addressId: string, addressData: {
             return { success: false, message: "Address not found or does not belong to you" };
         }
 
-        const address = await db.address.update({
+        const address = await prisma.address.update({
             where: { id: addressId },
             data: {
                 street: addressData.street,
@@ -1078,10 +1080,10 @@ export async function deleteUserAddress(addressId: string) {
         const userId = session.user.id;
 
         // Verify the address belongs to the user
-        const existingAddress = await db.address.findFirst({
-            where: { 
+        const existingAddress = await prisma.address.findFirst({
+            where: {
                 id: addressId,
-                userId 
+                userId
             }
         });
 
@@ -1089,7 +1091,7 @@ export async function deleteUserAddress(addressId: string) {
             return { success: false, message: "Address not found" };
         }
 
-        await db.address.delete({
+        await prisma.address.delete({
             where: { id: addressId }
         });
 
@@ -1193,7 +1195,7 @@ export async function getUserWishlist() {
             const inventory = item.product.inventories[0]; // Default inventory
             const price = inventory?.retailPrice;
             const compareAtPrice = inventory?.hasDiscount ? inventory.compareAtPrice : null;
-            
+
             return {
                 id: item.id,
                 productId: item.product.id,
@@ -1342,7 +1344,7 @@ export async function markAddressAsUserManaged(addressId: string) {
         }
 
         // Check if address belongs to user
-        const existingAddress = await db.address.findFirst({
+        const existingAddress = await prisma.address.findFirst({
             where: {
                 id: addressId,
                 userId: session.user.id
@@ -1354,9 +1356,9 @@ export async function markAddressAsUserManaged(addressId: string) {
         }
 
         // Update address to mark as user-managed
-        const address = await db.address.update({
+        const address = await prisma.address.update({
             where: { id: addressId },
-            data: { 
+            data: {
                 isUserManaged: true,
                 updatedAt: new Date()
             }

@@ -51,6 +51,7 @@ interface Payment {
 //     country: string;
 // }
 
+
 interface Order {
     id: string;
     status: string;
@@ -457,7 +458,7 @@ export default function OrderDetailPage() {
                                         (() => {
                                             try {
                                                 const parsedAddress = JSON.parse(shippingAddress);
-                                                // console.log("Parsed shippingAddress:", parsedAddress); // Debugging
+                                                //      console.log("Parsed shippingAddress:", parsedAddress); // Debugging
 
                                                 return (
                                                     <>
