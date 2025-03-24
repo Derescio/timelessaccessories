@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,11 @@ import { Spinner } from '@/components/ui/spinner';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import LascoPayButton from "@/components/checkout/LascoPayButton";
 import { PaymentStatus } from "@prisma/client";
+//import StripePayment from "./stripe/stripe-payment";
+import StripePayment from "@/components/payment/StripePayment";
+import { triggerCartUpdate } from "@/lib/utils";
+//import { SERVER_URL } from "@/lib/constants";
+//import Stripe from "stripe";
 
 // Define the props interface with optional paymentMethod
 interface PaymentSectionProps {
@@ -32,6 +37,8 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
     const [success, setSuccess] = useState(false);
     const [isPending, setIsPending] = useState(false); // New state for LascoPay pending status
     const [error, setError] = useState<string | null>(null);
+    const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
+    const [isStripeLoading] = useState(false);
 
     // Normalize payment method to handle variations
     const displayedPaymentMethod =
@@ -42,6 +49,69 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
     // Check if we have a valid order ID
     const hasValidOrderId = orderId && orderId !== "" && orderId !== "pending";
 
+    // Effect to load Stripe payment intent when using Stripe
+    // useEffect(() => {
+    //     const loadStripePaymentIntent = async () => {
+    //         if (displayedPaymentMethod === "Stripe" && hasValidOrderId) {
+    //             setIsStripeLoading(true);
+    //             try {
+    //                 const result = await createStripePaymentIntent(orderId);
+    //                 if (result.success && result.clientSecret) {
+    //                     setStripeClientSecret(result.clientSecret);
+    //                 } else if (result.requiresAuth) {
+    //                     // Show authentication error
+    //                     setError("Authentication required. Please log in to continue with payment.");
+    //                     toast.error("Please log in to continue with payment", {
+    //                         duration: 5000,
+    //                     });
+    //                 } else {
+    //                     setError(result.message || "Failed to initialize Stripe payment");
+    //                 }
+    //             } catch (err) {
+    //                 console.error("Error initializing Stripe payment:", err);
+    //                 setError(err instanceof Error ? err.message : "Failed to initialize payment");
+    //             } finally {
+    //                 setIsStripeLoading(false);
+    //             }
+    //         }
+    //     };
+
+    //     loadStripePaymentIntent();
+    // }, [displayedPaymentMethod, orderId, hasValidOrderId]);
+
+
+    ///NEW METHOD
+    useEffect(() => {
+        const createStripePaymentIntent = async () => {
+            if (displayedPaymentMethod === "Stripe" && hasValidOrderId) {
+                try {
+                    const response = await fetch("/api/payment/stripe", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            amount: totalAmount * 100, // Amount in cents
+                            orderId,
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error("Failed to create payment intent.");
+                    }
+                    const { clientSecret } = await response.json();
+                    setStripeClientSecret(clientSecret);
+                } catch (error) {
+                    console.error("Error creating Stripe Payment Intent:", error);
+                    setError(
+                        error instanceof Error
+                            ? error.message
+                            : "Failed to create Stripe Payment Intent."
+                    );
+                }
+            }
+        };
+
+        createStripePaymentIntent();
+    }, [displayedPaymentMethod, hasValidOrderId, totalAmount, orderId]);
     // If we don't have a valid order ID, show an error message
     if (!hasValidOrderId) {
         return (
@@ -52,16 +122,16 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
     }
 
     // PayPal client ID - in production this should come from an environment variable
-    const paypalClientId = "AQB2OjTPdbWx7DCCODYKB4vcnGg8dczEO8accLkoCBBiiy3nnQoxoImZ00n5c6BsEWE7QkFkQ9-uCXO_";
+    const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
 
     // Function to handle PayPal order creation
     const handleCreatePayPalOrder = async () => {
         try {
-            console.log("Creating PayPal order for orderId:", orderId);
+            // console.log("Creating PayPal order for orderId:", orderId);
             const result = await createPayPalOrder(orderId);
 
             if (result.success && result.data) {
-                console.log("PayPal order created successfully:", result.data);
+                //  console.log("PayPal order created successfully:", result.data);
                 return result.data;
             } else {
                 throw new Error(result.message || "Failed to create PayPal order");
@@ -77,17 +147,20 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
     const handleApprovePayPalOrder = async (data: { orderID: string }) => {
         setIsProcessing(true);
         try {
-            console.log("Approving PayPal order:", data.orderID);
+            //   console.log("Approving PayPal order:", data.orderID);
             const result = await approvePayPalOrder(orderId, data);
 
             if (result.success) {
-                console.log("PayPal payment approved successfully");
+                // console.log("PayPal payment approved successfully");
                 setSuccess(true);
 
                 // Clean up the cart after successful payment
                 try {
-                    await cleanupCartAfterSuccessfulPayment(orderId);
-                    console.log("Cart cleaned up successfully");
+                    const result = await cleanupCartAfterSuccessfulPayment(orderId);
+                    //  console.log("Cart cleaned up successfully");
+                    if (result.success) {
+                        triggerCartUpdate()
+                    }
                 } catch (cleanupError) {
                     console.error("Error cleaning up cart:", cleanupError);
                     // Continue with success flow even if cart cleanup fails
@@ -116,7 +189,7 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
         // For COD orders, also clean up the cart
         cleanupCartAfterSuccessfulPayment(orderId)
             .then(() => {
-                console.log("Cart cleaned up successfully for COD order");
+                //    console.log("Cart cleaned up successfully for COD order");
             })
             .catch((error) => {
                 console.error("Error cleaning up cart for COD order:", error);
@@ -128,7 +201,7 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
 
     // Function to handle LascoPay redirect
     const handleLascoPayRedirect = async () => {
-        console.log('LascoPay button clicked. Checking for existing order...');
+        // console.log('LascoPay button clicked. Checking for existing order...');
         setIsProcessing(true);
 
         try {
@@ -138,8 +211,8 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
             // If there's an existing order ID and it doesn't match the current one, 
             // it means we might be creating a duplicate order
             if (existingOrderId && existingOrderId !== orderId) {
-                console.log("Found existing order ID:", existingOrderId, "Current order ID:", orderId);
-                console.log("Using existing order ID to prevent duplication");
+                //  console.log("Found existing order ID:", existingOrderId, "Current order ID:", orderId);
+                // console.log("Using existing order ID to prevent duplication");
 
                 // Show toast and redirect using the existing order ID
                 toast.success("Redirecting to payment page...", {
@@ -174,16 +247,16 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
                     return;
                 }
 
-                console.log("Payment status updated to PENDING for LascoPay");
+                //  console.log("Payment status updated to PENDING for LascoPay");
             } else {
-                console.log("Skipping payment update as we just created the order");
+                //   console.log("Skipping payment update as we just created the order");
                 localStorage.removeItem("skipPaymentUpdate");
             }
 
             // Clean up the cart after order creation
             try {
                 await cleanupCartAfterSuccessfulPayment(orderId);
-                console.log("Cart cleaned up successfully");
+                //   console.log("Cart cleaned up successfully");
             } catch (cleanupError) {
                 console.error("Error cleaning up cart:", cleanupError);
                 // Continue with the flow even if cart cleanup fails
@@ -200,7 +273,7 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
 
             // Allow some time for the toast to be seen
             setTimeout(() => {
-                console.log('Redirecting to LascoPay payment page...');
+                //  console.log('Redirecting to LascoPay payment page...');
                 window.location.href = `https://pay.lascobizja.com/btn/YFxrwuD1qO9k?orderId=${orderId}`;
             }, 2000); // Shorter timeout for redirection
         } catch (err) {
@@ -208,6 +281,38 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
             setError(err instanceof Error ? err.message : "Failed to process payment");
             toast.error("Failed to process payment. Please try again.");
             setIsProcessing(false);
+        }
+    };
+
+    // Function to handle successful Stripe payment
+    // const handleStripeSuccess = async () => {
+    //     // This function will be called by the Stripe payment success callback page
+    //     // For now, we'll just clean up the cart and show success message
+    //     setSuccess(true);
+
+    //     try {
+    //         await cleanupCartAfterSuccessfulPayment(orderId);
+    //         // console.log("Cart cleaned up successfully after Stripe payment");
+    //     } catch (cleanupError) {
+    //         console.error("Error cleaning up cart after Stripe payment:", cleanupError);
+    //     }
+
+    //     toast.success("Payment completed successfully!");
+
+    //     // Allow some time for the success message to be seen
+    //     setTimeout(() => {
+    //         router.push(`${SERVER_URL}/order/${orderId}/stripe-payment-success`,);
+    //     }, 1500);
+    // };
+
+    // Function to handle login redirect
+    const handleLoginRedirect = () => {
+        // Save current page to redirect back after login
+        if (typeof window !== 'undefined') {
+            // Store the current URL to redirect back after login
+            localStorage.setItem('loginRedirectUrl', window.location.href);
+            // Redirect to login page
+            router.push('/login');
         }
     };
 
@@ -260,6 +365,10 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
     }
 
     if (error) {
+        // Check if error is authentication related
+        const isAuthError = error.includes('Authentication required') ||
+            error.includes('Please log in');
+
         return (
             <div className="p-6 bg-red-50 rounded-lg border border-red-200">
                 <div className="flex justify-center mb-4">
@@ -267,13 +376,24 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
                 </div>
                 <h3 className="text-xl font-medium text-red-800 mb-2">Payment Error</h3>
                 <p className="text-red-700 mb-4">{error}</p>
-                <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setError(null)}
-                >
-                    Try Again
-                </Button>
+
+                {isAuthError ? (
+                    <Button
+                        variant="default"
+                        className="w-full"
+                        onClick={handleLoginRedirect}
+                    >
+                        Log in to continue
+                    </Button>
+                ) : (
+                    <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setError(null)}
+                    >
+                        Try Again
+                    </Button>
+                )}
             </div>
         );
     }
@@ -325,11 +445,32 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
                 )}
 
                 {displayedPaymentMethod === "Stripe" && (
-                    <div>
-                        <p>Stripe payment integration will be implemented here.</p>
-                        <Button className="w-full mt-4" disabled>
-                            Pay with Stripe
-                        </Button>
+                    <div className="space-y-4">
+                        <div className="p-4 bg-gray-50 rounded-md">
+                            <p className="text-sm text-gray-600">
+                                Complete your payment using the Stripe secure payment system.
+                            </p>
+                        </div>
+
+                        {isStripeLoading ? (
+                            <div className="flex items-center justify-center py-8">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+                                <p>Initializing payment...</p>
+                            </div>
+                        ) : stripeClientSecret ? (
+                            <StripePayment
+                                priceInCents={Math.round(totalAmount * 100)}
+                                orderId={orderId}
+                                clientSecret={stripeClientSecret}
+
+                            />
+                        ) : (
+                            <div className="p-4 bg-yellow-50 rounded-md">
+                                <p className="text-yellow-700">
+                                    {error || "Unable to initialize payment. Please try again or choose another payment method."}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 )}
 

@@ -44,7 +44,7 @@ export default function OrdersPage() {
             try {
                 setIsLoading(true)
                 const data = process.env.NEXT_PUBLIC_MARKET === 'LASCO' ? await getLascoUserOrders() : await getUserOrders()
-                console.log("Orders data:", data[0].shippingAddress)
+                //  console.log("Orders data:", data[0].shippingAddress)
                 // Cast the fetched data to our Order type
                 setOrders(data as Order[])
             } catch (error) {

@@ -14,6 +14,7 @@ declare global {
 ```
 
 **Key Learnings:**
+
 1. While `let` and `const` are preferred over `var` in modern JavaScript/TypeScript, global declarations are an exception
 2. The `no-var` ESLint rule needs to be disabled specifically for global declarations
 3. Using `var` for global declarations is the correct approach because:
@@ -22,16 +23,19 @@ declare global {
    - It follows TypeScript's expectations for global augmentation
 
 **Best Practices:**
+
 - Document ESLint rule exceptions with clear comments
 - Use `var` only for global declarations, stick to `let`/`const` everywhere else
 - When extending global types, ensure proper TypeScript namespace declarations
 
 This pattern is particularly useful when:
+
 - Managing singleton instances (like database connections)
 - Preventing hot reload issues in development
-- Ensuring proper type safety with global variables 
+- Ensuring proper type safety with global variables
 
 ## Database Configuration
+
 1. When using Prisma with Neon in a serverless environment:
    - Use `@neondatabase/serverless` for connection pooling
    - Configure WebSocket support for better connection management
@@ -50,6 +54,7 @@ This pattern is particularly useful when:
 When implementing multi-step checkout processes, field naming consistency becomes critical. We encountered issues with postal code data not being properly saved due to inconsistent field naming:
 
 **Key Learnings:**
+
 1. Field naming must be consistent throughout the entire data flow:
    - Form state in the frontend (`formData.postalCode`)
    - LocalStorage data structures (`zipCode` vs `postalCode`)
@@ -57,6 +62,7 @@ When implementing multi-step checkout processes, field naming consistency become
    - Database schema fields (`address.postalCode`)
 
 2. Data transformations between pages should include explicit field mappings:
+
    ```typescript
    // Ensure postal code is explicitly mapped when saving to localStorage
    localStorage.setItem('checkoutData', JSON.stringify({
@@ -69,6 +75,7 @@ When implementing multi-step checkout processes, field naming consistency become
    ```
 
 3. Implement fallback logic for different field names:
+
    ```typescript
    // Extract postal code from multiple possible sources
    const postalCode = checkoutData.shippingAddress.zipCode || 
@@ -77,6 +84,7 @@ When implementing multi-step checkout processes, field naming consistency become
    ```
 
 **Best Practices:**
+
 - Add detailed logging throughout the data flow to track field values
 - Use standardized naming conventions across all interfaces
 - Implement explicit type checking when accessing potentially missing fields
@@ -84,6 +92,7 @@ When implementing multi-step checkout processes, field naming consistency become
 - Always log raw data objects for debugging complex multi-step forms
 
 ## Authentication Setup
+
 1. NextAuth.js Integration:
    - Use the beta version for Next.js 14+ compatibility
    - Implement proper session and JWT handling
@@ -104,6 +113,7 @@ When implementing multi-step checkout processes, field naming consistency become
    - Store file metadata with user context
 
 ## Testing and Documentation
+
 1. Authentication Testing:
    - Create test pages for auth functionality
    - Verify protected routes
@@ -117,26 +127,30 @@ When implementing multi-step checkout processes, field naming consistency become
    - Keep track of lessons learned
 
 ## Deployment Considerations
+
 1. Vercel Deployment:
    - Configure build scripts properly
    - Handle dependency caching
    - Set up environment variables
-   - Test in production environment 
+   - Test in production environment
 
 ## UI Component Installation
+
 1. Shadcn/UI Components:
    - Use `npx shadcn@latest add [component-name]` for installation
    - NOT `npx shadcn-ui` which is incorrect
    - Can install multiple components at once: `npx shadcn@latest add component1 component2`
    - Components are added to `@/components/ui/`
-   - Tailwind CSS classes can be customized in the component files 
+   - Tailwind CSS classes can be customized in the component files
 
 ## Next.js 15 Dynamic Parameter Handling
 
 When upgrading to Next.js 15, we encountered issues with dynamic route parameters in the product details page. The application threw runtime errors and build-time type errors related to params handling.
 
 **Key Learnings:**
+
 1. In Next.js 15, route parameters are now Promises that must be awaited before use:
+
    ```typescript
    // Old approach (worked in Next.js 14)
    export default async function ProductDetailPage({ params }: PageProps) {
@@ -153,6 +167,7 @@ When upgrading to Next.js 15, we encountered issues with dynamic route parameter
    ```
 
 2. TypeScript interfaces need to be updated to reflect the Promise-based params:
+
    ```typescript
    // Old interface (Next.js 14)
    interface PageProps {
@@ -174,18 +189,21 @@ When upgrading to Next.js 15, we encountered issues with dynamic route parameter
 3. This change applies to all route parameters, including searchParams
 
 **Debugging Steps We Used:**
+
 1. Identified runtime error: `Error: Route "/products/[slug]" used params.slug. params should be awaited before using its properties.`
 2. Fixed runtime error by awaiting params
 3. Encountered build-time type errors when running `npm run build`
 4. Fixed type errors by updating the PageProps interface to use Promise types
 
 **Best Practices:**
+
 - Always await route parameters in Next.js 15 before accessing their properties
 - Update type definitions to match the new Promise-based parameter pattern
 - Review your entire application for instances of dynamic routes when upgrading
 - Check both runtime behavior and type safety when dealing with changes to framework APIs
 
 **Impact:**
+
 - Failing to properly handle these Promises can cause both runtime errors and type errors
 - The runtime errors may not be immediately apparent in development mode
 - Build errors will catch type issues, but only if you're using TypeScript properly
@@ -206,11 +224,13 @@ PayPal capture failed with status 403 {"name":"NOT_AUTHORIZED","details":[{"issu
 ```
 
 **Key Learnings:**
+
 1. PayPal's sandbox environment requires specific app permissions that must be explicitly configured
 2. Different PayPal operations (create order, capture payment) require different permission sets
 3. Developer accounts must have the right permission scope for API interactions
 
 **Solution:**
+
 1. Configure the correct permissions in the PayPal Developer Dashboard:
    - Transaction Search
    - Vault
@@ -218,6 +238,7 @@ PayPal capture failed with status 403 {"name":"NOT_AUTHORIZED","details":[{"issu
    - PayPal Checkout Advanced
    - Payments
 2. For development testing, we implemented a sandbox-only workaround:
+
    ```typescript
    // Only use this approach in development for testing UI flows
    if (isDevelopment && PAYPAL_API_BASE.includes('sandbox') && 
@@ -233,11 +254,13 @@ PayPal capture failed with status 403 {"name":"NOT_AUTHORIZED","details":[{"issu
 The original checkout flow deleted the cart immediately after creating an order, which caused issues when users were redirected back from PayPal. Without the cart, the confirmation page couldn't display order details.
 
 **Key Learnings:**
+
 1. Multi-step payment flows need to preserve state across HTTP redirects
 2. Cart data should be retained until the payment is fully completed
 3. Alternative data sources (like order data) should be available as fallbacks
 
 **Solution:**
+
 1. Implemented a new function `createOrderWithoutDeletingCart` that preserves the cart during payment flow
 2. Created an API endpoint to fetch order details directly by ID
 3. Updated the confirmation page to load data from either the cart or the order
@@ -248,24 +271,29 @@ The original checkout flow deleted the cart immediately after creating an order,
 The PayPal JavaScript SDK script failed to load with errors when the client ID was missing or invalid.
 
 **Key Learnings:**
+
 1. Client-side environment variables in Next.js must be prefixed with `NEXT_PUBLIC_`
 2. Hard-coded credentials are a security risk and cause maintenance issues
 3. Always include fallback values for environment variables to prevent runtime errors:
+
    ```typescript
    const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
    ```
 
 **Solution:**
+
 1. Fixed environment variable names in `.env` file:
+
    ```
    PAYPAL_CLIENT_ID=... # Server-side only
    NEXT_PUBLIC_PAYPAL_CLIENT_ID=... # Available on client
    ```
+
 2. Removed hardcoded credentials from the PayPalCheckout component
 3. Added console logging to verify the correct values are being used
 4. Implemented proper error handling for missing credentials
 
-### Best Practices for Payment Integration:
+### Best Practices for Payment Integration
 
 1. **Graceful Degradation:**
    - Always provide fallbacks if payment options fail to load
@@ -302,11 +330,13 @@ When working with Next.js's built-in Image component for optimized images, we en
 
 **Problem:**
 Images failed to load with the following error:
+
 ```
 ⨯ Error: Invalid src prop (https://hebbkx1anhila5yf.public.blob.vercel-storage.com/HeroImage-Wl3RWWw6YOnIN9bl2xJRPITHuYRdIw.png) on `next/image`, hostname "hebbkx1anhila5yf.public.blob.vercel-storage.com" is not configured under images in your `next.config.js`
 ```
 
 **Key Learnings:**
+
 1. Next.js requires explicit configuration for external image domains for security
 2. Both the `domains` array and `remotePatterns` configurations may be needed
 3. `domains` is simpler but less secure (whole domain is allowed)
@@ -341,6 +371,7 @@ const nextConfig = {
 ```
 
 This configuration is important for:
+
 1. PayPal button images that are loaded from PayPal's CDN
 2. Vercel Blob Storage images used throughout the site
 3. Any other third-party image services integrated with the application
@@ -353,8 +384,10 @@ When the Next.js development server emits an image domain error, it provides the
 When deploying to production, proper environment variable management is crucial. We encountered issues with our application working in development but failing in production due to environment variable misconfigurations.
 
 **Key Learnings:**
+
 1. Different environments (dev/prod) should have consistent variable naming
 2. Development-only workarounds must be properly conditioned:
+
    ```typescript
    // Good approach - only applies in development
    if (process.env.NODE_ENV === 'development') {
@@ -366,6 +399,7 @@ When deploying to production, proper environment variable management is crucial.
    ```
 
 3. The `.env` file's `NODE_ENV` setting affects server behavior:
+
    ```
    # For local development
    NODE_ENV="development"
@@ -375,6 +409,7 @@ When deploying to production, proper environment variable management is crucial.
    ```
 
 **Best Practices:**
+
 1. Use a `.env.local` file for local development overrides (not committed to git)
 2. Set `NODE_ENV="development"` for local testing
 3. Consistently use environment variable prefixes:
@@ -395,6 +430,7 @@ When implementing address management in our e-commerce application, we encounter
 Initially, all addresses were displayed in the user's address book, including those created during checkout. This led to cluttered address books filled with one-time delivery addresses that users didn't necessarily want to save.
 
 **Key Learnings:**
+
 1. Checkout-created addresses and user-managed addresses serve different purposes:
    - Checkout addresses are created for one-time use during the ordering process
    - User-managed addresses are explicitly saved by users for future orders
@@ -402,7 +438,9 @@ Initially, all addresses were displayed in the user's address book, including th
 3. Addresses created during checkout should still be associated with the user for order history
 
 **Solution:**
+
 1. Added an `isUserManaged` boolean field to the Address model with a default value of `false`:
+
    ```prisma
    model Address {
      // ... other fields
@@ -411,6 +449,7 @@ Initially, all addresses were displayed in the user's address book, including th
    ```
 
 2. Modified address creation and retrieval logic:
+
    ```typescript
    // Only retrieve addresses that users explicitly want to manage
    export async function getUserAddresses() {
@@ -427,6 +466,7 @@ Initially, all addresses were displayed in the user's address book, including th
    ```
 
 3. Updated address creation in checkout to ensure addresses are not automatically added to the user's address book:
+
    ```typescript
    await db.address.create({
      data: {
@@ -438,6 +478,7 @@ Initially, all addresses were displayed in the user's address book, including th
    ```
 
 4. Created a function for users to explicitly mark addresses as managed:
+
    ```typescript
    export async function markAddressAsUserManaged(addressId: string) {
      // ... authentication check
@@ -451,6 +492,7 @@ Initially, all addresses were displayed in the user's address book, including th
    ```
 
 5. Ensured addresses created directly in the user's address management UI are always marked as user-managed:
+
    ```typescript
    export async function addUserAddress(addressData) {
      // ... authentication check
@@ -465,6 +507,7 @@ Initially, all addresses were displayed in the user's address book, including th
    ```
 
 **Best Practices:**
+
 - Clearly distinguish between system-created and user-managed data in your schema
 - Design database schemas with flags that control visibility in different contexts
 - Use boolean flags with meaningful defaults for toggleable behavior
@@ -483,6 +526,7 @@ When dealing with third-party integrations like payment providers, certain error
 The PayPal integration would log a console error "Target window is closed" when users navigated away from the payment flow or closed the PayPal popup. While this is expected behavior, it resulted in confusing error logs and potentially triggered monitoring alerts.
 
 **Key Learnings:**
+
 1. Some client-side errors are expected and don't represent actual problems
 2. Error logging systems can be overwhelmed by non-actionable errors
 3. Clean console logs improve development experience and customer support
@@ -491,6 +535,7 @@ The PayPal integration would log a console error "Target window is closed" when 
 We implemented a targeted approach to intercept and silence specific known PayPal errors:
 
 1. Used a global error handler to intercept PayPal-specific errors:
+
    ```javascript
    // Listen for errors in the PayPal SDK
    window.addEventListener('error', (event) => {
@@ -506,6 +551,7 @@ We implemented a targeted approach to intercept and silence specific known PayPa
    ```
 
 2. Added clear documentation about the silenced errors:
+
    ```javascript
    /**
     * This error handler prevents PayPal's "Target window is closed" errors 
@@ -516,10 +562,11 @@ We implemented a targeted approach to intercept and silence specific known PayPa
    ```
 
 **Best Practices:**
+
 - Only silence errors that are well-understood and expected
 - Document any error silencing with clear explanations
 - Be specific in error matching to avoid hiding unexpected issues
 - Consider implementing different handling for development vs. production
 - Monitor silenced errors periodically to ensure they remain non-actionable
 
-This approach has resulted in cleaner logs, better developer experience, and less noise in our monitoring systems, while still ensuring that actual issues are properly reported and addressed. 
+This approach has resulted in cleaner logs, better developer experience, and less noise in our monitoring systems, while still ensuring that actual issues are properly reported and addressed.

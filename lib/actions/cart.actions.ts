@@ -5,11 +5,11 @@ import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
-import { 
-  addToCartSchema, 
-  updateCartItemSchema, 
-  removeFromCartSchema, 
-  checkInventorySchema 
+import {
+  addToCartSchema,
+  updateCartItemSchema,
+  removeFromCartSchema,
+  checkInventorySchema
 } from '@/lib/validators';
 import { CartItemDetails, AddToCartInput, UpdateCartItemInput, RemoveFromCartInput } from '@/types';
 import crypto from 'crypto';
@@ -18,62 +18,39 @@ import crypto from 'crypto';
  * Get the current user's cart or create a guest cart
  */
 export async function getCart() {
-  try {
-    // Check if user is logged in
-    const session = await auth();
-    const userId = session?.user?.id;
-
-    // For logged-in users, get their cart
-    if (userId) {
-      const cart = await prisma.cart.findUnique({
-        where: { userId },
+  const sessionCartId = (await cookies()).get('sessionCartId')?.value;
+  if (!sessionCartId) {
+    throw new Error('Session cart id not found');
+  }
+  //Get Seesion cart id as well as user id
+  const session = await auth();
+  //Get the user id from the session and display undefined instead of an error if it isnt found
+  const userId = session?.user?.id ? (session.user.id as string) : undefined;
+  //Get Cart items from the database
+  const cart = await prisma.cart.findFirst({
+    where: userId ? { userId: userId } : { sessionId: sessionCartId },
+    include: {
+      items: {
         include: {
-          items: {
-            include: {
-              product: true,
-              inventory: true,
-            },
-          },
-        },
-      });
-
-      if (cart) {
-        return formatCartResponse(cart);
-      }
-    }
-
-    // For guests or users without a cart, check for session ID
-    const cookieStore = await cookies();
-    const sessionId = cookieStore.get('sessionCartId')?.value;
-    
-    if (!sessionId) {
-      // If no session ID, return null - will be created on first add to cart
-      return null;
-    }
-
-    // Find cart for this session
-    const guestCart = await prisma.cart.findUnique({
-      where: { sessionId },
-      include: {
-        items: {
-          include: {
-            product: true,
-            inventory: true,
-          },
+          product: true,
+          inventory: true,
         },
       },
-    });
+    },
+  })
+  if (!cart || !cart.items) return undefined
 
-    if (guestCart) {
-      return formatCartResponse(guestCart);
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Error getting cart:', error);
-    return null;
+  if (cart) {
+    //revalidatePath('/cart');
+    return formatCartResponse(cart);
   }
 }
+
+
+
+
+// For guests or users without a cart, check for session ID
+
 
 /**
  * Add an item to the cart
@@ -106,20 +83,20 @@ export async function addToCart(data: AddToCartInput) {
       // If no session ID provided and no user ID, try to get from cookies
       const cookieStore = await cookies();
       sessionId = cookieStore.get('sessionCartId')?.value;
-      
+
       // If still no session ID, we need to create one
       if (!sessionId) {
         sessionId = crypto.randomUUID();
-        cookieStore.set('sessionCartId', sessionId, { 
+        cookieStore.set('sessionCartId', sessionId, {
           expires: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
-          path: '/' 
+          path: '/'
         });
       }
     }
 
     // Find or create cart
     let cart;
-    
+
     if (userId) {
       // For logged-in users
       cart = await prisma.cart.findUnique({
@@ -134,12 +111,12 @@ export async function addToCart(data: AddToCartInput) {
     } else {
       // For guests, create a cart with session ID
       if (!sessionId) {
-        return { 
-          success: false, 
-          message: "Session ID is required for guest carts" 
+        return {
+          success: false,
+          message: "Session ID is required for guest carts"
         };
       }
-      
+
       cart = await prisma.cart.findUnique({
         where: { sessionId },
       });
@@ -165,8 +142,8 @@ export async function addToCart(data: AddToCartInput) {
       // Update quantity if item exists
       const updatedItem = await prisma.cartItem.update({
         where: { id: existingCartItem.id },
-        data: { 
-          quantity: existingCartItem.quantity + quantity 
+        data: {
+          quantity: existingCartItem.quantity + quantity
         },
         include: {
           product: true,
@@ -175,8 +152,8 @@ export async function addToCart(data: AddToCartInput) {
       });
 
       revalidatePath('/cart');
-      return { 
-        success: true, 
+      return {
+        success: true,
         message: "Item quantity updated in cart",
         item: formatCartItemResponse(updatedItem),
       };
@@ -187,9 +164,9 @@ export async function addToCart(data: AddToCartInput) {
       });
 
       if (!inventoryItem) {
-        return { 
-          success: false, 
-          message: "Product variant not found" 
+        return {
+          success: false,
+          message: "Product variant not found"
         };
       }
 
@@ -208,8 +185,8 @@ export async function addToCart(data: AddToCartInput) {
       });
 
       revalidatePath('/cart');
-      return { 
-        success: true, 
+      return {
+        success: true,
         message: "Item added to cart",
         item: formatCartItemResponse(newItem),
       };
@@ -231,12 +208,15 @@ export async function updateCartItem(data: UpdateCartItemInput) {
     const validatedData = updateCartItemSchema.parse(data);
     const { cartItemId, quantity } = validatedData;
 
-    console.log(`Updating cart item ${cartItemId} to quantity ${quantity}`);
-
+    //console.log(`Updating cart item ${cartItemId} to quantity ${quantity}`);
+    if (quantity <= 0) {
+      // If quantity is zero or less, remove the item
+      return await removeFromCart({ cartItemId });
+    }
     // Find the cart item with inventory details
     const cartItem = await prisma.cartItem.findUnique({
       where: { id: cartItemId },
-      include: { 
+      include: {
         inventory: true,
         product: true
       },
@@ -278,13 +258,13 @@ export async function updateCartItem(data: UpdateCartItemInput) {
     });
 
     console.log(`Cart item updated successfully`);
-    
+
     // Revalidate both cart and product pages
     revalidatePath('/cart');
     revalidatePath(`/products/${cartItem.product.slug}`);
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       message: "Cart item updated",
       item: formatCartItemResponse(updatedItem),
     };
@@ -336,7 +316,7 @@ export async function removeFromCart(data: RemoveFromCartInput) {
 export async function clearCart() {
   try {
     const cart = await getCart();
-    
+
     if (!cart?.id) {
       return { success: false, message: "No cart found" };
     }
@@ -381,7 +361,7 @@ export async function mergeGuestCartWithUserCart(sessionId: string, userId: stri
         where: { id: guestCart.id },
         data: { userId, sessionId: null },
       });
-      
+
       revalidatePath('/cart');
       return { success: true, message: "Guest cart assigned to user" };
     }
@@ -389,7 +369,7 @@ export async function mergeGuestCartWithUserCart(sessionId: string, userId: stri
     // Merge items from guest cart to user cart
     for (const item of guestCart.items) {
       const existingItem = userCart.items.find(i => i.inventoryId === item.inventoryId);
-      
+
       if (existingItem) {
         // Update quantity if item exists in user cart
         await prisma.cartItem.update({
@@ -409,11 +389,11 @@ export async function mergeGuestCartWithUserCart(sessionId: string, userId: stri
     await prisma.cart.delete({
       where: { id: guestCart.id },
     });
-    
+
     // Clear the session cookie
     const cookieStore = await cookies();
     cookieStore.delete('sessionCartId');
-    
+
     revalidatePath('/cart');
     return { success: true, message: "Carts merged successfully" };
   } catch (error) {
@@ -429,12 +409,12 @@ export async function checkInventoryAvailability(data: z.infer<typeof checkInven
   try {
     const validatedData = checkInventorySchema.parse(data);
     const { inventoryId, quantity } = validatedData;
-    
+
     if (!inventoryId) {
       console.error('No inventory ID provided');
       return { success: false, message: "Missing inventory information" };
     }
-    
+
     // Try to find inventory by SKU
     const inventory = await prisma.productInventory.findUnique({
       where: { sku: inventoryId },
@@ -454,40 +434,40 @@ export async function checkInventoryAvailability(data: z.infer<typeof checkInven
           },
         },
       });
-      
+
       if (product?.inventories && product.inventories.length > 0) {
         const defaultInventory = product.inventories[0];
         console.log(`Found product inventory for product ID ${inventoryId}, using SKU: ${defaultInventory.sku}`);
-        
+
         if (defaultInventory.quantity < quantity) {
-          return { 
-            success: false, 
+          return {
+            success: false,
             message: `Only ${defaultInventory.quantity} items available`,
             availableQuantity: defaultInventory.quantity
           };
         }
-        
-        return { 
-          success: true, 
+
+        return {
+          success: true,
           message: "Inventory available",
           inventorySku: defaultInventory.sku
         };
       }
-      
+
       console.error(`No inventory found with SKU ${inventoryId}`);
       return { success: false, message: "Product variant not found" };
     }
 
     if (inventory.quantity < quantity) {
-      return { 
-        success: false, 
+      return {
+        success: false,
         message: `Only ${inventory.quantity} items available`,
         availableQuantity: inventory.quantity
       };
     }
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       message: "Inventory available",
       inventorySku: inventory.sku
     };
@@ -510,7 +490,7 @@ function formatCartResponse(cart: Record<string, unknown>) {
     sessionId: string | null;
     items: Array<Record<string, unknown>>;
   };
-  
+
   return {
     id: typedCart.id,
     userId: typedCart.userId,
@@ -521,23 +501,23 @@ function formatCartResponse(cart: Record<string, unknown>) {
       return acc + typedItem.quantity;
     }, 0),
     total: typedCart.items.reduce((acc: number, item) => {
-      const typedItem = item as { 
+      const typedItem = item as {
         inventory: { retailPrice: string | number; compareAtPrice?: string | number; discountPercentage?: number; hasDiscount?: boolean };
         quantity: number;
       };
-      
+
       // For items with a discount, use the compareAtPrice as the base for discount calculation
       let price = Number(typedItem.inventory.retailPrice);
-      
+
       // If this item has a discount and a compareAtPrice, calculate the proper discounted price
-      if (typedItem.inventory.hasDiscount && 
-          typedItem.inventory.discountPercentage && 
-          typedItem.inventory.compareAtPrice) {
+      if (typedItem.inventory.hasDiscount &&
+        typedItem.inventory.discountPercentage &&
+        typedItem.inventory.compareAtPrice) {
         const compareAtPrice = Number(typedItem.inventory.compareAtPrice);
         const discountPercentage = typedItem.inventory.discountPercentage;
         price = compareAtPrice * (1 - discountPercentage / 100);
       }
-      
+
       return acc + (price * typedItem.quantity);
     }, 0),
   };
@@ -570,14 +550,14 @@ function formatCartItemResponse(item: Record<string, unknown>): CartItemDetails 
       [key: string]: unknown;
     };
   };
-  
+
   // Calculate the actual price considering discounts
   let price = Number(typedItem.inventory.retailPrice);
-  
+
   // If this item has a discount and a compareAtPrice, calculate the proper discounted price
-  if (typedItem.inventory.hasDiscount && 
-      typedItem.inventory.discountPercentage && 
-      typedItem.inventory.compareAtPrice) {
+  if (typedItem.inventory.hasDiscount &&
+    typedItem.inventory.discountPercentage &&
+    typedItem.inventory.compareAtPrice) {
     const compareAtPrice = Number(typedItem.inventory.compareAtPrice);
     const discountPercentage = typedItem.inventory.discountPercentage;
     price = compareAtPrice * (1 - discountPercentage / 100);
@@ -592,8 +572,8 @@ function formatCartItemResponse(item: Record<string, unknown>): CartItemDetails 
     quantity: typedItem.quantity,
     price,
     // Handle possibly missing images array
-    image: typedItem.inventory.images && typedItem.inventory.images.length > 0 
-      ? String(typedItem.inventory.images[0] || '') 
+    image: typedItem.inventory.images && typedItem.inventory.images.length > 0
+      ? String(typedItem.inventory.images[0] || '')
       : '',
     // Ensure null instead of undefined for discountPercentage
     discountPercentage: typedItem.inventory.discountPercentage ?? null,
@@ -603,6 +583,7 @@ function formatCartItemResponse(item: Record<string, unknown>): CartItemDetails 
     maxQuantity: typedItem.inventory.quantity ?? 0,
   };
 }
+
 
 /**
  * Clean up cart after successful payment
@@ -614,22 +595,27 @@ export const cleanupCartAfterSuccessfulPayment = async (orderId: string) => {
       where: { id: orderId },
       select: { cartId: true }
     });
-    
+
     if (!order || !order.cartId) {
       console.warn(`No cart found for order: ${orderId}`);
       return { success: true, message: "No cart to clean up" };
     }
-    
+
     // Delete cart items first
     await prisma.cartItem.deleteMany({
       where: { cartId: order.cartId }
     });
-    
+
     // Delete the cart
     await prisma.cart.delete({
       where: { id: order.cartId }
     });
-    
+    // Trigger revalidation for the cart and header
+    setTimeout(() => {
+      revalidatePath('/cart'); // Revalidate the cart page
+      revalidatePath('/'); // Revalidate the header or home page if needed
+    }, 1000);
+
     return { success: true };
   } catch (error) {
     console.error("Error cleaning up cart:", error);

@@ -19,6 +19,7 @@ import { updateUserSchema } from '@/lib/validators';
 
 
 
+
 const ProfileForm = () => {
 
     const { data: session, update } = useSession();
@@ -36,12 +37,10 @@ const ProfileForm = () => {
     async function onSubmit(values: z.infer<typeof updateUserSchema>) {
         const res = await updateProfile(values);
 
-        // if (!res.success)
-        // return toast({
-        //     variant: 'destructive',
-        //     description: res.message,
-        // });
+        if (!res.success)
+            return toast.error(res.message);
         if (res.success) {
+            toast.success(res.message);
             const newSession = {
                 ...session,
                 user: {
@@ -55,11 +54,11 @@ const ProfileForm = () => {
 
 
 
-        // toast({
-        //     description: res.message,
-        // });
+        toast('User Profile Updated', {
+            description: res.message,
+        });
     }
-
+    // console.log(session)
 
     return (
         <Form {...form}>
@@ -106,15 +105,15 @@ const ProfileForm = () => {
                     size='lg'
                     disabled={form.formState.isSubmitting}
                     className='button col-span-2 w-full'
-                    onClick={() =>
-                        toast("Event has been created", {
-                            description: "Sunday, December 03, 2023 at 9:00 AM",
-                            action: {
-                                label: "Undo",
-                                onClick: () => console.log("Undo"),
-                            },
-                        })
-                    }
+                // onClick={() =>
+                //     toast("Event has been created", {
+                //         description: "Sunday, December 03, 2023 at 9:00 AM",
+                //         action: {
+                //             label: "Undo",
+                //             onClick: () => console.log("Undo"),
+                //         },
+                //     })
+                // }
                 >
                     {form.formState.isSubmitting ? 'Submitting...' : 'Update Profile'}
                 </Button>

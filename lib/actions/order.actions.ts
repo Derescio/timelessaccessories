@@ -1,6 +1,6 @@
 "use server"
 
-import { db } from "@/lib/db"
+// import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/auth"
 import { OrderStatus, PaymentStatus } from "@prisma/client"
@@ -10,6 +10,7 @@ import { Decimal } from "@prisma/client/runtime/library"
 import { prisma } from "../prisma"
 import { isRedirectError } from "next/dist/client/components/redirect-error"
 import { savePaymentResult } from "@/lib/actions/payment.actions"
+import { cleanupCartAfterSuccessfulPayment } from "@/lib/actions/cart.actions"
 
 // Only keep interfaces that are actually used
 interface ShippingMethod {
@@ -52,24 +53,24 @@ export async function formatError(error: unknown): Promise<string> {
         const message = (error.errors as Record<string, { message: string | unknown }>)[field].message;
         return typeof message === 'string' ? message : JSON.stringify(message);
       });
-      
+
       return fieldErrors.join('. ');
-    } 
+    }
     // Check for Prisma errors
     else if (
-      error.name === 'PrismaClientKnownRequestError' && 
-      'code' in error && 
+      error.name === 'PrismaClientKnownRequestError' &&
+      'code' in error &&
       error.code === 'P2002' &&
-      'meta' in error && 
-      error.meta && 
-      typeof error.meta === 'object' && 
-      'target' in error.meta && 
+      'meta' in error &&
+      error.meta &&
+      typeof error.meta === 'object' &&
+      'target' in error.meta &&
       Array.isArray(error.meta.target)
     ) {
       // Handle Prisma error
       const field = error.meta.target[0] as string;
       return `${field.charAt(0).toUpperCase() + field.slice(1)} already exists`;
-    } 
+    }
     // Handle general error with message property
     else if ('message' in error) {
       return typeof error.message === 'string'
@@ -77,7 +78,7 @@ export async function formatError(error: unknown): Promise<string> {
         : JSON.stringify(error.message);
     }
   }
-  
+
   // Fallback for any other error
   return `Unknown error: ${String(error)}`;
 }
@@ -85,14 +86,14 @@ export async function formatError(error: unknown): Promise<string> {
 
 // Utility function to fetch order by ID
 const fetchOrderById = async (orderId: string) => {
-  const order = await db.order.findFirst({
+  const order = await prisma.order.findFirst({
     where: { id: orderId },
     include: {
       items: true,
       user: { select: { name: true, email: true } }
     },
   });
-  
+
   if (!order) throw new Error('Order not found');
   return order;
 };
@@ -114,9 +115,9 @@ const handleError = async (error: unknown): Promise<{ success: false, message: s
 export const createOrder = async (orderData: OrderData) => {
   try {
     // Get the cart to ensure it exists
-    const cart = await db.cart.findUnique({
+    const cart = await prisma.cart.findUnique({
       where: { id: orderData.cartId },
-      include: { 
+      include: {
         items: {
           include: {
             product: {
@@ -156,8 +157,8 @@ export const createOrder = async (orderData: OrderData) => {
       price: Number(item.inventory.retailPrice),
       quantity: item.quantity,
       name: item.product.name,
-      image: item.inventory.images && item.inventory.images.length > 0 
-        ? item.inventory.images[0] 
+      image: item.inventory.images && item.inventory.images.length > 0
+        ? item.inventory.images[0]
         : null,
     }));
 
@@ -165,7 +166,7 @@ export const createOrder = async (orderData: OrderData) => {
     const notes = `Shipping Method: ${orderData.shipping.method}, Payment Method: ${orderData.payment?.method || 'Not specified'}`;
 
     // Create the order
-    const order = await db.order.create({
+    const order = await prisma.order.create({
       data: {
         userId,
         cartId: cart.id,
@@ -187,12 +188,12 @@ export const createOrder = async (orderData: OrderData) => {
 
     // We do NOT delete the cart here - it will be deleted after payment confirmation
 
-    return { 
-      success: true, 
-      data: { 
+    return {
+      success: true,
+      data: {
         id: order.id,
-        total: Number(order.total) 
-      } 
+        total: Number(order.total)
+      }
     };
   } catch (error) {
     console.error("Error creating order:", error);
@@ -203,17 +204,17 @@ export const createOrder = async (orderData: OrderData) => {
 export async function createOrderWithoutDeletingCart(data: OrderData) {
   try {
     const session = await auth()
-    
+
     if (!session?.user) {
       return { success: false, error: "You must be logged in to create an order" }
     }
-    
+
     const userId = session.user.id as string
-    
+
     // Get cart items
-    const cart = await db.cart.findUnique({
+    const cart = await prisma.cart.findUnique({
       where: { id: data.cartId },
-      include: { 
+      include: {
         items: {
           include: {
             product: {
@@ -233,15 +234,15 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
         }
       },
     })
-    
+
     if (!cart) {
       return { success: false, error: "Cart not found" }
     }
-    
+
     if (cart.items.length === 0) {
       return { success: false, error: "Cart is empty" }
     }
-    
+
     // Add notes with shipping and payment method information
     const notes = `Shipping Method: ${data.shipping.method}, Payment Method: ${data.payment?.method || 'Not specified'}`;
 
@@ -254,7 +255,7 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
       name: item.product.name,
       image: item.inventory.images?.[0] || null
     }))
-    
+
     // Prepare address data with proper validation
     const addressData = {
       userId,
@@ -264,7 +265,7 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
       postalCode: data.shippingAddress.zipCode || "",
       country: data.shippingAddress.country || "",
     };
-    
+
     // Log address data before creation with explicit zipCode value
     console.log("Preparing to create address with data:", {
       userId,
@@ -276,19 +277,19 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
       rawZipCode: data.shippingAddress.zipCode,  // Log the raw zipCode for debugging
       rawData: JSON.stringify(data.shippingAddress) // Log the full raw shipping data for debugging
     });
-    
+
     // Create address record with explicit error handling
     let address;
     try {
-      address = await db.address.create({
+      address = await prisma.address.create({
         data: addressData
       });
-      
+
       // Verify address was created correctly
-      const createdAddress = await db.address.findUnique({
+      const createdAddress = await prisma.address.findUnique({
         where: { id: address.id }
       });
-      
+
       console.log("Address created successfully:", {
         id: createdAddress?.id,
         street: createdAddress?.street,
@@ -301,23 +302,23 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
       console.error("Error creating address:", error);
       throw new Error(`Failed to create address: ${error instanceof Error ? error.message : String(error)}`);
     }
-    
+
     // Map payment status string to enum
-    const paymentStatusValue = typeof data.payment?.status === 'string' 
-      ? (data.payment.status === 'PENDING' || data.payment.status === 'pending' 
-          ? PaymentStatus.PENDING 
-          : PaymentStatus.PENDING) 
+    const paymentStatusValue = typeof data.payment?.status === 'string'
+      ? (data.payment.status === 'PENDING' || data.payment.status === 'pending'
+        ? PaymentStatus.PENDING
+        : PaymentStatus.PENDING)
       : (data.payment?.status || PaymentStatus.PENDING);
-    
+
     // Map order status string to enum
     const orderStatusValue = typeof data.status === 'string'
       ? (data.status === 'PENDING' || data.status === 'pending'
-          ? OrderStatus.PENDING
-          : OrderStatus.PENDING)
+        ? OrderStatus.PENDING
+        : OrderStatus.PENDING)
       : (data.status || OrderStatus.PENDING);
-    
+
     // Create order
-    const order = await db.order.create({
+    const order = await prisma.order.create({
       data: {
         userId,
         addressId: address.id,
@@ -334,10 +335,10 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
         }
       },
     })
-    
+
     // Update inventory quantities
     for (const item of cart.items) {
-      await db.productInventory.update({
+      await prisma.productInventory.update({
         where: { id: item.inventoryId },
         data: {
           quantity: {
@@ -346,13 +347,13 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
         }
       })
     }
-    
+
     // Create payment record if payment details are provided
     if (data.payment) {
       console.log("Creating payment record for order:", order.id, "with method:", data.payment.method);
-      
+
       try {
-        const payment = await db.payment.create({
+        const payment = await prisma.payment.create({
           data: {
             orderId: order.id,
             amount: new Decimal(data.total),
@@ -361,7 +362,7 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
             paymentId: data.payment.providerId || null,
           }
         });
-        
+
         console.log("Payment record created successfully:", {
           id: payment.id,
           orderId: payment.orderId,
@@ -378,7 +379,7 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
     }
 
     // NOTE: We're not deleting the cart here, which is the key difference from createOrder
-    
+
     // Convert Decimal objects to numbers for client component compatibility
     const serializedOrder = {
       ...order,
@@ -387,23 +388,23 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
       tax: Number(order.tax),
       total: Number(order.total),
     }
-    
+
     // Revalidate relevant paths
     revalidatePath("/shipping")
     revalidatePath("/cart")
     revalidatePath("/user/account/orders")
-    
+
     return { success: true, data: serializedOrder }
   } catch (error) {
     console.error("Error creating order:", error)
     return { success: false, error: "Failed to create order" }
   }
-} 
+}
 
 export async function createPayPalOrder(orderId: string): Promise<{ success: boolean, message: string, data?: string }> {
   try {
     const order = await fetchOrderById(orderId);
-    
+
     // Handle potential issues with the order
     if (order.status !== 'PENDING') {
       return {
@@ -411,18 +412,18 @@ export async function createPayPalOrder(orderId: string): Promise<{ success: boo
         message: `Order is already ${order.status.toLowerCase()}. Cannot create payment for a non-pending order.`
       };
     }
-    
+
     console.log(`Creating PayPal order for order ID ${orderId} with amount ${Number(order.total)}`);
-    
+
     // Create a PayPal order
     const paypalOrder = await paypal.createOrder(Number(order.total));
-    
+
     if (!paypalOrder || !paypalOrder.id) {
       throw new Error("PayPal order creation failed - no order ID returned");
     }
-    
+
     console.log(`PayPal order created successfully with ID: ${paypalOrder.id}`);
-    
+
     // Return the PayPal order ID
     return {
       success: true,
@@ -442,16 +443,16 @@ export async function approvePayPalOrder(
   try {
     // Fetch the order to make sure it exists and is valid
     const order = await fetchOrderById(orderId);
-    
+
     if (!order) {
       throw new Error('Order not found');
     }
-    
+
     // Check if the order has already been paid by fetching payment status
     const payment = await prisma.payment.findFirst({
       where: { orderId: orderId }
     });
-    
+
     if (payment?.status === 'COMPLETED') {
       return {
         success: true,
@@ -459,15 +460,15 @@ export async function approvePayPalOrder(
         redirectTo: `/order-success?orderId=${orderId}`,
       };
     }
-    
+
     // Capture the payment from PayPal
     const captureData = await paypal.capturePayment(data.orderID);
     console.log('Payment capture data:', captureData);
-    
+
     if (!captureData || !captureData.id) {
       throw new Error('Failed to capture PayPal payment');
     }
-    
+
     // Update order status and payment record in a transaction to ensure data consistency
     await prisma.$transaction(async (tx) => {
       // First, update the order status to PROCESSING
@@ -475,7 +476,7 @@ export async function approvePayPalOrder(
         where: { id: orderId },
         data: { status: OrderStatus.PROCESSING }
       });
-      
+
       // Next, update or create the payment record
       if (payment?.id) {
         await tx.payment.update({
@@ -509,22 +510,22 @@ export async function approvePayPalOrder(
           }
         });
       }
-      
+
       // Finally, update inventory quantities for each item in the order
       for (const item of order.items) {
         await tx.productInventory.update({
           where: { id: item.inventoryId },
-          data: { 
-            quantity: { 
-              decrement: item.quantity 
+          data: {
+            quantity: {
+              decrement: item.quantity
             }
           }
         });
-        
+
         console.log(`Decremented inventory for item ${item.inventoryId} by ${item.quantity}`);
       }
     });
-    
+
     // Save payment result
     await savePaymentResult({
       orderId,
@@ -539,7 +540,7 @@ export async function approvePayPalOrder(
         timestamp: new Date().toISOString(),
       }),
     });
-    
+
     // Return success
     return {
       success: true,
@@ -569,73 +570,85 @@ export async function updateOrderToPaid({
 
   // Transaction to update the order and update the product quantities
   await prisma.$transaction(async (tx) => {
-      // Update all item quantities in the database
-      for (const item of order.items) {
-          await tx.product.update({
-              where: { id: item.productId },
-              data: { 
-                inventories: {
-                  update: {
-                    where: { id: item.inventoryId },
-                    data: { quantity: { decrement: item.quantity } }
-                  }
-                }
-              },
-          });
-      }
-
-      // Set the order to paid
-      await tx.order.update({
-          where: { id: orderId },
-          data: {
-              status: 'PROCESSING',
-              updatedAt: new Date(),
-              payment: {
-                create: {
-                  amount: order.total,
-                  provider: paymentResult?.id ? 'PayPal' : 'COD', 
-                  paymentId: paymentResult?.id,
-                  paymentResult: paymentResult ? { paymentResult } : undefined,
-                  status: 'COMPLETED'
-                }
-              }
-          },
+    // Update all item quantities in the database
+    for (const item of order.items) {
+      await tx.product.update({
+        where: { id: item.productId },
+        data: {
+          inventories: {
+            update: {
+              where: { id: item.inventoryId },
+              data: { quantity: { decrement: item.quantity } }
+            }
+          }
+        },
       });
+    }
+
+    // Set the order to paid
+    await tx.order.update({
+      where: { id: orderId },
+      data: {
+        status: 'PROCESSING',
+        updatedAt: new Date(),
+        // If paymentResult contains an ID, use it as the chargeId
+        chargeId: paymentResult?.id,
+        payment: {
+          upsert: {
+            create: {
+              amount: order.total,
+              provider: paymentResult?.id ? 'Stripe' : 'COD',
+              paymentId: paymentResult?.id,
+              paymentResult: paymentResult ? paymentResult : undefined,
+              status: 'COMPLETED'
+            },
+            update: {
+              status: 'COMPLETED',
+              paymentId: paymentResult?.id,
+              paymentResult: paymentResult ? paymentResult : undefined,
+            }
+          }
+        }
+      }
+    });
   });
+
+  // Clean up the cart after successful payment
+  await cleanupCartAfterSuccessfulPayment(orderId);
 
   // Get the updated order after the transaction
   const updatedOrder = await prisma.order.findFirst({
-      where: {
-          id: orderId,
-      },
-      include: {
-          items: true,
-          user: { select: { name: true, email: true } },
-      },
+    where: {
+      id: orderId,
+    },
+    include: {
+      items: true,
+      user: { select: { name: true, email: true } },
+    },
   });
 
   if (!updatedOrder) {
-      throw new Error('Order not found');
+    throw new Error('Order not found');
   }
 };
-  // sendPurchaseReceipt({
-  //     order: {
-  //         ...updatedOrder,
-  //         orderItems: updatedOrder.orderItems.map(item => ({
-  //             ...item,
-  //             totalPrice: Number(item.totalPrice),
-  //             unitPrice: Number(item.unitPrice),
+// sendPurchaseReceipt({
+//     order: {
+//         ...updatedOrder,
+//         orderItems: updatedOrder.orderItems.map(item => ({
+//             ...item,
+//             totalPrice: Number(item.totalPrice),
+//             unitPrice: Number(item.unitPrice),
 
-  //         })),
+//         })),
 
-  //         shippingAddress: updatedOrder.shippingAddress as ShippingAddress,
-  //         paymentResult: updatedOrder.paymentResult as PaymentResult,
-  //         itemsPrice: Number(updatedOrder.itemsPrice),
-  //         shippingPrice: Number(updatedOrder.shippingPrice),
-  //         taxPrice: Number(updatedOrder.taxPrice),
-  //         totalPrice: Number(updatedOrder.totalPrice),
-  //     },
-  // });
+//         shippingAddress: updatedOrder.shippingAddress as ShippingAddress,
+//         paymentResult: updatedOrder.paymentResult as PaymentResult,
+//         itemsPrice: Number(updatedOrder.itemsPrice),
+//         shippingPrice: Number(updatedOrder.shippingPrice),
+//         taxPrice: Number(updatedOrder.taxPrice),
+//         totalPrice: Number(updatedOrder.totalPrice),
+//     },
+// });
 
 // Add a new function to get order with items
 export async function getOrderWithItems(orderId: string) {
@@ -644,7 +657,7 @@ export async function getOrderWithItems(orderId: string) {
       return { success: false, error: "Order ID is required" }
     }
 
-    const order = await db.order.findUnique({
+    const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
         items: true,
@@ -686,6 +699,90 @@ export async function getOrderWithItems(orderId: string) {
   } catch (error) {
     console.error("Error fetching order:", error)
     return { success: false, error: "Failed to fetch order" }
+  }
+}
+
+/**
+ * Creates a Stripe payment intent for an order
+ * @param orderId The ID of the order to create a payment for
+ * @returns Object containing success status, message, and client secret if successful
+ */
+export async function createStripePaymentIntent(orderId: string): Promise<{
+  success: boolean;
+  message: string;
+  clientSecret?: string;
+  requiresAuth?: boolean;
+}> {
+  try {
+    // Validate orderId
+    if (!orderId) {
+      return {
+        success: false,
+        message: 'Order ID is required'
+      };
+    }
+
+    console.log(`Creating Stripe payment intent for order ID: ${orderId}`);
+
+    // Import SERVER_URL from constants
+    const { SERVER_URL } = await import('@/lib/constants');
+    const url = `${SERVER_URL}/api/payments/stripe`;
+    console.log(`Sending request to: ${url}`);
+
+    // Call the API endpoint to create a payment intent with absolute URL
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ orderId }),
+      credentials: 'include', // Include cookies for authentication
+    });
+
+    console.log(`Stripe API response status: ${response.status}`);
+    console.log(`Stripe API response status text: ${response.statusText}`);
+
+    // Handle authentication errors specifically
+    if (response.status === 401) {
+      console.error('Authentication required for creating payment intent');
+      return {
+        success: false,
+        message: 'Please log in to complete your payment',
+        requiresAuth: true
+      };
+    }
+
+    if (!response.ok) {
+      // Try to parse error from response
+      let errorMessage = 'Failed to create Stripe payment intent';
+      try {
+        const errorData = await response.json();
+        console.error('Error data from Stripe API:', errorData);
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        console.error('Error parsing error response:', e);
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    console.log('Stripe payment intent result:', JSON.stringify(result, null, 2));
+
+    if (!result.success || !result.clientSecret) {
+      throw new Error(result.error || 'Failed to create Stripe payment intent');
+    }
+
+    console.log('Stripe payment intent created successfully');
+
+    return {
+      success: true,
+      message: 'Stripe payment intent created successfully',
+      clientSecret: result.clientSecret,
+    };
+  } catch (error) {
+    console.error('Error creating Stripe payment intent:', error);
+    return handleError(error);
   }
 }
 

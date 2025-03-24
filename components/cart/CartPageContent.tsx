@@ -38,7 +38,7 @@ export default function CartPageContent() {
             setIsLoading(true);
             try {
                 const cartData = await getCart();
-                setCart(cartData);
+                setCart(cartData || null);
             } catch (error) {
                 console.error('Error loading cart:', error);
                 toast.error('Failed to load cart');
@@ -54,6 +54,11 @@ export default function CartPageContent() {
     const handleQuantityChange = async (itemId: string, newQuantity: number) => {
         setIsUpdating(itemId);
         try {
+            if (newQuantity <= 0) {
+                // If quantity is zero, remove the item
+                await handleRemoveItem(itemId);
+                return;
+            }
             const result = await updateCartItem({ cartItemId: itemId, quantity: newQuantity });
             if (result.success) {
                 setCart(prev => prev ? {
@@ -81,10 +86,11 @@ export default function CartPageContent() {
         try {
             const result = await removeFromCart({ cartItemId: itemId });
             if (result.success) {
-                setCart(prev => prev ? {
-                    ...prev,
-                    items: prev.items.filter(item => item.id !== itemId)
-                } : null);
+                setCart(prev => {
+                    const updatedItems = prev?.items.filter(item => item.id !== itemId) || [];
+                    return updatedItems.length > 0 && prev ? { ...prev, items: updatedItems } : null;
+                });
+                triggerCartUpdate();
                 toast.success('Item removed from cart');
             } else {
                 toast.error(result.message || 'Failed to remove item');
@@ -151,7 +157,7 @@ export default function CartPageContent() {
                                                 variant="outline"
                                                 size="icon"
                                                 disabled={isUpdating === item.id}
-                                                onClick={() => handleQuantityChange(item.id, Math.max(1, item.quantity - 1))}
+                                                onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
                                             >
                                                 <Minus className="h-4 w-4" />
                                             </Button>

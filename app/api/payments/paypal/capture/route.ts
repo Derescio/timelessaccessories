@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { savePaymentResult } from "@/lib/actions/payment.actions";
-import { db } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { paypal } from "@/lib/paypal/paypal";
 
 export async function POST(req: Request) {
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     }
 
     // Get the order from the database
-    const order = await db.order.findUnique({
+    const order = await prisma.order.findUnique({
       where: { id: orderId },
     });
 
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
     // Capture the PayPal payment
     const captureData = await paypal.capturePayment(paypalOrderId);
-    
+
     if (!captureData || captureData.status !== 'COMPLETED') {
       return NextResponse.json(
         { success: false, message: "Payment capture failed" },

@@ -83,25 +83,25 @@ function ProductsPageContent() {
             setProducts(transformedProducts);
 
             // Log price calculations for the first product (if any) for debugging
-            if (transformedProducts.length > 0) {
-                const firstProduct = transformedProducts[0];
-                const rawFirstProduct = rawProducts[0];
-                console.log(`Products page price calculation for ${firstProduct.name}:`, {
-                    hasDiscount: firstProduct.hasDiscount,
-                    discountPercentage: firstProduct.discountPercentage,
-                    originalCompareAtPrice: rawFirstProduct.inventories[0]?.compareAtPrice
-                        ? Number(rawFirstProduct.inventories[0]?.compareAtPrice)
-                        : null,
-                    originalRetailPrice: rawFirstProduct.inventories[0]?.retailPrice
-                        ? Number(rawFirstProduct.inventories[0]?.retailPrice)
-                        : null,
-                    calculatedPrice: Number(firstProduct.price),
-                    rawInventory: {
-                        hasDiscount: rawFirstProduct.inventories[0]?.hasDiscount,
-                        discountPercentage: rawFirstProduct.inventories[0]?.discountPercentage,
-                    }
-                });
-            }
+            // if (transformedProducts.length > 0) {
+            //     const firstProduct = transformedProducts[0];
+            //     const rawFirstProduct = rawProducts[0];
+            //     // console.log(`Products page price calculation for ${firstProduct.name}:`, {
+            //     //     hasDiscount: firstProduct.hasDiscount,
+            //     //     discountPercentage: firstProduct.discountPercentage,
+            //     //     originalCompareAtPrice: rawFirstProduct.inventories[0]?.compareAtPrice
+            //     //         ? Number(rawFirstProduct.inventories[0]?.compareAtPrice)
+            //     //         : null,
+            //     //     originalRetailPrice: rawFirstProduct.inventories[0]?.retailPrice
+            //     //         ? Number(rawFirstProduct.inventories[0]?.retailPrice)
+            //     //         : null,
+            //     //     calculatedPrice: Number(firstProduct.price),
+            //     //     rawInventory: {
+            //     //         hasDiscount: rawFirstProduct.inventories[0]?.hasDiscount,
+            //     //         discountPercentage: rawFirstProduct.inventories[0]?.discountPercentage,
+            //     //     }
+            //     // });
+            // }
         } catch (error) {
             console.error("Error fetching products:", error);
         } finally {

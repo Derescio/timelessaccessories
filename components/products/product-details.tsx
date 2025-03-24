@@ -47,7 +47,6 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     const [inCart, setInCart] = useState(false);
     const [cartItemId, setCartItemId] = useState<string | null>(null);
     const [quantity, setQuantity] = useState(1);
-    const [isCheckingCart, setIsCheckingCart] = useState(true);
     const [isUpdatingQuantity, setIsUpdatingQuantity] = useState(false);
     const maxStock = product.inventories[0]?.quantity || 1;
     const inventoryId = product.inventories[0]?.sku;
@@ -90,6 +89,14 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
         };
     }, [product, activeInventory]);
 
+
+    // function debounce(func: (...args: any[]) => void, delay: number) {
+    //     let timeout: NodeJS.Timeout;
+    //     return (...args: any[]) => {
+    //         clearTimeout(timeout);
+    //         timeout = setTimeout(() => func(...args), delay);
+    //     };
+    // }
     // Check if this product is already in the cart when component loads
     // Wrap in useCallback to properly handle the dependency array in useEffect
     const checkIfInCart = useCallback(async () => {
@@ -100,7 +107,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
             return;
         }
 
-        setIsCheckingCart(true);
+
         try {
             const cart = await getCart();
             console.log("Checking if product is in cart:", {
@@ -151,7 +158,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
             setCartItemId(null);
             setQuantity(1);
         } finally {
-            setIsCheckingCart(false);
+
         }
     }, [product, inventoryId, isUpdatingQuantity]);
 
@@ -168,7 +175,12 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                 checkIfInCart();
             }
         };
-
+        // Debounced event listener for cart updates
+        // const debouncedCartUpdate = debounce(() => {
+        //     if (!isUpdatingQuantity) {
+        //         checkIfInCart();
+        //     }
+        // }, 300);
         window.addEventListener('cart-updated', handleCartUpdate);
 
         return () => {
@@ -214,7 +226,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
 
             if (result.success) {
                 setQuantity(quantity + 1);
-                // No cart update to avoid flashing
+                triggerCartUpdate(); // Trigger cart update
                 toast.success('Quantity updated', {
                     action: {
                         label: "Go to Cart",
@@ -229,13 +241,11 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
             console.error('Error updating cart:', error);
             toast.error('Failed to update quantity');
         } finally {
-            // Give UI a chance to settle before allowing next check
             setTimeout(() => {
                 setIsUpdatingQuantity(false);
             }, 500);
         }
     };
-
     const handleDecrement = async () => {
         if (!cartItemId) return;
 
@@ -252,7 +262,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
 
                 if (result.success) {
                     setQuantity(quantity - 1);
-                    // No cart update to avoid flashing
+                    triggerCartUpdate(); // Trigger cart update
                     toast.success('Quantity updated', {
                         action: {
                             label: "Go to Cart",
@@ -275,8 +285,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                     setInCart(false);
                     setCartItemId(null);
                     setQuantity(1);
-                    // Only trigger cart update for removal
-                    triggerCartUpdate();
+                    triggerCartUpdate(); // Trigger cart update
                     toast.success('Item removed from cart', {
                         action: {
                             label: "Go to Cart",
@@ -292,7 +301,6 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
             console.error('Error updating cart:', error);
             toast.error('Failed to update quantity');
         } finally {
-            // Give UI a chance to settle before allowing next check
             setTimeout(() => {
                 setIsUpdatingQuantity(false);
             }, 500);
@@ -336,12 +344,8 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
             <p className="text-gray-600">{product.description}</p>
 
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                {isCheckingCart ? (
-                    <Button className="w-full sm:w-auto sm:flex-1" disabled>
-                        <Loader className="mr-2 h-4 w-4 animate-spin" />
-                        Checking cart...
-                    </Button>
-                ) : inCart ? (
+
+                {inCart ? (
                     <div className="flex items-center w-full sm:w-auto border rounded-md">
                         <Button
                             variant="ghost"
@@ -380,6 +384,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                         onSuccess={handleAddToCartSuccess}
                     />
                 )}
+
             </div>
 
             <div className="flex flex-wrap items-center gap-4">

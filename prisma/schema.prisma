@@ -101,6 +101,7 @@ model Order {
   billingAddress  Json?
   shippingAddress Json
   paymentIntent   String?
+  chargeId        String? // Stripe charge ID  
   notes           String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt

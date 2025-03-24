@@ -175,3 +175,32 @@ export function triggerCartUpdate() {
   }
 }
 
+// Debugging utility for Stripe
+export async function debugStripePaymentIntent(orderId: string) {
+  // Only run in development mode
+  if (process.env.NODE_ENV !== 'development') {
+    console.warn('Debug function only available in development mode');
+    return;
+  }
+
+  console.log('Starting Stripe payment intent debug...');
+  
+  try {
+    // Import dynamically to avoid SSR issues
+    const { createStripePaymentIntent } = await import('./actions/order.actions');
+    const result = await createStripePaymentIntent(orderId);
+    
+    console.log('=== STRIPE DEBUG RESULT ===');
+    console.log(JSON.stringify(result, null, 2));
+    console.log('=========================');
+    
+    return result;
+  } catch (error) {
+    console.error('Stripe debug error:', error);
+    return {
+      success: false,
+      message: `Debug error: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+}
+

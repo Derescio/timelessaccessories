@@ -44,7 +44,7 @@ import {
 import ProgressSteps from "@/components/cart/cart-progress-steps"
 import { Card } from "@/components/ui/card"
 import { getCart } from "@/lib/actions/cart.actions"
-import { getUserAddresses, createOrUpdateUserAddress } from "@/lib/actions/user.actions"
+import { getUserAddresses } from "@/lib/actions/user.actions"
 import { PAYMENT_METHODS } from "@/lib/constants"
 import { Check, Info, Loader2 } from "lucide-react"
 import { COURIERS } from "@/lib/validators"
@@ -53,16 +53,17 @@ import { calculateShipping, getEstimatedShippingTime } from "@/lib/utils/shippin
 import { calculateTax } from "@/lib/utils/tax-calculator"
 import LascoPayButton from "@/components/checkout/LascoPayButton"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-// import { Separator } from "@/components/ui/separator"
-// import { Switch } from "@/components/ui/switch"
-// import { formatCurrency } from "@/lib/utils"
 import { createOrderWithoutDeletingCart } from "@/lib/actions/order.actions"
 import { OrderStatus, PaymentStatus } from "@prisma/client"
 import { ArrowLeft } from "lucide-react"
 import { useSession } from "next-auth/react"
+import { createOrUpdateUserAddress } from "@/lib/actions/user.actions"
 // import PaymentMethodSelector from "./PaymentMethodSelector"
 // import { useForm } from "react-hook-form"
 // import { zodResolver } from "@hookform/resolvers/zod"
+// import { Separator } from "@/components/ui/separator"
+// import { Switch } from "@/components/ui/switch"
+// import { formatCurrency } from "@/lib/utils"
 
 // Define a type for Courier
 interface Courier {
@@ -145,6 +146,14 @@ export default function ShippingPage() {
 
     // State for payment method
     const [paymentMethod, setPaymentMethod] = useState<string>(PAYMENT_METHODS[0])
+    useEffect(() => {
+        // Load payment method from localStorage
+        const savedPaymentMethod = localStorage.getItem("paymentMethod");
+        if (savedPaymentMethod) {
+            setPaymentMethod(savedPaymentMethod);
+        }
+    }, []);
+
 
     // State to track selected courier
     const [selectedCourier, setSelectedCourier] = useState<string>("")
@@ -172,11 +181,11 @@ export default function ShippingPage() {
                     getUserAddresses()
                 ])
 
-                console.log('Loading data:', {
-                    cartResult,
-                    addresses,
-                    marketType: IS_LASCO_MARKET ? 'LASCO' : 'GLOBAL'
-                })
+                // console.log('Loading data:', {
+                //     cartResult,
+                //     addresses,
+                //     marketType: IS_LASCO_MARKET ? 'LASCO' : 'GLOBAL'
+                // })
 
                 if (cartResult) {
                     setCart(cartResult)
@@ -185,10 +194,10 @@ export default function ShippingPage() {
                 // If user has addresses, populate the form with the first address
                 if (addresses && addresses.length > 0) {
                     const address = addresses[0] as Address
-                    console.log('Populating form with address:', {
-                        address,
-                        isLascoMarket: IS_LASCO_MARKET
-                    })
+                    // console.log('Populating form with address:', {
+                    //     address,
+                    //     isLascoMarket: IS_LASCO_MARKET
+                    // })
 
                     // Ensure we properly map the fields from the address to the form
                     setFormData(prev => ({
@@ -291,9 +300,12 @@ export default function ShippingPage() {
 
     // Handle payment method selection
     const handlePaymentMethodChange = (method: string) => {
-        setPaymentMethod(method)
-        setFormErrors({ ...formErrors, paymentMethod: "" })
-    }
+        setPaymentMethod(method);
+        setFormErrors({ ...formErrors, paymentMethod: "" });
+
+        // Save the selected payment method to localStorage
+        localStorage.setItem("paymentMethod", method);
+    };
 
     // Handle form submission
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -304,7 +316,7 @@ export default function ShippingPage() {
             // Validate the form
             const formIsValid = validateForm();
             if (!formIsValid) {
-                console.log("Form validation failed:", formErrors);
+                // console.log("Form validation failed:", formErrors);
                 setIsCreatingOrder(false);
                 return;
             }
@@ -333,7 +345,7 @@ export default function ShippingPage() {
 
             if (IS_LASCO_MARKET) {
                 // For LASCO market, create the order directly in the database
-                console.log("LASCO market: Creating order directly in database");
+                // console.log("LASCO market: Creating order directly in database");
 
                 try {
                     // Save the user's address to their profile
@@ -344,7 +356,7 @@ export default function ShippingPage() {
                             state: formData.state || "",
                             postalCode: formData.postalCode || "",
                             country: formData.parish || "",
-                            isUserManaged: false // Explicitly mark as not user-managed so it won't appear in address book
+                            isUserManaged: true // Explicitly mark as not user-managed so it won't appear in address book
                         });
                         console.log("Address save response:", addressResult);
                     } catch (addressError) {
@@ -382,7 +394,7 @@ export default function ShippingPage() {
                         status: OrderStatus.PENDING,
                     };
 
-                    console.log("Creating LASCO order with data:", orderData);
+                    // console.log("Creating LASCO order with data:", orderData);
 
                     // Create order without deleting cart
                     const response = await createOrderWithoutDeletingCart(orderData);
@@ -392,7 +404,7 @@ export default function ShippingPage() {
                     }
 
                     const orderId = response.data.id;
-                    console.log("Order created successfully with ID:", orderId);
+                    //  console.log("Order created successfully with ID:", orderId);
 
                     // Store minimal data in localStorage for confirmation page
                     const checkoutDataToSave = {
@@ -414,7 +426,7 @@ export default function ShippingPage() {
                     localStorage.setItem("lascoPayOrderId", orderId);
 
                     // Redirect to confirmation page with order ID
-                    console.log("Redirecting to confirmation page for LASCO payment");
+                    //console.log("Redirecting to confirmation page for LASCO payment");
                     router.push(`/confirmation?orderId=${orderId}`);
 
                 } catch (orderError) {
@@ -425,7 +437,23 @@ export default function ShippingPage() {
 
             } else {
                 // For GLOBAL market, store checkout data and redirect to confirmation page
-                console.log("GLOBAL market: Storing checkout data for confirmation page");
+                //  console.log("GLOBAL market: Storing checkout data for confirmation page");
+
+
+                try {
+                    const addressResult = await createOrUpdateUserAddress({
+                        street: formData.streetAddress || "",
+                        city: formData.city || "",
+                        state: formData.state || "",
+                        postalCode: formData.postalCode || "",
+                        country: formData.parish || "",
+                        isUserManaged: true // Explicitly mark as not user-managed so it won't appear in address book
+                    });
+                    console.log("Address save response:", addressResult);
+                } catch (addressError) {
+                    console.error("Error saving address:", addressError);
+                    // Continue with order creation even if address save fails
+                }
 
                 // Store checkout data in local storage for confirmation page
                 const checkoutDataToSave = {
@@ -435,24 +463,24 @@ export default function ShippingPage() {
                     tax: orderSummary.tax,
                     shipping: orderSummary.shipping,
                     total: orderSummary.total,
-                    paymentMethod: { type: paymentMethod },
+                    paymentMethod: { type: paymentMethod || localStorage.getItem("paymentMethod") || "Cash", },
                     useCourier: selectedCourier !== null,
                     courierName: selectedCourier,
                     pendingCreation: true,  // Flag to indicate this needs to be created in the database
                     timestamp: new Date().toISOString()  // Add timestamp for tracking
                 };
 
-                console.log("Saving checkout data to localStorage:", checkoutDataToSave);
+                //  console.log("Saving checkout data to localStorage:", checkoutDataToSave);
 
                 // Log the actual JSON that will be stored
                 const jsonToStore = JSON.stringify(checkoutDataToSave);
-                console.log("JSON being stored in localStorage:", jsonToStore);
+                //  console.log("JSON being stored in localStorage:", jsonToStore);
 
                 localStorage.setItem("checkoutData", jsonToStore);
                 localStorage.setItem("cartId", cart?.id || "");
 
                 // Directly navigate to confirmation page for order creation and review
-                console.log(`Redirecting to confirmation page for order creation and payment`);
+                //console.log(`Redirecting to confirmation page for order creation and payment`);
                 router.push(`/confirmation`);
             }
 
@@ -740,7 +768,7 @@ export default function ShippingPage() {
                                             <div className="flex justify-center">
                                                 <LascoPayButton
                                                     onClick={() => {
-                                                        console.log('LascoPay button clicked on shipping page. Redirecting directly to payment page...');
+                                                        // console.log('LascoPay button clicked on shipping page. Redirecting directly to payment page...');
                                                         // Show toast before redirecting
                                                         toast.success("Redirecting to LascoPay payment page...", {
                                                             duration: 2000,

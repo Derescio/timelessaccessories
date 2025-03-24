@@ -26,10 +26,10 @@ export const ourFileRouter = {
             // Whatever is returned here is accessible in onUploadComplete as `metadata`
             return { userId: session?.user?.id };
         })
-        .onUploadComplete(async ({ metadata, file }) => {
+        .onUploadComplete(async ({ metadata }) => {
 
-            console.log("Upload complete for userId:", metadata.userId);
-            console.log("file url", file.url);
+            //  console.log("Upload complete for userId:", metadata.userId);
+            // console.log("file url", file.url);
             return { uploadedBy: metadata.userId };
         }),
 } satisfies FileRouter;
