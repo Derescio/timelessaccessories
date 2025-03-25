@@ -16,6 +16,7 @@ export const metadata = {
   title: "Home",
 };
 
+
 const HomePage = async () => {
   // const { products, totalCount } = await getLatestProducts();
   // const categories = await getAllCategories();

@@ -14,6 +14,7 @@ import { useTheme } from 'next-themes';
 import { FormEvent, useState } from 'react';
 
 
+
 const StripePayment = ({
     priceInCents,
     orderId,
