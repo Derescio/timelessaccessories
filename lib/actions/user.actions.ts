@@ -54,12 +54,12 @@ export async function signOutUser() {
         console.log(currentCart?.id);
         if (currentCart?.id) {
             await prisma.cart.delete({ where: { id: currentCart.id } });
-            console.log('Cart deleted successfully during sign out');
+            // console.log('Cart deleted successfully during sign out');
         } else {
             console.warn('No cart found for deletion during sign out.');
         }
         await signOut();
-        console.log('User signed out successfully');
+        // console.log('User signed out successfully');
     } catch (error) {
         console.error('Error during sign out:', error);
         // Still try to sign out even if cart deletion fails
