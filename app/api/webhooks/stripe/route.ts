@@ -59,14 +59,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       message: `Event ${event.type} received but not processed`,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Log the error for debugging
     if (process.env.NODE_ENV === 'development') {
-      console.error('Error processing Stripe webhook:', error.message);
+      if (error instanceof Error) {
+        console.error('Error processing Stripe webhook:', error.message);
+      } else {
+        console.error('Unexpected error:', error);
+      }
     }
 
     return NextResponse.json(
-      { error: `Webhook error: ${error.message}` },
+      { error: `Webhook error: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
     );
   }
