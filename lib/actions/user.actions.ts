@@ -132,6 +132,7 @@ export async function getUserAddress() {
     const address = await prisma.address.findFirst({
         where: {
             userId: currentUser,
+            isUserManaged: true,
         },
     });
     return address;
