@@ -1,6 +1,6 @@
 'use client';
 import { Button } from '@/components/ui/button';
-import { SERVER_URL } from '@/lib/constants';
+//import { SERVER_URL } from '@/lib/constants';
 import { formatCurrency } from '@/lib/utils';
 import {
     Elements,
@@ -13,7 +13,7 @@ import { loadStripe } from '@stripe/stripe-js/pure';
 import { useTheme } from 'next-themes';
 import { FormEvent, useState } from 'react';
 
-
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
 
 const StripePayment = ({
     priceInCents,
