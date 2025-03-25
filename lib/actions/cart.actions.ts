@@ -611,10 +611,11 @@ export const cleanupCartAfterSuccessfulPayment = async (orderId: string) => {
       where: { id: order.cartId }
     });
     // Trigger revalidation for the cart and header
-    setTimeout(() => {
-      revalidatePath('/cart'); // Revalidate the cart page
-      revalidatePath('/'); // Revalidate the header or home page if needed
-    }, 1000);
+    revalidatePath('/cart'); // Revalidate the cart page
+    revalidatePath('/'); // Rev
+    // setTimeout(() => {
+    //  alidate the header or home page if needed
+    // }, 1000);
 
     return { success: true };
   } catch (error) {

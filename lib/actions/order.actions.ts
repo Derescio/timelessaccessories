@@ -11,6 +11,7 @@ import { prisma } from "../prisma"
 import { isRedirectError } from "next/dist/client/components/redirect-error"
 import { savePaymentResult } from "@/lib/actions/payment.actions"
 import { cleanupCartAfterSuccessfulPayment } from "@/lib/actions/cart.actions"
+import { sendOrderConfirmationEmail } from "@/email"
 
 // Only keep interfaces that are actually used
 interface ShippingMethod {
@@ -630,25 +631,9 @@ export async function updateOrderToPaid({
   if (!updatedOrder) {
     throw new Error('Order not found');
   }
+  await sendOrderConfirmationEmail(orderId);
 };
-// sendPurchaseReceipt({
-//     order: {
-//         ...updatedOrder,
-//         orderItems: updatedOrder.orderItems.map(item => ({
-//             ...item,
-//             totalPrice: Number(item.totalPrice),
-//             unitPrice: Number(item.unitPrice),
 
-//         })),
-
-//         shippingAddress: updatedOrder.shippingAddress as ShippingAddress,
-//         paymentResult: updatedOrder.paymentResult as PaymentResult,
-//         itemsPrice: Number(updatedOrder.itemsPrice),
-//         shippingPrice: Number(updatedOrder.shippingPrice),
-//         taxPrice: Number(updatedOrder.taxPrice),
-//         totalPrice: Number(updatedOrder.totalPrice),
-//     },
-// });
 
 // Add a new function to get order with items
 export async function getOrderWithItems(orderId: string) {

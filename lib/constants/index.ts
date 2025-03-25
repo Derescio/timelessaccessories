@@ -1,4 +1,4 @@
-export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'ShopDW';
+export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Timeless Accessories';
 export const APP_DESCRIPTION = process.env.NEXT_PUBLIC_APP_DESCRIPTION || 'Selling wide ranges of products';
 export const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000';
 export const LATEST_PRODUCTS_LIMIT = Number(process.env.LATEST_PRODUCTS_LIMIT) || 4;
@@ -56,3 +56,11 @@ export const reviewFormDefaultValues = {
 
 
 export const SENDER_EMAIL = process.env.SENDER_EMAIL || 'onboarding@resend.dev';
+// export const PAYMENT_METHODS = [
+//     "PayPal",
+//     "Stripe",
+//     "LascoPay",
+//     "COD"
+//   ];
+  
+//   export const SERVER_URL = process.env.SERVER_URL || "http://localhost:3000"; 
