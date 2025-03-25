@@ -452,24 +452,19 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
                             </p>
                         </div>
 
-                        {isStripeLoading ? (
+                        {isStripeLoading || !stripeClientSecret ? (
+                            // Show loader while Stripe is initializing
                             <div className="flex items-center justify-center py-8">
                                 <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
                                 <p>Initializing payment...</p>
                             </div>
-                        ) : stripeClientSecret ? (
+                        ) : (
+                            // Render StripePayment component once Stripe is ready
                             <StripePayment
                                 priceInCents={Math.round(totalAmount * 100)}
                                 orderId={orderId}
                                 clientSecret={stripeClientSecret}
-
                             />
-                        ) : (
-                            <div className="p-4 bg-yellow-50 rounded-md">
-                                <p className="text-yellow-700">
-                                    {error || "Unable to initialize payment. Please try again or choose another payment method."}
-                                </p>
-                            </div>
                         )}
                     </div>
                 )}
