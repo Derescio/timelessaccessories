@@ -12,13 +12,11 @@ import {
     Tailwind,
     Text,
 } from '@react-email/components';
-import { Order } from '@/types';
 
-interface OrderProps {
-    order: Order;
-}
 
-export default function PurchaseReceiptEmail({ order }: OrderProps) {
+
+
+export default function PurchaseReceiptEmail({ order }: { order: any }) {
     const dateFormatter = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
 
     return (
@@ -41,7 +39,7 @@ export default function PurchaseReceiptEmail({ order }: OrderProps) {
                             {order.orderItems.map((item: any) => (
                                 <Row key={item.name}>
                                     <Column>
-                                        <Img src={item.image} alt={item.name} width="50" />
+                                        <Img src={item.image} alt={item.name} width="50" height="50" />
                                     </Column>
                                     <Column>
                                         <Text>{item.name}</Text>
@@ -55,8 +53,8 @@ export default function PurchaseReceiptEmail({ order }: OrderProps) {
                         </Section>
                         <Section>
                             <Text>Shipping Address:</Text>
-                            <Text>{order.shippingAddress.city}</Text>
-                            <Text>{order.shippingAddress.streetAddress}</Text>
+                            <Text>{order.shippingAddress.fullName}</Text>
+                            <Text>{order.shippingAddress.address}</Text>
                             <Text>{order.shippingAddress.city}, {order.shippingAddress.state}</Text>
                             <Text>{order.shippingAddress.country}</Text>
                         </Section>
