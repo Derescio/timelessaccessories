@@ -3,7 +3,6 @@ import {
     Body,
     Column,
     Container,
-    Head,
     Heading,
     Html,
     Img,
@@ -13,7 +12,13 @@ import {
     Tailwind,
     Text,
 } from '@react-email/components';
-export default function PurchaseReceiptEmail({ order }: { order: any }) {
+import { Order } from '@/types';
+
+interface OrderProps {
+    order: Order;
+}
+
+export default function PurchaseReceiptEmail({ order }: OrderProps) {
     const dateFormatter = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
 
     return (
@@ -50,7 +55,7 @@ export default function PurchaseReceiptEmail({ order }: { order: any }) {
                         </Section>
                         <Section>
                             <Text>Shipping Address:</Text>
-                            <Text>{order.shippingAddress.fullName}</Text>
+                            <Text>{order.shippingAddress.city}</Text>
                             <Text>{order.shippingAddress.streetAddress}</Text>
                             <Text>{order.shippingAddress.city}, {order.shippingAddress.state}</Text>
                             <Text>{order.shippingAddress.country}</Text>
