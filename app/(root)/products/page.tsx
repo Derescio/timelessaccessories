@@ -1,15 +1,14 @@
 "use client";
 
 import { Suspense } from "react";
-import { getLatestNeProducts } from "@/lib/actions/product.actions";
+import { getProducts } from "@/lib/actions/product.actions";
 import { ProductCard } from "@/components/cards/ProductCardNew";
-import { Product } from "@/types";
-import { Prisma } from "@prisma/client";
 import ProductsFilter from "@/components/cards/Products-Filter";
 import { useCallback, useEffect, useState } from "react";
 import { Pagination } from "@/components/ui/pagination";
 import { useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
+import { type ClientProduct } from "@/lib/types/product.types";
 
 const DEFAULT_PER_PAGE = 5;
 
@@ -31,8 +30,8 @@ function ProductsPageContent() {
     const searchParams = useSearchParams();
     const categoryId = searchParams.get('category');
 
-    const [products, setProducts] = useState<Product[]>([]);
-    const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+    const [products, setProducts] = useState<ClientProduct[]>([]);
+    const [filteredProducts, setFilteredProducts] = useState<ClientProduct[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [perPage, setPerPage] = useState(DEFAULT_PER_PAGE);
     const [searchQuery, setSearchQuery] = useState("");
@@ -42,66 +41,70 @@ function ProductsPageContent() {
     const fetchProducts = useCallback(async () => {
         setIsLoading(true);
         try {
-            const rawProducts = await getLatestNeProducts();
-            const transformedProducts = rawProducts.map((rawProduct) => ({
-                id: rawProduct.id,
-                name: rawProduct.name,
-                description: rawProduct.description,
-                price: rawProduct.inventories[0]?.hasDiscount &&
-                    rawProduct.inventories[0]?.discountPercentage &&
-                    rawProduct.inventories[0]?.compareAtPrice
-                    ? new Prisma.Decimal(Number(rawProduct.inventories[0].compareAtPrice) *
-                        (1 - rawProduct.inventories[0].discountPercentage / 100))
-                    : rawProduct.inventories[0]?.retailPrice || new Prisma.Decimal(0),
-                inventory: rawProduct.inventories[0]?.quantity || 0,
-                discountPercentage: rawProduct.inventories[0]?.discountPercentage,
-                category: {
-                    ...rawProduct.category,
-                    description: rawProduct.category.description || undefined,
-                    imageUrl: rawProduct.category.imageUrl || undefined,
-                    parentId: rawProduct.category.parentId || undefined
-                },
-                inventories: rawProduct.inventories,
-                reviews: rawProduct.reviews,
-                compareAtPrice: rawProduct.inventories[0]?.compareAtPrice,
-                categoryId: rawProduct.categoryId,
-                isActive: rawProduct.isActive,
-                isFeatured: Boolean(rawProduct.metadata) || null,
-                sku: rawProduct.inventories[0]?.sku || "",
-                createdAt: rawProduct.createdAt,
-                updatedAt: rawProduct.updatedAt,
-                hasDiscount: rawProduct.inventories[0]?.hasDiscount || false,
-                slug: rawProduct.slug,
-                mainImage: rawProduct.inventories[0]?.images[0] || "/images/placeholder.svg",
-                images: (rawProduct.inventories[0]?.images || []).map((url, index) => ({
-                    id: `${rawProduct.id}-image-${index}`,
-                    url,
-                    alt: null,
-                    position: index
-                })),
-            }));
-            setProducts(transformedProducts);
+            const rawProducts = await getProducts();
+            console.log(rawProducts);
 
-            // Log price calculations for the first product (if any) for debugging
-            // if (transformedProducts.length > 0) {
-            //     const firstProduct = transformedProducts[0];
-            //     const rawFirstProduct = rawProducts[0];
-            //     // console.log(`Products page price calculation for ${firstProduct.name}:`, {
-            //     //     hasDiscount: firstProduct.hasDiscount,
-            //     //     discountPercentage: firstProduct.discountPercentage,
-            //     //     originalCompareAtPrice: rawFirstProduct.inventories[0]?.compareAtPrice
-            //     //         ? Number(rawFirstProduct.inventories[0]?.compareAtPrice)
-            //     //         : null,
-            //     //     originalRetailPrice: rawFirstProduct.inventories[0]?.retailPrice
-            //     //         ? Number(rawFirstProduct.inventories[0]?.retailPrice)
-            //     //         : null,
-            //     //     calculatedPrice: Number(firstProduct.price),
-            //     //     rawInventory: {
-            //     //         hasDiscount: rawFirstProduct.inventories[0]?.hasDiscount,
-            //     //         discountPercentage: rawFirstProduct.inventories[0]?.discountPercentage,
-            //     //     }
-            //     // });
-            // }
+            const transformedProducts = rawProducts.data?.map((rawProduct) => {
+                const firstInventory = rawProduct.inventories?.[0] || {};
+                const hasDiscount = firstInventory.hasDiscount && firstInventory.discountPercentage && firstInventory.compareAtPrice;
+                const price = hasDiscount
+                    ? Number(firstInventory.compareAtPrice) * (1 - (firstInventory.discountPercentage || 0) / 100)
+                    : Number(firstInventory.retailPrice) || 0;
+
+                return {
+                    id: rawProduct.id,
+                    name: rawProduct.name,
+                    description: rawProduct.description,
+                    price,
+                    categoryId: rawProduct.categoryId,
+                    inventory: firstInventory.quantity || 0,
+                    createdAt: rawProduct.createdAt,
+                    updatedAt: rawProduct.updatedAt,
+                    compareAtPrice: firstInventory.compareAtPrice ? Number(firstInventory.compareAtPrice) : null,
+                    discountPercentage: firstInventory.discountPercentage,
+                    hasDiscount: firstInventory.hasDiscount || false,
+                    isActive: rawProduct.isActive,
+                    isFeatured: Boolean(rawProduct.metadata) || null,
+                    metadata: rawProduct.metadata,
+                    sku: firstInventory.sku || "",
+                    slug: rawProduct.slug,
+                    category: {
+                        id: rawProduct.category.id,
+                        name: rawProduct.category.name,
+                        slug: rawProduct.category.slug,
+                        description: rawProduct.category.description,
+                        imageUrl: rawProduct.category.imageUrl,
+                        parentId: rawProduct.category.parentId,
+                    },
+                    images: (rawProduct.inventories || []).flatMap((inv) =>
+                        (inv?.images || []).map((url: string, index: number) => ({
+                            id: `${inv.id}-image-${index}`,
+                            url: url.startsWith('http') ? url : `/uploads/${url}`,
+                            alt: `${rawProduct.name} - Image ${index + 1}`,
+                            position: index,
+                        }))
+                    ),
+                    mainImage: firstInventory.images?.[0] || "/images/placeholder.svg",
+                    inventories: (rawProduct.inventories || []).map((inv) => ({
+                        id: inv.id,
+                        productId: rawProduct.id,
+                        retailPrice: Number(inv.retailPrice),
+                        costPrice: Number(inv.costPrice),
+                        compareAtPrice: inv.compareAtPrice ? Number(inv.compareAtPrice) : null,
+                        discountPercentage: inv.discountPercentage,
+                        hasDiscount: inv.hasDiscount || false,
+                        images: inv.images || [],
+                        quantity: inv.quantity || 0,
+                        sku: inv.sku || "",
+                        lowStock: 5,
+                        isDefault: false,
+                        attributes: null
+                    })),
+                    reviews: rawProduct.reviews || [],
+                } as ClientProduct;
+            });
+            setProducts(transformedProducts || []);
+
         } catch (error) {
             console.error("Error fetching products:", error);
         } finally {

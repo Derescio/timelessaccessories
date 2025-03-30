@@ -1,12 +1,12 @@
 import Image from "next/image";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Star } from "lucide-react";
-import { Product } from "@/types";
 import Link from "next/link";
 import ProductCardButton from "./ProductCardButton";
+import { ClientProduct } from "@/lib/types/product.types";
 
 interface ProductCardProps {
-    product: Product;
+    product: ClientProduct;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
@@ -28,33 +28,10 @@ export function ProductCard({ product }: ProductCardProps) {
     const inventory = inventories[0];
     const isOutOfStock = !inventory?.quantity || inventory.quantity <= 0;
 
-    // Ensure we have a valid inventory SKU
-    if (inventory && !inventory.sku) {
-        console.error(`Product ${id} (${name}) has inventory but missing SKU`);
-    }
-
     // Calculate the display price
     const displayPrice = hasDiscount && compareAtPrice && discountPercentage
         ? (Number(compareAtPrice) - (Number(compareAtPrice) * Number(discountPercentage) / 100))
         : price;
-
-    // Calculate the discount properly
-    if (hasDiscount && discountPercentage && compareAtPrice) {
-        // Log the discount calculation details but don't modify displayPrice directly
-        console.log(`ProductCardNew price calculation for ${name}:`, {
-            hasDiscount,
-            discountPercentage,
-            originalCompareAtPrice: compareAtPrice ? Number(compareAtPrice) : null,
-            originalPrice: price ? Number(price) : null,
-            // Calculate what the display price would be if we could modify it
-            calculatedDisplayPrice: Number(compareAtPrice) - (Number(compareAtPrice) * Number(discountPercentage) / 100)
-        });
-    } else {
-        console.log(`ProductCardNew price calculation for ${name} (no discount):`, {
-            hasDiscount,
-            originalPrice: price ? Number(price) : null
-        });
-    }
 
     // Determine what price to display as the original price (for strikethrough)
     let originalPrice = null;
@@ -67,7 +44,7 @@ export function ProductCard({ product }: ProductCardProps) {
             <Link href={`/products/${slug}`} className="block">
                 <CardHeader className="p-0 relative">
                     <Image
-                        src={inventory?.images?.[0] || mainImage || "/path/to/default/image.jpg"}
+                        src={inventory?.images?.[0]?.startsWith('http') ? inventory.images[0] : `/uploads/${inventory?.images?.[0]}` || mainImage || "/images/placeholder.svg"}
                         alt={name}
                         width={300}
                         height={500}
@@ -112,7 +89,7 @@ export function ProductCard({ product }: ProductCardProps) {
                 ) : (
                     <ProductCardButton
                         productId={id}
-                        inventoryId={inventory?.sku || ''}
+                        inventoryId={inventory?.sku || ""}
                     />
                 )}
             </CardFooter>

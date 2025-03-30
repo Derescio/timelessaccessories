@@ -204,3 +204,56 @@ export async function debugStripePaymentIntent(orderId: string) {
   }
 }
 
+/**
+ * Converts a string to a URL-friendly slug
+ * @param value The string to convert to a slug
+ * @returns The slugified string
+ */
+export function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')    // Remove non-word characters except whitespace and hyphens
+    .replace(/[\s_-]+/g, '-')    // Replace spaces, underscores and multiple hyphens with a single hyphen
+    .replace(/^-+|-+$/g, '');    // Remove leading and trailing hyphens
+}
+
+// Define a proper interface for category objects
+interface Category {
+  id: string;
+  name: string;
+  parentId?: string | null;
+  children?: Category[];
+  [key: string]: unknown;
+}
+
+// Format a nested category tree for display or debugging
+export function formatCategoryTree(categories: Category[], level = 0) {
+  const indent = '  '.repeat(level);
+  let result = '';
+  
+  for (const category of categories) {
+    result += `${indent}- ${category.name}\n`;
+    
+    if (category.children && category.children.length > 0) {
+      result += formatCategoryTree(category.children, level + 1);
+    }
+  }
+  
+  return result;
+}
+
+// Get hierarchy path for a category (e.g., "Electronics > Smartphones")
+export function getCategoryPath(category: Category, categories: Category[]): string {
+  if (!category) return '';
+  
+  if (!category.parentId) {
+    return category.name;
+  }
+  
+  const parent = categories.find(c => c.id === category.parentId);
+  if (!parent) return category.name;
+  
+  return `${getCategoryPath(parent, categories)} > ${category.name}`;
+}
+

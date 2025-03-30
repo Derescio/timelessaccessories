@@ -52,7 +52,7 @@ export default function PurchaseReceiptEmail({ order }: { order: any }) {
                             ))}
                         </Section>
                         <Section>
-                            <Text>Shipping Address:</Text>
+                            <Text>Shipping Details:</Text>
                             <Text>{order.shippingAddress.fullName}</Text>
                             <Text>{order.shippingAddress.address}</Text>
                             <Text>{order.shippingAddress.city}, {order.shippingAddress.state}</Text>

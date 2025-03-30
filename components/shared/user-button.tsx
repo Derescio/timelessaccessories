@@ -1,9 +1,14 @@
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import Link from "next/link";
-import { signOutUser } from "@/lib/actions/user.actions";
 import { Button } from "@/components/ui/button";
 import { UserIcon } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+
+// Create server action for sign out
+const signOutAction = async () => {
+    "use server";
+    await signOut();
+};
 
 const UserButton = async () => {
 
@@ -61,7 +66,7 @@ const UserButton = async () => {
                         </DropdownMenuItem>
                     )}
                     <DropdownMenuItem className='p-0 mb-1'>
-                        <form action={signOutUser} className='w-full'>
+                        <form action={signOutAction} className='w-full'>
                             <Button
                                 className='w-full py-4 px-2 h-4 justify-start'
                                 variant='ghost'

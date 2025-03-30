@@ -10,18 +10,19 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String     @id @default(cuid())
   name          String?
-  email         String    @unique
+  email         String     @unique
   emailVerified DateTime?
   image         String?
   password      String?
-  role          Role      @default(USER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role          Role       @default(USER)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
   Account       Account[]
   addresses     Address[]
   cart          Cart?
+  categories    Category[]
   orders        Order[]
   reviews       Review[]
   Session       Session[]
@@ -82,11 +83,14 @@ model Category {
   updatedAt   DateTime   @updatedAt
   parentId    String?
   slug        String     @unique
+  userId      String?
   parent      Category?  @relation("SubCategories", fields: [parentId], references: [id])
   children    Category[] @relation("SubCategories")
   products    Product[]
+  user        User?      @relation(fields: [userId], references: [id])
 
   @@index([parentId])
+  @@index([userId])
 }
 
 model Order {

@@ -1,15 +1,17 @@
 'use server';
 
-import { auth, signIn, signOut } from '@/auth';
-import { signInFormSchema, signUpFormSchema, updateUserSchema, changePasswordSchema } from '@/lib/validators';
+import { auth, signIn } from '@/auth';
+import { updateUserSchema, changePasswordSchema, signInFormSchema, signUpFormSchema } from '@/lib/validators';
 // import { shippingAddressSchema , paymentMethodSchema } from '@/lib/validators';
-import { isRedirectError } from 'next/dist/client/components/redirect-error';
+// import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { prisma } from '@/lib/prisma';
 import { formatError } from '@/lib/utils';
 import { compareSync, hashSync } from 'bcrypt-ts-edge';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { getCart } from './cart.actions';
+// import { getCart } from './cart.actions';
+import { Role, Prisma, User } from "@prisma/client";
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
 // import { db } from "@/lib/db"
 // import type { ShippingAddress } from '@/types';
 // import { updateUserProfileSchema } from '@/lib/validators';
@@ -19,6 +21,38 @@ import { getCart } from './cart.actions';
 // import { revalidatePath } from 'next/cache';
 // import { Prisma } from '@prisma/client';
 //import { getMyCart } from './cart.actions';
+
+// Define interface for serialized user with orders
+interface SerializedUser extends Omit<User, 'orders'> {
+    totalSpent: number;
+    orders: Array<{
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        subtotal: string;
+        tax: string;
+        shipping: string;
+        total: string;
+        items: Array<{
+            id: string;
+            price: string;
+            quantity: number;
+            product: {
+                id: string;
+                name: string;
+            };
+            inventory?: {
+                id: string;
+                sku: string;
+            };
+        }>;
+    }>;
+    _count: {
+        orders: number;
+    };
+}
+
 
 
 export async function signInWithCredentials(prevState: unknown, formData: FormData) {
@@ -48,27 +82,7 @@ export async function signInWithCredentials(prevState: unknown, formData: FormDa
     }
 }
 
-export async function signOutUser() {
-    try {
-        const currentCart = await getCart();
-        console.log(currentCart?.id);
-        if (currentCart?.id) {
-            await prisma.cart.delete({ where: { id: currentCart.id } });
-            // console.log('Cart deleted successfully during sign out');
-        } else {
-            console.warn('No cart found for deletion during sign out.');
-        }
-        await signOut();
-        // console.log('User signed out successfully');
-    } catch (error) {
-        console.error('Error during sign out:', error);
-        // Still try to sign out even if cart deletion fails
-        await signOut();
-    }
-}
 
-
-//Sign up user
 export async function signUp(prevState: unknown, formData: FormData) {
     try {
         const user = signUpFormSchema.parse({
@@ -113,16 +127,84 @@ export async function signUp(prevState: unknown, formData: FormData) {
     }
 }
 
-
 // Get user by id
-export async function getUserById(userId: string) {
-    const user = prisma.user.findUnique({
-        where: {
-            id: userId,
-        },
-    });
-    if (!user) throw new Error('User not found');
-    return user;
+interface GetUserByIdResponse {
+    success: boolean;
+    data?: SerializedUser;
+    error?: string;
+}
+
+export async function getUserById(id: string): Promise<GetUserByIdResponse> {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id },
+            include: {
+                _count: {
+                    select: {
+                        orders: true,
+                    },
+                },
+                orders: {
+                    orderBy: {
+                        createdAt: "desc",
+                    },
+                    include: {
+                        items: {
+                            include: {
+                                product: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                    },
+                                },
+                                inventory: {
+                                    select: {
+                                        id: true,
+                                        sku: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!user) {
+            return {
+                success: false,
+                error: "User not found",
+            };
+        }
+
+        // Convert Decimal objects to numbers and calculate total spent
+        const serializedUser = {
+            ...user,
+            totalSpent: user.orders.reduce((sum, order) => sum + Number(order.total), 0),
+            orders: user.orders.map(order => ({
+                ...order,
+                subtotal: order.subtotal.toString(),
+                tax: order.tax.toString(),
+                shipping: order.shipping.toString(),
+                total: order.total.toString(),
+                items: order.items.map(item => ({
+                    ...item,
+                    price: item.price.toString(),
+                })),
+            })),
+        };
+
+        return {
+            success: true,
+            data: serializedUser,
+        };
+    } catch (error) {
+        console.error("Error fetching user:", error);
+        return {
+            success: false,
+            error: "Failed to fetch user",
+        };
+    }
 }
 
 //get user address
@@ -226,47 +308,214 @@ export async function getUserAddress() {
 // }
 
 // Get All Users
-// export async function getAllUsers({
-//     limit = PAGE_SIZE,
-//     page,
-//     query,
-// }: {
-//     limit?: number;
-//     page: number;
-//     query?: string;
-// }) {
-//     const queryFilter: Prisma.UserWhereInput = query && query !== 'all' ? { name: { contains: query, mode: 'insensitive' } as Prisma.StringFilter } : {}
+interface GetUsersParams {
+    page?: number;
+    limit?: number;
+    role?: Role;
+    search?: string;
+}
 
-//     const data = await prisma.user.findMany({
-//         where: { ...queryFilter },
-//         orderBy: { createdAt: 'desc' },
-//         take: limit,
-//         skip: (page - 1) * limit,
-//     });
+interface GetUsersResponse {
+    success: boolean;
+    data?: {
+        users: SerializedUser[];
+        total: number;
+        totalPages: number;
+        currentPage: number;
+    };
+    error?: string;
+}
 
-//     const dataCount = await prisma.user.count();
+export async function getUsers({
+    page = 1,
+    limit = 10,
+    role,
+    search,
+}: GetUsersParams): Promise<GetUsersResponse> {
+    try {
+        const skip = (page - 1) * limit;
 
-//     return {
-//         data,
-//         totalPages: Math.ceil(dataCount / limit),
-//     };
-// }
-// Delete User
-// export async function deleteUser(id: string) {
-//     try {
-//         await prisma.user.delete({ where: { id } });
+        // Build where clause
+        const where: Prisma.UserWhereInput = {
+            ...(role && { role }),
+            ...(search && {
+                OR: [
+                    { id: { contains: search, mode: Prisma.QueryMode.insensitive } },
+                    { name: { contains: search, mode: Prisma.QueryMode.insensitive } },
+                    { email: { contains: search, mode: Prisma.QueryMode.insensitive } },
+                ],
+            }),
+        };
 
-//         revalidatePath('/admin/users');
+        // Get total count
+        const total = await prisma.user.count({ where });
 
-//         return {
-//             success: true,
-//             message: 'User deleted successfully',
-//         };
-//     } catch (error) {
-//         return { success: false, message: formatError(error) };
-//     }
-// }
+        // Get users with related data
+        const users = await prisma.user.findMany({
+            where,
+            include: {
+                _count: {
+                    select: {
+                        orders: true,
+                    },
+                },
+                orders: {
+                    take: 5,
+                    orderBy: {
+                        createdAt: "desc",
+                    },
+                    include: {
+                        items: true,
+                    },
+                },
+            },
+            orderBy: {
+                createdAt: "desc",
+            },
+            skip,
+            take: limit,
+        });
 
+        // Transform decimal values and serialize orders
+        const serializedUsers = users.map(user => ({
+            ...user,
+            totalSpent: user.orders.reduce((sum, order) => sum + Number(order.total), 0),
+            orders: user.orders.map(order => ({
+                ...order,
+                subtotal: order.subtotal.toString(),
+                tax: order.tax.toString(),
+                shipping: order.shipping.toString(),
+                total: order.total.toString(),
+                items: order.items.map(item => ({
+                    ...item,
+                    price: item.price.toString(),
+                })),
+            })),
+        })) as unknown as SerializedUser[];
+
+        return {
+            success: true,
+            data: {
+                users: serializedUsers,
+                total,
+                totalPages: Math.ceil(total / limit),
+                currentPage: page,
+            },
+        };
+    } catch (error) {
+        console.error("Error fetching users:", error);
+        return {
+            success: false,
+            error: "Failed to fetch users",
+        };
+    }
+}
+
+interface UpdateUserRoleParams {
+    id: string;
+    role: Role;
+}
+
+interface UpdateUserRoleResponse {
+    success: boolean;
+    data?: User;
+    error?: string;
+}
+
+export async function updateUserRole({
+    id,
+    role,
+}: UpdateUserRoleParams): Promise<UpdateUserRoleResponse> {
+    try {
+        const user = await prisma.user.update({
+            where: { id },
+            data: { role },
+            include: {
+                _count: {
+                    select: {
+                        orders: true,
+                    },
+                },
+                orders: {
+                    orderBy: {
+                        createdAt: "desc",
+                    },
+                    include: {
+                        items: {
+                            include: {
+                                product: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                    },
+                                },
+                                inventory: {
+                                    select: {
+                                        id: true,
+                                        sku: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        // Convert Decimal objects to numbers and calculate total spent
+        const serializedUser = {
+            ...user,
+            totalSpent: user.orders.reduce((sum, order) => sum + Number(order.total), 0),
+            orders: user.orders.map(order => ({
+                ...order,
+                total: Number(order.total),
+                items: order.items.map(item => ({
+                    ...item,
+                    price: Number(item.price),
+                })),
+            })),
+        };
+
+        revalidatePath("/admin/users");
+        revalidatePath(`/admin/users/${id}`);
+
+        return {
+            success: true,
+            data: serializedUser,
+        };
+    } catch (error) {
+        console.error("Error updating user role:", error);
+        return {
+            success: false,
+            error: "Failed to update user role",
+        };
+    }
+}
+
+interface DeleteUserResponse {
+    success: boolean;
+    error?: string;
+}
+
+export async function deleteUser(id: string): Promise<DeleteUserResponse> {
+    try {
+        await prisma.user.delete({
+            where: { id },
+        });
+
+        revalidatePath("/admin/users");
+
+        return {
+            success: true,
+        };
+    } catch (error) {
+        console.error("Error deleting user:", error);
+        return {
+            success: false,
+            error: "Failed to delete user",
+        };
+    }
+}
 
 // export async function updateUser(user: z.infer<typeof updateUserProfileSchema>) {
 //     try {
@@ -1378,3 +1627,4 @@ export async function markAddressAsUserManaged(addressId: string) {
         };
     }
 }
+

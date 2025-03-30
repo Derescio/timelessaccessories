@@ -1,0 +1,110 @@
+# Development Lessons
+
+## TypeScript and Prisma Integration
+
+### Decimal to Number Conversion
+When working with Prisma's Decimal type and Next.js, we encountered issues with serialization. Prisma's Decimal objects cannot be directly passed to client components. The solution was to convert all Decimal values to JavaScript numbers before returning them from server components or server actions.
+
+```typescript
+// Convert Decimal to Number in server actions
+const products = productsData.map(product => ({
+  ...product,
+  inventories: product.inventories.map(inventory => ({
+    ...inventory,
+    retailPrice: Number(inventory.retailPrice)
+  }))
+}));
+```
+
+### Type Safety with Optional vs. Required Properties
+We learned the importance of properly defining which properties are required vs. optional in TypeScript interfaces and Zod schemas. When we initially defined `productId` as optional in the inventory schema, we encountered type errors because Prisma expected it to be a required string.
+
+Solution:
+1. Made `productId` required in the Zod schema:
+```typescript
+productId: z.string({ required_error: "Product ID is required" }),
+```
+
+2. Added validation in server actions to ensure `productId` is defined:
+```typescript
+if (!data.productId) {
+  return { success: false, error: "Product ID is required" };
+}
+```
+
+## Next.js App Router Patterns
+
+### Dynamic Route Parameters
+We encountered a warning about synchronously accessing dynamic route parameters. Next.js recommends awaiting params before using them in async server components:
+
+```typescript
+// Warning occurs here
+const { id } = params;
+
+// Solution is to use the params directly in awaited calls
+const [productResult, categoriesResult] = await Promise.all([
+  getProductById(params.id),
+  getCategories()
+]);
+```
+
+### Form Management with Multiple Related Models
+Managing forms for products and their related inventory items required careful design. We learned to:
+
+1. Create separate forms and action functions for each model
+2. Use tabs UI to separate product details from inventory management
+3. Implement proper validations at both the client and server level
+4. Handle relationships between models (e.g., setting a default inventory item)
+
+## Database Design Insights
+
+### Default Values and Relationships
+For the ProductInventory model, we implemented a pattern to ensure one inventory item is always marked as default:
+
+```typescript
+// If it's set as default, unset any existing default
+if (data.isDefault) {
+  await db.productInventory.updateMany({
+    where: { 
+      productId: data.productId,
+      isDefault: true 
+    },
+    data: { isDefault: false }
+  });
+}
+```
+
+### Cascade Deletion
+We set up cascade deletion for inventory items when a product is deleted:
+```prisma
+model ProductInventory {
+  // ...
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+```
+
+This ensures that when a product is deleted, all its associated inventory items are automatically deleted as well, preventing orphaned records.
+
+## UI Component Design
+
+### Form Organization
+For complex forms like product management, we found it beneficial to:
+1. Split related functionality into tabs (product details vs. inventory)
+2. Use conditional rendering for optional fields (e.g., discount-related fields)
+3. Provide clear validation feedback
+4. Include auto-generation features (e.g., SKU generation, slug creation)
+
+### Table Layouts for Data Management
+We implemented tables with consistent action patterns:
+1. View, Edit, and Delete actions
+2. Confirmation dialogs for destructive operations
+3. Visual indicators for status (badges, colors)
+4. Empty state handling
+
+## Next Steps and Improvements
+
+1. **Image Management**: Add proper image upload and management for products
+2. **Variant Management**: Improve the UI for managing multiple inventory variants
+3. **Batch Operations**: Add functionality for batch creating or updating products
+4. **Advanced Filters**: Implement more advanced filtering and search capabilities
+5. **Caching Strategy**: Implement more efficient data caching for product listings 
