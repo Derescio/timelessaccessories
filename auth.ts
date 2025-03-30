@@ -173,8 +173,9 @@ export const config = {
             // If the user is not authenticated, redirect to the sign-in page. Array of regex patterns to exclude from the redirect
             const excludedPaths = [
                 /\/shipping/,
-                /\/payment-method/,
-                /\/place-order/,
+                /\/confirmation/,
+                /\/order-sucess/,
+                /\/order/,
                 /\/profile/,
                 /\/user\/(.*)/,
                 /\/order\/(.*)/,

@@ -11,7 +11,9 @@ import {
     insertOrderItemSchema,
     insertOrderSchema,
     paymentResultSchema,
-    insertReviewSchema
+    insertReviewSchema,
+    categorySchema,
+    updateCategorySchema
 } from '@/lib/validators';
 import { Decimal } from "@prisma/client/runtime/library";
 
@@ -162,3 +164,21 @@ export interface CartItemDetails {
     hasDiscount: boolean;
     maxQuantity: number; // Available inventory
 }
+
+// Category types
+export type Category = {
+    id: string;
+    name: string;
+    description?: string | null;
+    imageUrl?: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    parentId?: string | null;
+    slug: string;
+    parent?: Category | null;
+    children?: Category[];
+    products?: Product[];
+};
+
+export type CategoryFormValues = z.infer<typeof categorySchema>;
+export type UpdateCategoryValues = z.infer<typeof updateCategorySchema>;

@@ -158,7 +158,7 @@ export async function addToCart(data: AddToCartInput) {
         item: formatCartItemResponse(updatedItem),
       };
     } else {
-      // Find the inventory item by SKU first
+      // Find the inventory item by SKU
       const inventoryItem = await prisma.productInventory.findUnique({
         where: { sku: actualInventoryId },
       });
@@ -175,7 +175,7 @@ export async function addToCart(data: AddToCartInput) {
         data: {
           cartId: cart.id,
           productId,
-          inventoryId: inventoryItem.id, // Use the actual inventory ID
+          inventoryId: inventoryItem.id,
           quantity,
         },
         include: {
@@ -421,39 +421,6 @@ export async function checkInventoryAvailability(data: z.infer<typeof checkInven
     });
 
     if (!inventory) {
-      // If SKU not found, try to find by product ID (for backward compatibility)
-      const product = await prisma.product.findUnique({
-        where: { id: inventoryId },
-        include: {
-          inventories: {
-            where: {
-              quantity: { gt: 0 },
-              isDefault: true,
-            },
-            take: 1,
-          },
-        },
-      });
-
-      if (product?.inventories && product.inventories.length > 0) {
-        const defaultInventory = product.inventories[0];
-        console.log(`Found product inventory for product ID ${inventoryId}, using SKU: ${defaultInventory.sku}`);
-
-        if (defaultInventory.quantity < quantity) {
-          return {
-            success: false,
-            message: `Only ${defaultInventory.quantity} items available`,
-            availableQuantity: defaultInventory.quantity
-          };
-        }
-
-        return {
-          success: true,
-          message: "Inventory available",
-          inventorySku: defaultInventory.sku
-        };
-      }
-
       console.error(`No inventory found with SKU ${inventoryId}`);
       return { success: false, message: "Product variant not found" };
     }

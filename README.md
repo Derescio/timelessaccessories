@@ -235,3 +235,29 @@ npm run switch-market
 ```
 
 This will update the `.env` file with the selected market configuration. Remember to restart your development server after switching markets for the changes to take effect.
+
+## Category Management System
+
+The category management system allows admins to create, edit, and organize product categories in a hierarchical structure.
+
+### Key Features
+
+- **Hierarchical Categories**: Categories can have parent-child relationships, allowing for nested organization
+- **Validation**: The system prevents circular references (cannot set a category as its own parent or as a descendant)
+- **User Association**: Categories are associated with the admin user who creates or updates them
+- **Image Management**: Categories can have images uploaded through UploadThing
+
+### Recent Improvements
+
+- Fixed issue with category updates when maintaining the same parent
+- Added proper validation to prevent circular references
+- Added user tracking for category ownership
+- Improved error handling and user feedback
+- Added comprehensive logging for easier troubleshooting
+
+### Common Operations
+
+1. **Creating a category**: Navigate to Admin > Categories > Create Category
+2. **Editing a category**: Select any category from the list and click Edit
+3. **Creating a subcategory**: Either select a parent when creating a new category, or use the "Add Subcategory" option
+4. **Deleting a category**: Categories can only be deleted if they have no subcategories or products

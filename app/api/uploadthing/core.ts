@@ -1,37 +1,27 @@
 import { createUploadthing, type FileRouter } from "uploadthing/next";
-import { UploadThingError } from "uploadthing/server";
-import { auth } from "@/auth";
 
+// Create a new instance of UploadThing
 const f = createUploadthing();
 
-
-
-// FileRouter for your app, can contain multiple FileRoutes
+// Simple file router for testing purposes
 export const ourFileRouter = {
-    // Define as many FileRoutes as you like, each with a unique routeSlug
-    imageUploader: f({
-        image: {
-            maxFileSize: "4MB",
-
-        },
+  // For uploading images
+  categoryImage: f({ image: { maxFileSize: "4MB", maxFileCount: 1 } })
+    .middleware(() => {
+      console.log("UploadThing middleware running");
+      // Return an object that will be passed to onUploadComplete
+      return { userId: "test-user" };
     })
-        // Set permissions and file types for this FileRoute
-        .middleware(async () => {
-            // This code runs on your server before upload
-            const session = await auth();
-            if (!session) throw new UploadThingError("Unauthorized");
-
-
-
-            // Whatever is returned here is accessible in onUploadComplete as `metadata`
-            return { userId: session?.user?.id };
-        })
-        .onUploadComplete(async ({ metadata }) => {
-
-            //  console.log("Upload complete for userId:", metadata.userId);
-            // console.log("file url", file.url);
-            return { uploadedBy: metadata.userId };
-        }),
+    .onUploadComplete(({ metadata, file }) => {
+      console.log("Upload completed for userId:", metadata.userId);
+      console.log("File details:", file);
+      
+      // Use ufsUrl as recommended by UploadThing for v9 compatibility
+      return { 
+        url: file.ufsUrl,  // Keep for backward compatibility
+        fileUrl: file.ufsUrl // Consistent with our other components
+      };
+    })
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;

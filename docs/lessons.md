@@ -1,572 +1,328 @@
-# Development Lessons & Best Practices
+# Lessons Learned
 
-## TypeScript & ESLint
+This document captures key lessons, challenges, and solutions encountered during the development of the Timeless Accessories e-commerce platform.
 
-### Global Variables in TypeScript with ESLint
+## Architecture & Design
 
-When working with global variables in TypeScript, particularly with tools like Prisma that require global instance management, we encountered an interesting case where best practices needed careful consideration:
+### 1. Hierarchical Data Management
+
+**Challenge:** Implementing a hierarchical category system with proper validation.
+
+**Lesson:** When working with self-referential relationships:
+- Always implement validation to prevent circular references
+- Optimize recursive checks for performance
+- Include proper error messages for easier debugging
+- Consider edge cases (such as updating without changing parent)
+
+**Solution:** We implemented a robust check that prevents circular references while allowing updates to existing categories when the parent isn't changing:
 
 ```typescript
-declare global {
-  // eslint-disable-next-line no-var
-  var prisma: PrismaClient | undefined;
+// Skip circular reference check when parent isn't changing
+if (data.parentId !== existingCategory.parentId) {
+  const isDescendant = await isChildDescendant(data.id, data.parentId);
+  if (isDescendant) {
+    return { success: false, error: "Cannot set a descendant category as parent" };
+  }
 }
 ```
 
-**Key Learnings:**
+### 2. State Management
 
-1. While `let` and `const` are preferred over `var` in modern JavaScript/TypeScript, global declarations are an exception
-2. The `no-var` ESLint rule needs to be disabled specifically for global declarations
-3. Using `var` for global declarations is the correct approach because:
-   - It properly declares properties on the global object
-   - It maintains consistent behavior across different JavaScript environments
-   - It follows TypeScript's expectations for global augmentation
+**Challenge:** Managing complex form state with hierarchical selections.
 
-**Best Practices:**
+**Lesson:** Use form libraries like React Hook Form with proper validation schemas to handle complex forms. Break down complex UI components into smaller, focused components.
 
-- Document ESLint rule exceptions with clear comments
-- Use `var` only for global declarations, stick to `let`/`const` everywhere else
-- When extending global types, ensure proper TypeScript namespace declarations
+### 3. Next.js 15 Dynamic Routes
 
-This pattern is particularly useful when:
+**Challenge:** Handling dynamic route parameters in Next.js 15.
 
-- Managing singleton instances (like database connections)
-- Preventing hot reload issues in development
-- Ensuring proper type safety with global variables
-
-## Database Configuration
-
-1. When using Prisma with Neon in a serverless environment:
-   - Use `@neondatabase/serverless` for connection pooling
-   - Configure WebSocket support for better connection management
-   - Create connection pools per request to avoid idle connections
-   - Use environment-specific database URLs
-
-2. Prisma Client Generation:
-   - Add `prisma generate` to build and postinstall scripts for Vercel deployment
-   - Handle permission issues by cleaning node_modules/.prisma when needed
-   - Use proper error handling for database operations
-
-## Checkout Form Handling and Data Flow
-
-### Field Naming Consistency Across Interfaces
-
-When implementing multi-step checkout processes, field naming consistency becomes critical. We encountered issues with postal code data not being properly saved due to inconsistent field naming:
-
-**Key Learnings:**
-
-1. Field naming must be consistent throughout the entire data flow:
-   - Form state in the frontend (`formData.postalCode`)
-   - LocalStorage data structures (`zipCode` vs `postalCode`)
-   - Server-side interfaces (`data.shippingAddress.zipCode`)
-   - Database schema fields (`address.postalCode`)
-
-2. Data transformations between pages should include explicit field mappings:
-
-   ```typescript
-   // Ensure postal code is explicitly mapped when saving to localStorage
-   localStorage.setItem('checkoutData', JSON.stringify({
-     shippingAddress: {
-       ...formData,
-       zipCode: formData.postalCode, // Explicit mapping for consistency
-     },
-     // other fields...
-   }));
-   ```
-
-3. Implement fallback logic for different field names:
-
-   ```typescript
-   // Extract postal code from multiple possible sources
-   const postalCode = checkoutData.shippingAddress.zipCode || 
-                      checkoutData.shippingAddress.postalCode || 
-                      "";
-   ```
-
-**Best Practices:**
-
-- Add detailed logging throughout the data flow to track field values
-- Use standardized naming conventions across all interfaces
-- Implement explicit type checking when accessing potentially missing fields
-- Add validation to ensure required fields are present before submission
-- Always log raw data objects for debugging complex multi-step forms
-
-## Authentication Setup
-
-1. NextAuth.js Integration:
-   - Use the beta version for Next.js 14+ compatibility
-   - Implement proper session and JWT handling
-   - Configure protected routes with middleware
-   - Handle cart sessions for guest users
-
-2. Security Best Practices:
-   - Use bcrypt for password hashing
-   - Implement proper session management
-   - Configure CSRF protection
-   - Set up secure cookie handling
-   - Use environment variables for sensitive data
-
-3. File Upload Security:
-   - Integrate auth with Uploadthing
-   - Implement file size and type restrictions
-   - Add user-specific upload permissions
-   - Store file metadata with user context
-
-## Testing and Documentation
-
-1. Authentication Testing:
-   - Create test pages for auth functionality
-   - Verify protected routes
-   - Test session persistence
-   - Validate user roles and permissions
-
-2. Documentation Importance:
-   - Document configuration files
-   - Provide usage examples
-   - List security considerations
-   - Keep track of lessons learned
-
-## Deployment Considerations
-
-1. Vercel Deployment:
-   - Configure build scripts properly
-   - Handle dependency caching
-   - Set up environment variables
-   - Test in production environment
-
-## UI Component Installation
-
-1. Shadcn/UI Components:
-   - Use `npx shadcn@latest add [component-name]` for installation
-   - NOT `npx shadcn-ui` which is incorrect
-   - Can install multiple components at once: `npx shadcn@latest add component1 component2`
-   - Components are added to `@/components/ui/`
-   - Tailwind CSS classes can be customized in the component files
-
-## Next.js 15 Dynamic Parameter Handling
-
-When upgrading to Next.js 15, we encountered issues with dynamic route parameters in the product details page. The application threw runtime errors and build-time type errors related to params handling.
-
-**Key Learnings:**
-
-1. In Next.js 15, route parameters are now Promises that must be awaited before use:
-
-   ```typescript
-   // Old approach (worked in Next.js 14)
-   export default async function ProductDetailPage({ params }: PageProps) {
-       const { slug } = params; // Error in Next.js 15: params is now a Promise
-       // ...
-   }
-   
-   // Next.js 15 approach
-   export default async function ProductDetailPage({ params }: PageProps) {
-       const resolvedParams = await params;
-       const { slug } = resolvedParams;
-       // ...
-   }
-   ```
-
-2. TypeScript interfaces need to be updated to reflect the Promise-based params:
-
-   ```typescript
-   // Old interface (Next.js 14)
-   interface PageProps {
-       params: {
-           slug: string;
-       };
-       searchParams?: { [key: string]: string | string[] | undefined };
-   }
-   
-   // Next.js 15 interface
-   interface PageProps {
-       params: Promise<{
-           slug: string;
-       }>;
-       searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
-   }
-   ```
-
-3. This change applies to all route parameters, including searchParams
-
-**Debugging Steps We Used:**
-
-1. Identified runtime error: `Error: Route "/products/[slug]" used params.slug. params should be awaited before using its properties.`
-2. Fixed runtime error by awaiting params
-3. Encountered build-time type errors when running `npm run build`
-4. Fixed type errors by updating the PageProps interface to use Promise types
-
-**Best Practices:**
-
-- Always await route parameters in Next.js 15 before accessing their properties
-- Update type definitions to match the new Promise-based parameter pattern
-- Review your entire application for instances of dynamic routes when upgrading
-- Check both runtime behavior and type safety when dealing with changes to framework APIs
-
-**Impact:**
-
-- Failing to properly handle these Promises can cause both runtime errors and type errors
-- The runtime errors may not be immediately apparent in development mode
-- Build errors will catch type issues, but only if you're using TypeScript properly
-
-This change is part of Next.js 15's improvements to better handle asynchronous data fetching and rendering.
-
-## PayPal Integration Challenges
-
-When implementing PayPal integration in our e-commerce application, we encountered several issues that required careful consideration and thoughtful solutions.
-
-### Permission Denied Errors
-
-**Problem:**
-After PayPal order approval, the capture process was failing with a PERMISSION_DENIED error:
-
-```
-PayPal capture failed with status 403 {"name":"NOT_AUTHORIZED","details":[{"issue":"PERMISSION_DENIED","description":"You do not have permission to access or perform operations on this resource."}],"message":"Authorization failed due to insufficient permissions."}
-```
-
-**Key Learnings:**
-
-1. PayPal's sandbox environment requires specific app permissions that must be explicitly configured
-2. Different PayPal operations (create order, capture payment) require different permission sets
-3. Developer accounts must have the right permission scope for API interactions
+**Lesson:** In Next.js 15, dynamic route parameters are now Promise-based and must be awaited:
+- Always await params before accessing properties
+- Update type definitions to reflect Promise-based params
+- Handle loading states appropriately
+- Consider error boundaries for failed parameter resolution
 
 **Solution:**
+```typescript
+interface EditProductPageProps {
+    params: Promise<{
+        id: string;
+    }>;
+}
 
-1. Configure the correct permissions in the PayPal Developer Dashboard:
-   - Transaction Search
-   - Vault
-   - Orders
-   - PayPal Checkout Advanced
-   - Payments
-2. For development testing, we implemented a sandbox-only workaround:
-
-   ```typescript
-   // Only use this approach in development for testing UI flows
-   if (isDevelopment && PAYPAL_API_BASE.includes('sandbox') && 
-       responseText.includes('PERMISSION_DENIED')) {
-     console.warn('Using mock response in development mode');
-     return mockSuccessResponse;
-   }
-   ```
-
-### Cart Deletion During Payment Flow
-
-**Problem:**
-The original checkout flow deleted the cart immediately after creating an order, which caused issues when users were redirected back from PayPal. Without the cart, the confirmation page couldn't display order details.
-
-**Key Learnings:**
-
-1. Multi-step payment flows need to preserve state across HTTP redirects
-2. Cart data should be retained until the payment is fully completed
-3. Alternative data sources (like order data) should be available as fallbacks
-
-**Solution:**
-
-1. Implemented a new function `createOrderWithoutDeletingCart` that preserves the cart during payment flow
-2. Created an API endpoint to fetch order details directly by ID
-3. Updated the confirmation page to load data from either the cart or the order
-
-### Missing Client ID Errors
-
-**Problem:**
-The PayPal JavaScript SDK script failed to load with errors when the client ID was missing or invalid.
-
-**Key Learnings:**
-
-1. Client-side environment variables in Next.js must be prefixed with `NEXT_PUBLIC_`
-2. Hard-coded credentials are a security risk and cause maintenance issues
-3. Always include fallback values for environment variables to prevent runtime errors:
-
-   ```typescript
-   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
-   ```
-
-**Solution:**
-
-1. Fixed environment variable names in `.env` file:
-
-   ```
-   PAYPAL_CLIENT_ID=... # Server-side only
-   NEXT_PUBLIC_PAYPAL_CLIENT_ID=... # Available on client
-   ```
-
-2. Removed hardcoded credentials from the PayPalCheckout component
-3. Added console logging to verify the correct values are being used
-4. Implemented proper error handling for missing credentials
-
-### Best Practices for Payment Integration
-
-1. **Graceful Degradation:**
-   - Always provide fallbacks if payment options fail to load
-   - Show meaningful error messages to users
-   - Log detailed information for debugging
-
-2. **State Preservation:**
-   - Never delete critical data until the entire payment flow is complete
-   - Implement alternative data retrieval methods
-   - Use session storage or databases to preserve state across redirects
-
-3. **Environment Awareness:**
-   - Create different logic for development vs. production
-   - Never use development workarounds in production code
-   - Clearly mark and document any environment-specific code
-
-4. **Comprehensive Testing:**
-   - Test the entire payment flow from start to finish
-   - Verify successful payments, cancellations, and error scenarios
-   - Test with real sandbox accounts
-
-5. **Security Considerations:**
-   - Keep API keys and secrets secure
-   - Validate all payment data on the server
-   - Implement proper error handling that doesn't expose sensitive information
-
-These lessons have significantly improved our payment processing workflow and created a more robust checkout experience for users.
-
-## Next.js Image Configuration Challenges
-
-When working with Next.js's built-in Image component for optimized images, we encountered issues with images from external domains, particularly with Vercel Blob Storage and PayPal.
-
-### Unconfigured Host Error
-
-**Problem:**
-Images failed to load with the following error:
-
-```
-⨯ Error: Invalid src prop (https://hebbkx1anhila5yf.public.blob.vercel-storage.com/HeroImage-Wl3RWWw6YOnIN9bl2xJRPITHuYRdIw.png) on `next/image`, hostname "hebbkx1anhila5yf.public.blob.vercel-storage.com" is not configured under images in your `next.config.js`
+export default async function EditProductPage({ params }: EditProductPageProps) {
+    const resolvedParams = await params;
+    const { success, data: product, error } = await getProductById(resolvedParams.id);
+    // ... rest of the component
+}
 ```
 
-**Key Learnings:**
+## Database
 
-1. Next.js requires explicit configuration for external image domains for security
-2. Both the `domains` array and `remotePatterns` configurations may be needed
-3. `domains` is simpler but less secure (whole domain is allowed)
-4. `remotePatterns` is more flexible and secure (can specify protocol, pathname patterns)
+### 1. Connection Issues
+
+**Challenge:** Intermittent database connection issues with cloud PostgreSQL provider (Neon).
+
+**Lesson:** Cloud database providers may have connection limits or timeout policies that affect development. Implement robust connection handling:
+- Connection pooling
+- Automatic retries
+- Proper error handling
+- Logging for diagnostics
+
+### 2. Schema Evolution
+
+**Challenge:** Adding fields to existing models with data.
+
+**Lesson:** Plan migrations carefully, especially when adding required fields to existing tables:
+- Include default values or make new fields optional
+- Consider data backfill strategies
+- Test migrations on copy of production data before applying
+
+### 3. Prisma Decimal Types
+
+**Challenge:** Handling Prisma Decimal types in client components.
+
+**Lesson:** Prisma's Decimal type cannot be directly passed to client components. Always convert Decimal values to numbers:
+- Convert Decimal to number before sending to client
+- Handle null values appropriately
+- Consider precision loss implications
+- Implement consistent conversion across the application
 
 **Solution:**
-We updated `next.config.js` to properly handle all required image domains:
-
-```javascript
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  // ... other config
-  images: {
-    domains: [
-      "www.paypalobjects.com",
-      "hebbkx1anhila5yf.public.blob.vercel-storage.com"
-    ],
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*.paypal.com",
-        pathname: "**",
-      },
-      {
-        protocol: "https",
-        hostname: "*.vercel-storage.com",
-        pathname: "**",
-      },
-    ],
-  },
+```typescript
+// Convert Decimal values to numbers before sending to client
+const inventoryData = {
+    ...data,
+    costPrice: Number(data.costPrice),
+    retailPrice: Number(data.retailPrice),
+    compareAtPrice: data.compareAtPrice ? Number(data.compareAtPrice) : null,
 };
 ```
 
-This configuration is important for:
+## Third-party Services
 
-1. PayPal button images that are loaded from PayPal's CDN
-2. Vercel Blob Storage images used throughout the site
-3. Any other third-party image services integrated with the application
+### 1. Image Handling
 
-**Debugging Note:**
-When the Next.js development server emits an image domain error, it provides the exact hostname that needs to be added to the configuration, making it straightforward to fix.
+**Challenge:** Managing image uploads and URLs with UploadThing.
 
-## Environment Variable Configuration For Production
+**Lesson:** External services may return different response formats:
+- Build adapters to normalize responses
+- Add fallbacks for missing values
+- Handle errors gracefully
+- Test integrations with mock services
 
-When deploying to production, proper environment variable management is crucial. We encountered issues with our application working in development but failing in production due to environment variable misconfigurations.
+```typescript
+// Example of defensive URL extraction from UploadThing response
+const url = file.ufsUrl || file.url || file.fileUrl || defaultImageUrl;
+```
 
-**Key Learnings:**
+### 2. Payment Integrations
 
-1. Different environments (dev/prod) should have consistent variable naming
-2. Development-only workarounds must be properly conditioned:
+**Challenge:** Integrating multiple payment providers.
 
-   ```typescript
-   // Good approach - only applies in development
-   if (process.env.NODE_ENV === 'development') {
-     // Development-only code
-   }
-   
-   // Bad approach - hardcoded values that will cause issues in production
-   const clientId = "hardcoded_value"; // Will prevent proper production behavior
-   ```
+**Lesson:** Abstract payment logic behind a unified interface:
+- Create provider-specific adapters
+- Implement common error handling
+- Consider regional requirements
+- Test each integration independently
 
-3. The `.env` file's `NODE_ENV` setting affects server behavior:
+## Development Workflow
 
-   ```
-   # For local development
-   NODE_ENV="development"
-   
-   # For production-like testing
-   NODE_ENV="production"
-   ```
+### 1. Error Handling & Debugging
 
-**Best Practices:**
+**Challenge:** Tracking down issues in server actions and API routes.
 
-1. Use a `.env.local` file for local development overrides (not committed to git)
-2. Set `NODE_ENV="development"` for local testing
-3. Consistently use environment variable prefixes:
-   - `NEXT_PUBLIC_` for client-side variables
-   - No prefix for server-side only variables
-4. Always include fallbacks for environment variables to prevent crashes
-5. Test the application with production environment settings before deploying
+**Lesson:** Implement comprehensive logging and debugging:
+- Use detailed logs with context information
+- Include try/catch blocks with specific error messages
+- Implement client-side error reporting
+- Consider adding a debug mode toggle
 
-By following these practices, we were able to ensure our application functions correctly in both development and production environments.
+### 2. Performance Optimization
 
-## Address Management in E-commerce Applications
+**Challenge:** Maintaining performance with complex database queries.
 
-When implementing address management in our e-commerce application, we encountered the challenge of distinguishing between addresses created during checkout and those explicitly managed by users in their account settings.
+**Lesson:** Always consider query performance:
+- Add appropriate indexes
+- Use query builders or ORM features for optimization
+- Implement pagination for large data sets
+- Consider caching for frequently accessed data
 
-### Separating Checkout Addresses from User-Managed Addresses
+## Future Considerations
 
-**Problem:**
-Initially, all addresses were displayed in the user's address book, including those created during checkout. This led to cluttered address books filled with one-time delivery addresses that users didn't necessarily want to save.
+### 1. Scalability Planning
 
-**Key Learnings:**
+As the application grows, consider:
+- Implementing microservices for separation of concerns
+- Using serverless functions for specific operations
+- Adding a CDN for static assets and images
+- Implementing database sharding or read replicas
 
-1. Checkout-created addresses and user-managed addresses serve different purposes:
-   - Checkout addresses are created for one-time use during the ordering process
-   - User-managed addresses are explicitly saved by users for future orders
-2. The user interface should only show addresses that users explicitly want to manage
-3. Addresses created during checkout should still be associated with the user for order history
+### 2. Security Practices
 
-**Solution:**
+Always prioritize security:
+- Regular dependency updates
+- Input validation on both client and server
+- Proper authentication and authorization checks
+- Rate limiting for public endpoints
 
-1. Added an `isUserManaged` boolean field to the Address model with a default value of `false`:
+## Data Handling
+1. **Decimal Type Handling**
+   - Prisma's Decimal type needs proper conversion when passing to client components
+   - Convert to string/number before sending to client
+   - Use proper type checking and conversion
+   - Example: `Number(decimalValue.toString())`
 
-   ```prisma
-   model Address {
-     // ... other fields
-     isUserManaged Boolean @default(false)
-   }
-   ```
+2. **Chart Data Types**
+   - Recharts expects numeric values for chart data
+   - String values need to be converted to numbers
+   - Handle type conversion at the data source
+   - Validate data types before rendering
 
-2. Modified address creation and retrieval logic:
+3. **Data Aggregation**
+   - Use proper filtering instead of find for multiple results
+   - Calculate totals correctly for percentages
+   - Handle empty or null values gracefully
+   - Consider edge cases in data processing
 
-   ```typescript
-   // Only retrieve addresses that users explicitly want to manage
-   export async function getUserAddresses() {
-     // ... authentication check
-     const addresses = await db.address.findMany({
-       where: { 
-         userId,
-         isUserManaged: true // Only get addresses marked as user-managed
-       },
-       // ... other query options
-     });
-     // ... return addresses
-   }
-   ```
+## Chart Implementation
+1. **Recharts Best Practices**
+   - Use ResponsiveContainer for proper sizing
+   - Set appropriate radius values for visibility
+   - Add padding between segments
+   - Include proper tooltips and labels
+   - Handle empty data states
 
-3. Updated address creation in checkout to ensure addresses are not automatically added to the user's address book:
+2. **Chart Configuration**
+   - Set minimum angles for small segments
+   - Use donut chart style for better visibility
+   - Add proper spacing between elements
+   - Include percentage labels
+   - Format tooltip values appropriately
 
-   ```typescript
-   await db.address.create({
-     data: {
-       userId,
-       // ... address fields
-       isUserManaged: false // Checkout-created addresses aren't user-managed by default
-     }
-   });
-   ```
+3. **Performance Considerations**
+   - Convert data types before rendering
+   - Sort data efficiently
+   - Handle large datasets properly
+   - Consider using memoization for expensive calculations
 
-4. Created a function for users to explicitly mark addresses as managed:
+## Error Handling
+1. **Data Validation**
+   - Validate data before processing
+   - Handle missing or invalid values
+   - Provide fallback displays
+   - Show meaningful error messages
 
-   ```typescript
-   export async function markAddressAsUserManaged(addressId: string) {
-     // ... authentication check
-     // Update address to mark as user-managed
-     const address = await db.address.update({
-       where: { id: addressId },
-       data: { isUserManaged: true }
-     });
-     // ... return result
-   }
-   ```
+2. **Type Safety**
+   - Use proper TypeScript types
+   - Validate data structures
+   - Handle edge cases
+   - Document type requirements
 
-5. Ensured addresses created directly in the user's address management UI are always marked as user-managed:
+3. **User Feedback**
+   - Show loading states
+   - Display error messages clearly
+   - Provide fallback content
+   - Guide users when data is missing
 
-   ```typescript
-   export async function addUserAddress(addressData) {
-     // ... authentication check
-     const address = await db.address.create({
-       data: {
-         // ... address fields
-         isUserManaged: true // User explicitly created this address
-       }
-     });
-     // ... return result
-   }
-   ```
+## Debugging Tips
+1. **Chart Issues**
+   - Check data types and formats
+   - Verify data structure
+   - Test with sample data
+   - Add console logs for debugging
+   - Use React DevTools for component inspection
 
-**Best Practices:**
+2. **Data Processing**
+   - Log intermediate results
+   - Verify calculations
+   - Check data transformations
+   - Validate type conversions
 
-- Clearly distinguish between system-created and user-managed data in your schema
-- Design database schemas with flags that control visibility in different contexts
-- Use boolean flags with meaningful defaults for toggleable behavior
-- Keep data for historical records even if not shown in the UI
-- Provide mechanisms for users to "import" or "save" system-created data for future use
+3. **Performance**
+   - Monitor render cycles
+   - Check data processing time
+   - Verify memory usage
+   - Test with different data sizes
 
-This approach has significantly improved our user experience by keeping address books clean and focused while still maintaining all address data for order history and analytics.
+## Best Practices
+1. **Code Organization**
+   - Separate data processing from rendering
+   - Use proper type definitions
+   - Document complex logic
+   - Follow consistent patterns
 
-## Handling Intermittent Client-Side Errors
+2. **User Experience**
+   - Provide loading states
+   - Handle empty data gracefully
+   - Show meaningful messages
+   - Ensure responsive design
 
-When dealing with third-party integrations like payment providers, certain errors may occur that are expected and should be handled gracefully without alarming users or cluttering error logs.
+3. **Maintenance**
+   - Keep code clean and documented
+   - Use consistent naming
+   - Follow established patterns
+   - Write maintainable code
 
-### PayPal Error Silencing for Improved UX
+## Cart and Inventory Management
 
-**Problem:**
-The PayPal integration would log a console error "Target window is closed" when users navigated away from the payment flow or closed the PayPal popup. While this is expected behavior, it resulted in confusing error logs and potentially triggered monitoring alerts.
+### 1. Inventory ID vs SKU Usage
 
-**Key Learnings:**
+**Challenge:** Inconsistent use of inventory IDs and SKUs across the application.
 
-1. Some client-side errors are expected and don't represent actual problems
-2. Error logging systems can be overwhelmed by non-actionable errors
-3. Clean console logs improve development experience and customer support
+**Lesson:** When dealing with inventory management:
+- Be consistent with identifier usage (either ID or SKU, not both)
+- Document the chosen approach clearly
+- Update all related components to use the same identifier
+- Consider the implications of using each type (IDs are internal, SKUs are business-facing)
 
-**Solution:**
-We implemented a targeted approach to intercept and silence specific known PayPal errors:
+**Solution:** We standardized on using SKUs for inventory lookups:
+```typescript
+// Find inventory by SKU consistently
+const inventory = await prisma.productInventory.findUnique({
+  where: { sku: inventoryId },
+});
+```
 
-1. Used a global error handler to intercept PayPal-specific errors:
+### 2. Cart Item Management
 
-   ```javascript
-   // Listen for errors in the PayPal SDK
-   window.addEventListener('error', (event) => {
-     // Check if the error is from PayPal and is about a closed window
-     if (
-       event.message.includes('Target window is closed') &&
-       event.filename.includes('paypal')
-     ) {
-       // Prevent the error from being logged to console
-       event.preventDefault();
-     }
-   });
-   ```
+**Challenge:** Managing cart items with multiple inventory variants.
 
-2. Added clear documentation about the silenced errors:
+**Lesson:** When implementing cart functionality:
+- Use consistent identifiers for inventory items
+- Handle inventory availability checks properly
+- Implement proper error handling for out-of-stock items
+- Consider edge cases like quantity updates
 
-   ```javascript
-   /**
-    * This error handler prevents PayPal's "Target window is closed" errors 
-    * from being logged to the console when a user closes the PayPal popup
-    * or navigates away from the payment flow. This is expected behavior
-    * and not an actual error.
-    */
-   ```
+**Solution:** We implemented a robust cart system that:
+- Uses SKUs for inventory lookups
+- Checks inventory availability before adding items
+- Handles quantity updates with proper validation
+- Provides clear error messages for users
 
-**Best Practices:**
+### 3. Type Safety in Cart Operations
 
-- Only silence errors that are well-understood and expected
-- Document any error silencing with clear explanations
-- Be specific in error matching to avoid hiding unexpected issues
-- Consider implementing different handling for development vs. production
-- Monitor silenced errors periodically to ensure they remain non-actionable
+**Challenge:** Ensuring type safety across cart operations.
 
-This approach has resulted in cleaner logs, better developer experience, and less noise in our monitoring systems, while still ensuring that actual issues are properly reported and addressed.
+**Lesson:** When working with cart operations:
+- Define clear interfaces for cart items
+- Use proper type validation
+- Handle edge cases in type definitions
+- Consider null/undefined scenarios
+
+**Solution:** We implemented proper type definitions:
+```typescript
+interface CartItemDetails {
+  id: string;
+  productId: string;
+  inventoryId: string;
+  name: string;
+  slug: string;
+  quantity: number;
+  price: number;
+  image: string;
+  discountPercentage: number | null;
+  hasDiscount: boolean;
+  maxQuantity: number;
+}
+```

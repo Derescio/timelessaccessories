@@ -3,7 +3,7 @@
 // import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/auth"
-import { OrderStatus, PaymentStatus } from "@prisma/client"
+import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client"
 import { PaymentResult } from "@/types"
 import { paypal } from "../paypal/paypal"
 import { Decimal } from "@prisma/client/runtime/library"
@@ -42,6 +42,51 @@ interface OrderData {
   tax: number
   total: number
   status?: keyof typeof OrderStatus | string
+}
+
+// Define serialized order type
+interface SerializedOrder {
+    id: string;
+    status: OrderStatus;
+    createdAt: Date;
+    updatedAt: Date;
+    subtotal: number;
+    tax: number;
+    shipping: number;
+    total: number;
+    user: {
+        id: string;
+        name: string;
+        email: string;
+    };
+    items: Array<{
+        id: string;
+        name?: string;
+        price: number;
+        quantity: number;
+        image?: string | null;
+        product: {
+            id: string;
+            name: string;
+        };
+        inventory?: {
+            id: string;
+            sku: string;
+        };
+    }>;
+    address?: {
+        street: string;
+        city: string;
+        state: string;
+        postalCode?: string;
+        country: string;
+    } | null;
+    shippingAddress?: Record<string, string | undefined>;
+    payment?: {
+        id: string;
+        provider: string;
+        status: string;
+    } | null;
 }
 
 //Format Errors
@@ -769,5 +814,286 @@ export async function createStripePaymentIntent(orderId: string): Promise<{
     console.error('Error creating Stripe payment intent:', error);
     return handleError(error);
   }
+}
+
+interface GetOrdersParams {
+    page?: number;
+    limit?: number;
+    status?: OrderStatus;
+    search?: string;
+}
+
+interface GetOrdersResponse {
+    success: boolean;
+    data?: {
+        orders: SerializedOrder[];
+        total: number;
+        totalPages: number;
+        currentPage: number;
+    };
+    error?: string;
+}
+
+export async function getOrders({
+    page = 1,
+    limit = 10,
+    status,
+    search,
+}: GetOrdersParams): Promise<GetOrdersResponse> {
+    try {
+        const skip = (page - 1) * limit;
+
+        // Build where clause
+        const where: Prisma.OrderWhereInput = {
+            ...(status && { status }),
+            ...(search && {
+                OR: [
+                    { id: { contains: search, mode: Prisma.QueryMode.insensitive } },
+                    { userId: { contains: search, mode: Prisma.QueryMode.insensitive } },
+                    { user: { name: { contains: search, mode: Prisma.QueryMode.insensitive } } },
+                    { user: { email: { contains: search, mode: Prisma.QueryMode.insensitive } } },
+                ],
+            }),
+        };
+
+        // Get total count
+        const total = await prisma.order.count({ where });
+
+        // Get orders with related data
+        const orders = await prisma.order.findMany({
+            where,
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
+                items: {
+                    include: {
+                        product: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
+                        inventory: {
+                            select: {
+                                id: true,
+                                sku: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: {
+                createdAt: "desc",
+            },
+            skip,
+            take: limit,
+        });
+
+        // Convert Decimal objects to numbers
+        const serializedOrders = orders.map(order => ({
+            ...order,
+            subtotal: Number(order.subtotal),
+            tax: Number(order.tax),
+            shipping: Number(order.shipping),
+            total: Number(order.total),
+            items: order.items.map(item => ({
+                ...item,
+                price: Number(item.price),
+            })),
+        })) as unknown as SerializedOrder[];
+
+        return {
+            success: true,
+            data: {
+                orders: serializedOrders,
+                total,
+                totalPages: Math.ceil(total / limit),
+                currentPage: page,
+            },
+        };
+    } catch (error) {
+        console.error("Error fetching orders:", error);
+        return {
+            success: false,
+            error: "Failed to fetch orders",
+        };
+    }
+}
+
+interface GetOrderByIdResponse {
+    success: boolean;
+    data?: SerializedOrder;
+    error?: string;
+}
+
+export async function getOrderById(id: string): Promise<GetOrderByIdResponse> {
+    try {
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
+                items: {
+                    include: {
+                        product: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
+                        inventory: {
+                            select: {
+                                id: true,
+                                sku: true,
+                            },
+                        },
+                    },
+                },
+                address: true,
+            },
+        });
+
+        if (!order) {
+            return {
+                success: false,
+                error: "Order not found",
+            };
+        }
+
+        // Convert Decimal objects to numbers
+        const serializedOrder = {
+            ...order,
+            subtotal: Number(order.subtotal),
+            tax: Number(order.tax),
+            shipping: Number(order.shipping),
+            total: Number(order.total),
+            items: order.items.map(item => ({
+                ...item,
+                price: Number(item.price),
+            })),
+        } as SerializedOrder;
+
+        return {
+            success: true,
+            data: serializedOrder,
+        };
+    } catch (error) {
+        console.error("Error fetching order:", error);
+        return {
+            success: false,
+            error: "Failed to fetch order",
+        };
+    }
+}
+
+interface UpdateOrderStatusParams {
+    id: string;
+    status: OrderStatus;
+}
+
+interface UpdateOrderStatusResponse {
+    success: boolean;
+    data?: SerializedOrder;
+    error?: string;
+}
+
+export async function updateOrderStatus({
+    id,
+    status,
+}: UpdateOrderStatusParams): Promise<UpdateOrderStatusResponse> {
+    try {
+        const order = await prisma.order.update({
+            where: { id },
+            data: { status },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
+                items: {
+                    include: {
+                        product: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
+                        inventory: {
+                            select: {
+                                id: true,
+                                sku: true,
+                            },
+                        },
+                    },
+                },
+                address: true,
+            },
+        });
+
+        // Convert Decimal objects to numbers
+        const serializedOrder = {
+            ...order,
+            subtotal: Number(order.subtotal),
+            tax: Number(order.tax),
+            shipping: Number(order.shipping),
+            total: Number(order.total),
+            items: order.items.map(item => ({
+                ...item,
+                price: Number(item.price),
+            })),
+        } as unknown as SerializedOrder;
+
+        revalidatePath("/admin/orders");
+        revalidatePath(`/admin/orders/${id}`);
+
+        return {
+            success: true,
+            data: serializedOrder,
+        };
+    } catch (error) {
+        console.error("Error updating order status:", error);
+        return {
+            success: false,
+            error: "Failed to update order status",
+        };
+    }
+}
+
+interface DeleteOrderResponse {
+    success: boolean;
+    error?: string;
+}
+
+export async function deleteOrder(id: string): Promise<DeleteOrderResponse> {
+    try {
+        await prisma.order.delete({
+            where: { id },
+        });
+
+        revalidatePath("/admin/orders");
+
+        return {
+            success: true,
+        };
+    } catch (error) {
+        console.error("Error deleting order:", error);
+        return {
+            success: false,
+            error: "Failed to delete order",
+        };
+    }
 }
 

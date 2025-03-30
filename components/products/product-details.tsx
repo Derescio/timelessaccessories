@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, ReactNode } from "react"
 import { Minus, Plus, Share2, Star, Loader } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Product } from "@/types"
 import AddToCartButton from "./AddToCartButton"
 import AddToWishlistButton from "@/components/wishlist/add-to-wishlist-button"
 import { updateCartItem, removeFromCart, getCart } from "@/lib/actions/cart.actions"
@@ -19,10 +18,57 @@ interface ProductMetadata {
     [key: string]: unknown;
 }
 
-interface ProductDetailsProps {
-    product: Product & {
-        metadata?: ProductMetadata | null;
+interface ClientProduct {
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+    categoryId: string;
+    inventory: number;
+    createdAt: Date;
+    updatedAt: Date;
+    compareAtPrice: number | null;
+    discountPercentage: number | null;
+    hasDiscount: boolean;
+    isActive: boolean;
+    isFeatured: boolean | null;
+    metadata?: ProductMetadata | null;
+    sku: string;
+    slug: string;
+    category: {
+        id: string;
+        name: string;
+        slug: string;
+        description?: string;
+        imageUrl?: string;
+        parentId?: string;
     };
+    images: {
+        id: string;
+        url: string;
+        alt: string | null;
+        position: number;
+    }[];
+    mainImage?: string;
+    averageRating?: number | null;
+    reviewCount?: number;
+    inventories: {
+        retailPrice: number;
+        costPrice: number;
+        compareAtPrice: number | null;
+        discountPercentage: number | null;
+        hasDiscount: boolean;
+        images: string[];
+        quantity: number;
+        sku: string;
+    }[];
+    reviews: {
+        rating: number;
+    }[];
+}
+
+interface ProductDetailsProps {
+    product: ClientProduct;
 }
 
 // Define a type for the cart action result
@@ -67,16 +113,16 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
 
         // If product has a discount and compareAtPrice, calculate the discounted price
         if (product?.hasDiscount && product?.discountPercentage && product?.compareAtPrice) {
-            resultValues.originalPrice = Number(product.compareAtPrice);
+            resultValues.originalPrice = product.compareAtPrice;
 
             // Log price calculation for debugging
             console.log(`ProductDetails price calculation for ${product.name}:`, {
                 hasDiscount: product.hasDiscount,
                 discountPercentage: product.discountPercentage,
                 originalCompareAtPrice: resultValues.originalPrice,
-                originalPrice: Number(product.price),
+                originalPrice: product.price,
                 activeInventory: activeInventory ? {
-                    retailPrice: Number(activeInventory.retailPrice),
+                    retailPrice: activeInventory.retailPrice,
                     hasDiscount: activeInventory.hasDiscount,
                     discountPercentage: activeInventory.discountPercentage
                 } : null
@@ -84,11 +130,10 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
         }
 
         return {
-            displayPrice: Number(resultValues.displayPrice),
+            displayPrice: resultValues.displayPrice,
             originalPrice: resultValues.originalPrice
         };
     }, [product, activeInventory]);
-
 
     // function debounce(func: (...args: any[]) => void, delay: number) {
     //     let timeout: NodeJS.Timeout;
@@ -307,6 +352,32 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
         }
     };
 
+    const renderMetadataField = (label: string, value: string | string[] | undefined): ReactNode => {
+        if (!value) return null;
+        return (
+            <div>
+                <span className="text-gray-500">{label}:</span>{" "}
+                {Array.isArray(value) ? value.join(", ") : value}
+            </div>
+        );
+    };
+
+    const renderMetadataFields = (metadata: ProductMetadata): ReactNode => {
+        const fields: { label: string; value: string | string[] | undefined }[] = [
+            { label: 'Style', value: metadata.style },
+            { label: 'Materials', value: metadata.materials },
+            { label: 'Dimensions', value: metadata.dimensions },
+            { label: 'Weight', value: metadata.weight },
+            { label: 'Color', value: metadata.color }
+        ];
+
+        return (
+            <>
+                {fields.map(({ label, value }) => renderMetadataField(label, value))}
+            </>
+        );
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -324,7 +395,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                         </span>
                     </div>
                 </div>
-                <div className="mt-4 flex items-center">
+                <div className="flex items-center gap-4">
                     <div className="text-2xl font-bold text-gray-900 dark:text-white">
                         ${displayPrice.toFixed(2)}
                     </div>
@@ -343,8 +414,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
 
             <p className="text-gray-600">{product.description}</p>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-
+            <div className="flex flex-col sm:flex-row gap-4">
                 {inCart ? (
                     <div className="flex items-center w-full sm:w-auto border rounded-md">
                         <Button
@@ -384,10 +454,9 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                         onSuccess={handleAddToCartSuccess}
                     />
                 )}
-
             </div>
 
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-4">
                 <AddToWishlistButton
                     productId={product.id}
                     variant="button"
@@ -406,36 +475,8 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                 <div>
                     <span className="text-gray-500">Category:</span> {product.category.name}
                 </div>
-                {product.metadata && typeof product.metadata === 'object' && (
-                    <>
-                        {('style' in product.metadata) && product.metadata.style && (
-                            <div>
-                                <span className="text-gray-500">Style:</span> {product.metadata.style}
-                            </div>
-                        )}
-                        {('materials' in product.metadata) && product.metadata.materials && Array.isArray(product.metadata.materials) && (
-                            <div>
-                                <span className="text-gray-500">Materials:</span> {product.metadata.materials.join(", ")}
-                            </div>
-                        )}
-                        {('dimensions' in product.metadata) && product.metadata.dimensions && (
-                            <div>
-                                <span className="text-gray-500">Dimensions:</span> {product.metadata.dimensions}
-                            </div>
-                        )}
-                        {('weight' in product.metadata) && product.metadata.weight && (
-                            <div>
-                                <span className="text-gray-500">Weight:</span> {product.metadata.weight}
-                            </div>
-                        )}
-                        {('color' in product.metadata) && product.metadata.color && (
-                            <div>
-                                <span className="text-gray-500">Color:</span> {product.metadata.color}
-                            </div>
-                        )}
-                    </>
-                )}
+                {product.metadata && typeof product.metadata === 'object' && renderMetadataFields(product.metadata)}
             </div>
         </div>
-    )
+    );
 }

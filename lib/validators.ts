@@ -12,6 +12,24 @@ import { PAYMENT_METHODS } from '@/lib/constants'
  *    - Removed as part of the form validation refactoring to use direct validation
  */
 
+// Category schema for admin operations
+export const categorySchema = z.object({
+    name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name must be at most 50 characters'),
+    description: z.string().optional(),
+    imageUrl: z.string().optional().default('/placeholder.svg'),
+    parentId: z.string().optional().nullable(),
+    isActive: z.boolean().default(true),
+    slug: z.string().min(2, 'Slug must be at least 2 characters')
+        .max(50, 'Slug must be at most 50 characters')
+        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must be lowercase, with hyphens for spaces')
+        .transform(val => val.toLowerCase()),
+});
+
+// Category update schema
+export const updateCategorySchema = categorySchema.extend({
+    id: z.string().min(1, 'Category ID is required'),
+});
+
 //Schema for inserting products
 //const currency = z.string().refine((value) => /^\d+(\.\d{2})?$/.test(formatNumber(Number(value))),
 // 'Price must be a number and have 2 decimal places')

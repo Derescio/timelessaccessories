@@ -3,7 +3,6 @@ import {
     Body,
     Column,
     Container,
-    Head,
     Heading,
     Html,
     Img,
@@ -13,6 +12,10 @@ import {
     Tailwind,
     Text,
 } from '@react-email/components';
+
+
+
+
 export default function PurchaseReceiptEmail({ order }: { order: any }) {
     const dateFormatter = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
 
@@ -36,7 +39,7 @@ export default function PurchaseReceiptEmail({ order }: { order: any }) {
                             {order.orderItems.map((item: any) => (
                                 <Row key={item.name}>
                                     <Column>
-                                        <Img src={item.image} alt={item.name} width="50" />
+                                        <Img src={item.image} alt={item.name} width="50" height="50" />
                                     </Column>
                                     <Column>
                                         <Text>{item.name}</Text>
@@ -49,9 +52,9 @@ export default function PurchaseReceiptEmail({ order }: { order: any }) {
                             ))}
                         </Section>
                         <Section>
-                            <Text>Shipping Address:</Text>
+                            <Text>Shipping Details:</Text>
                             <Text>{order.shippingAddress.fullName}</Text>
-                            <Text>{order.shippingAddress.streetAddress}</Text>
+                            <Text>{order.shippingAddress.address}</Text>
                             <Text>{order.shippingAddress.city}, {order.shippingAddress.state}</Text>
                             <Text>{order.shippingAddress.country}</Text>
                         </Section>
