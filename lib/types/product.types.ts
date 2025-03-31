@@ -11,6 +11,23 @@ export const productSchema = z.object({
   metadata: z.record(z.any()).optional(),
 });
 
+export const extendedProductSchema = productSchema.extend({
+  productTypeId: z.string().optional(),
+  isFeatured: z.boolean().default(false),
+  attributeValues: z.record(z.string(), z.any()).optional(),
+  price: z.coerce.number().min(0.01),
+  costPrice: z.coerce.number().min(0.01),
+  compareAtPrice: z.coerce.number().optional().nullable(),
+  discountPercentage: z.coerce.number().min(0).max(100).optional(),
+  hasDiscount: z.boolean().default(false),
+  sku: z.string().min(3),
+  stock: z.coerce.number().int().min(0),
+  imageUrl: z.string().optional().nullable(),
+});
+
+//export type ProductFormValues = z.infer<typeof productSchema>;
+export type ExtendedProductFormValues = z.infer<typeof extendedProductSchema>;
+
 // Product inventory schema
 export const productInventorySchema = z.object({
   id: z.string().optional(),

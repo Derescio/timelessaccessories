@@ -432,7 +432,7 @@ export function ProductForm({
                                     >
                                         <CardContent className="p-0 flex flex-col items-center justify-center h-full w-full">
                                             <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                                            <span className="text-sm text-muted-foreground">
+                                            <span className="text-sm text-black dark:text-white">
                                                 Upload Image
                                             </span>
                                         </CardContent>

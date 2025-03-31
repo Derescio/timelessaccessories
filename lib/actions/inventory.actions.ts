@@ -230,8 +230,18 @@ export async function getInventoryById(id: string) {
       where: { id },
       include: {
         product: {
-          include: {
-            inventories: true
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            description: true,
+            categoryId: true,
+            productTypeId: true,
+            isActive: true,
+            isFeatured: true,
+            metadata: true,
+            createdAt: true,
+            updatedAt: true
           }
         }
       }
@@ -241,21 +251,19 @@ export async function getInventoryById(id: string) {
       return { success: false, error: "Inventory item not found" };
     }
     
-    // Transform the data to convert Decimal values to numbers
+    // Transform the data to convert Decimal values to numbers and serialize all fields
     const transformedInventory = {
       ...inventory,
       retailPrice: Number(inventory.retailPrice),
       costPrice: Number(inventory.costPrice),
       compareAtPrice: inventory.compareAtPrice ? Number(inventory.compareAtPrice) : null,
-      product: inventory.product ? {
-        ...inventory.product,
-        inventories: inventory.product.inventories?.map(inv => ({
-          ...inv,
-          retailPrice: Number(inv.retailPrice),
-          costPrice: Number(inv.costPrice),
-          compareAtPrice: inv.compareAtPrice ? Number(inv.compareAtPrice) : null
-        })) || []
-      } : null
+      quantity: Number(inventory.quantity),
+      lowStock: Number(inventory.lowStock),
+      // Ensure attributes are serialized properly
+      attributes: inventory.attributes ? JSON.parse(JSON.stringify(inventory.attributes)) : {},
+      // Ensure dates are serialized properly
+      createdAt: inventory.createdAt.toISOString(),
+      updatedAt: inventory.updatedAt.toISOString()
     };
     
     return { success: true, data: transformedInventory };

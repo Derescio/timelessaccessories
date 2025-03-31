@@ -1,35 +1,58 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { categorySchema, CategoryFormValues } from "@/lib/types/category.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Category } from "@prisma/client";
+import { Category, ProductType } from "@prisma/client";
 
 interface CategoryFormProps {
-    initialData?: Category;
+    initialData?: Partial<CategoryFormValues>;
+    categories?: Category[];
     onSubmit: (data: CategoryFormValues) => Promise<void>;
-    categories: Category[];
 }
 
-export function CategoryForm({ initialData, onSubmit, categories }: CategoryFormProps) {
+export function CategoryForm({ initialData, categories = [], onSubmit }: CategoryFormProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+    const [isLoadingProductTypes, setIsLoadingProductTypes] = useState(false);
 
     const form = useForm<CategoryFormValues>({
         resolver: zodResolver(categorySchema.omit({ id: true, createdAt: true, updatedAt: true })),
         defaultValues: {
             name: initialData?.name || "",
-            description: initialData?.description || "",
+            description: initialData?.description || null,
             parentId: initialData?.parentId || null,
-            imageUrl: initialData?.imageUrl || "",
+            imageUrl: initialData?.imageUrl || null,
             slug: initialData?.slug || "",
+            isActive: initialData?.isActive !== undefined ? initialData.isActive : true,
+            defaultProductTypeId: initialData?.defaultProductTypeId || null,
         },
     });
+
+    useEffect(() => {
+        const fetchProductTypes = async () => {
+            setIsLoadingProductTypes(true);
+            try {
+                const response = await fetch('/api/product-types');
+                const result = await response.json();
+                if (result.success) {
+                    setProductTypes(result.data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch product types:", error);
+            } finally {
+                setIsLoadingProductTypes(false);
+            }
+        };
+
+        fetchProductTypes();
+    }, []);
 
     const handleSubmit = async (data: CategoryFormValues) => {
         try {
@@ -66,7 +89,11 @@ export function CategoryForm({ initialData, onSubmit, categories }: CategoryForm
                         <FormItem>
                             <FormLabel>Description</FormLabel>
                             <FormControl>
-                                <Textarea placeholder="Category description" {...field} />
+                                <Textarea
+                                    placeholder="Category description"
+                                    value={field.value || ""}
+                                    onChange={(e) => field.onChange(e.target.value || null)}
+                                />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -106,7 +133,11 @@ export function CategoryForm({ initialData, onSubmit, categories }: CategoryForm
                         <FormItem>
                             <FormLabel>Image URL</FormLabel>
                             <FormControl>
-                                <Input placeholder="Category image URL" {...field} />
+                                <Input
+                                    placeholder="Category image URL"
+                                    value={field.value || ""}
+                                    onChange={(e) => field.onChange(e.target.value || null)}
+                                />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -122,6 +153,39 @@ export function CategoryForm({ initialData, onSubmit, categories }: CategoryForm
                             <FormControl>
                                 <Input placeholder="category-slug" {...field} />
                             </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="defaultProductTypeId"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Default Product Type</FormLabel>
+                            <Select
+                                disabled={isLoading || isLoadingProductTypes}
+                                onValueChange={field.onChange}
+                                value={field.value || ""}
+                            >
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a default product type" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="">None</SelectItem>
+                                    {productTypes.map((type) => (
+                                        <SelectItem key={type.id} value={type.id}>
+                                            {type.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormDescription>
+                                Products in this category will use this product type by default
+                            </FormDescription>
                             <FormMessage />
                         </FormItem>
                     )}

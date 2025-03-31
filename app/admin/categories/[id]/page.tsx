@@ -11,15 +11,17 @@ export const metadata: Metadata = {
     description: "Edit product category",
 };
 
-interface EditCategoryPageProps {
+type EditCategoryPageProps = {
     params: Promise<{
         id: string;
     }>;
-}
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
 
 export default async function EditCategoryPage({ params }: EditCategoryPageProps) {
-    // Ensure params is awaited before accessing properties
-    const { id: categoryId } = await Promise.resolve(params);
+    // Await params
+    const resolvedParams = await params;
+    const { id: categoryId } = resolvedParams;
 
     // Get category and all categories for parent dropdown
     const [categoryResult, allCategories] = await Promise.all([

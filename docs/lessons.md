@@ -37,24 +37,109 @@ if (data.parentId !== existingCategory.parentId) {
 **Challenge:** Handling dynamic route parameters in Next.js 15.
 
 **Lesson:** In Next.js 15, dynamic route parameters are now Promise-based and must be awaited:
-- Always await params before accessing properties
-- Update type definitions to reflect Promise-based params
-- Handle loading states appropriately
-- Consider error boundaries for failed parameter resolution
+- Route parameters are now wrapped in a Promise
+- Parameters must be awaited before use
+- Type definitions need to reflect Promise-based nature
+- API routes need to handle Promise-based parameters
+- Error handling should account for Promise rejection
 
-**Solution:**
+**Solution Example for Page Routes:**
 ```typescript
-interface EditProductPageProps {
+interface DynamicPageProps {
     params: Promise<{
         id: string;
     }>;
 }
 
-export default async function EditProductPage({ params }: EditProductPageProps) {
+export default async function DynamicPage({ params }: DynamicPageProps) {
     const resolvedParams = await params;
-    const { success, data: product, error } = await getProductById(resolvedParams.id);
+    const id = resolvedParams.id;
     // ... rest of the component
 }
+```
+
+**Solution Example for API Routes:**
+```typescript
+export async function GET(
+    request: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const resolvedParams = await params;
+        const id = resolvedParams.id;
+        // ... handle the request
+    } catch (error) {
+        return NextResponse.json(
+            { error: "Failed to process request" },
+            { status: 500 }
+        );
+    }
+}
+```
+
+**Key Points:**
+1. Always await params before accessing properties
+2. Update TypeScript interfaces to reflect Promise-based params
+3. Handle potential Promise rejection in API routes
+4. Consider loading states while params are resolving
+5. Use error boundaries for failed parameter resolution
+
+### 4. Form Design and UX
+
+**Challenge:** Creating intuitive forms that prevent validation errors during user input.
+
+**Lesson:** Design forms with user experience in mind:
+- Use controlled components to manage form state
+- Delay validation until appropriate (e.g., on blur or submit)
+- Provide clear visual feedback for validation states
+- Consider manual actions instead of automatic behavior for derived fields
+
+**Solution:**
+```typescript
+// Instead of automatic slug generation, use a button
+<Button 
+    type="button" 
+    variant="outline" 
+    onClick={() => {
+        const name = form.getValues("name");
+        if (name && name.length >= 3) {
+            form.setValue("slug", slugify(name), { shouldValidate: true });
+            sonnerToast.success("Slug generated from name");
+        } else {
+            sonnerToast.error("Name must be at least 3 characters long");
+        }
+    }}
+>
+    Generate
+</Button>
+```
+
+### 5. Component Organization
+
+**Challenge:** Managing complex UIs with multiple related components.
+
+**Lesson:** Organize components effectively:
+- Use a tabbed interface for related form sections
+- Create sub-components for logical grouping
+- Implement context providers for shared state
+- Consider component composition patterns
+
+**Solution:**
+```typescript
+// Tabs for form organization
+<Tabs defaultValue="basic" className="w-full">
+    <TabsList className="grid w-full grid-cols-5">
+        <TabsTrigger value="basic">Basic Details</TabsTrigger>
+        <TabsTrigger value="pricing">Pricing</TabsTrigger>
+        <TabsTrigger value="inventory">Inventory</TabsTrigger>
+        <TabsTrigger value="image">Images</TabsTrigger>
+        <TabsTrigger value="display">Display</TabsTrigger>
+    </TabsList>
+    <TabsContent value="basic" className="space-y-4">
+        <BasicInfoTab />
+    </TabsContent>
+    {/* Other tab contents */}
+</Tabs>
 ```
 
 ## Database
@@ -326,3 +411,69 @@ interface CartItemDetails {
   maxQuantity: number;
 }
 ```
+
+### 6. Product Attributes Management
+
+**Challenge:** Handling product and inventory attributes with different types and validation requirements.
+
+**Lesson:** When implementing product attributes:
+- Properly separate product and inventory attributes
+- Handle different attribute types correctly (string, number, boolean, array)
+- Implement proper validation for each attribute type
+- Consider type conversion when storing and retrieving values
+- Handle null/undefined values appropriately
+
+**Current Issues:**
+1. Attribute value handling in createProductWithAttributes needs improvement
+2. Type conversion for different attribute types is not consistent
+3. Validation for attribute values is insufficient
+4. Error handling for attribute updates needs enhancement
+
+**Solution Approach:**
+```typescript
+// Example of proper attribute type handling
+interface AttributeValue {
+    value: string | number | boolean | string[];
+    attributeId: string;
+    type: AttributeType;
+}
+
+// Separate product and inventory attributes
+const productAttributes: AttributeValue[] = [];
+const inventoryAttributes: AttributeValue[] = [];
+
+// Handle different attribute types
+function processAttributeValue(value: any, type: AttributeType): string {
+    switch (type) {
+        case AttributeType.ARRAY:
+            return JSON.stringify(value);
+        case AttributeType.NUMBER:
+            return String(Number(value));
+        case AttributeType.BOOLEAN:
+            return String(Boolean(value));
+        default:
+            return String(value);
+    }
+}
+
+// Validate attribute values
+function validateAttributeValue(value: any, type: AttributeType): boolean {
+    switch (type) {
+        case AttributeType.ARRAY:
+            return Array.isArray(value);
+        case AttributeType.NUMBER:
+            return !isNaN(Number(value));
+        case AttributeType.BOOLEAN:
+            return typeof value === 'boolean';
+        default:
+            return typeof value === 'string';
+    }
+}
+```
+
+**Key Points:**
+1. Always validate attribute values before processing
+2. Handle type conversion consistently
+3. Separate product and inventory attributes clearly
+4. Implement proper error handling
+5. Consider edge cases in attribute processing

@@ -30,64 +30,71 @@ model User {
 }
 
 model Product {
-  id            String             @id @default(cuid())
-  name          String
-  description   String
-  slug          String             @unique
-  categoryId    String
-  isActive      Boolean            @default(true)
-  metadata      Json?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  cartItems     CartItem[]
-  orderItems    OrderItem[]
-  category      Category           @relation(fields: [categoryId], references: [id])
-  inventories   ProductInventory[]
-  reviews       Review[]
-  wishlistItems WishlistItem[]
+  id              String                  @id @default(cuid())
+  name            String
+  description     String
+  slug            String                  @unique
+  categoryId      String
+  productTypeId   String?
+  isFeatured      Boolean                 @default(false)
+  isActive        Boolean                 @default(true)
+  metadata        Json?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  category        Category                @relation(fields: [categoryId], references: [id])
+  inventories     ProductInventory[]
+  reviews         Review[]
+  wishlistItems   WishlistItem[]
+  productType     ProductType?            @relation(fields: [productTypeId], references: [id])
+  attributeValues ProductAttributeValue[]
 
   @@index([categoryId])
   @@index([isActive])
 }
 
 model ProductInventory {
-  id                 String      @id @default(cuid())
+  id                 String                    @id @default(cuid())
   productId          String
-  sku                String      @unique
-  costPrice          Decimal     @db.Decimal(10, 2)
-  retailPrice        Decimal     @db.Decimal(10, 2)
-  compareAtPrice     Decimal?    @db.Decimal(10, 2)
+  sku                String                    @unique
+  costPrice          Decimal                   @db.Decimal(10, 2)
+  retailPrice        Decimal                   @db.Decimal(10, 2)
+  compareAtPrice     Decimal?                  @db.Decimal(10, 2)
   discountPercentage Int?
-  hasDiscount        Boolean     @default(false)
-  quantity           Int         @default(0)
-  lowStock           Int         @default(5)
+  hasDiscount        Boolean                   @default(false)
+  quantity           Int                       @default(0)
+  lowStock           Int                       @default(5)
   images             String[]
   attributes         Json?
-  isDefault          Boolean     @default(false)
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+  isDefault          Boolean                   @default(false)
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
   cartItems          CartItem[]
   orderItems         OrderItem[]
-  product            Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product            Product                   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attributeValues    InventoryAttributeValue[]
 
   @@index([productId])
   @@index([sku])
 }
 
 model Category {
-  id          String     @id @default(cuid())
-  name        String
-  description String?
-  imageUrl    String?    @default("/placeholder.svg")
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  parentId    String?
-  slug        String     @unique
-  userId      String?
-  parent      Category?  @relation("SubCategories", fields: [parentId], references: [id])
-  children    Category[] @relation("SubCategories")
-  products    Product[]
-  user        User?      @relation(fields: [userId], references: [id])
+  id                   String       @id @default(cuid())
+  name                 String
+  description          String?
+  imageUrl             String?      @default("/placeholder.svg")
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  parentId             String?
+  slug                 String       @unique
+  userId               String?
+  defaultProductTypeId String?
+  parent               Category?    @relation("SubCategories", fields: [parentId], references: [id])
+  children             Category[]   @relation("SubCategories")
+  products             Product[]
+  user                 User?        @relation(fields: [userId], references: [id])
+  defaultProductType   ProductType? @relation(fields: [defaultProductTypeId], references: [id])
 
   @@index([parentId])
   @@index([userId])
@@ -278,6 +285,69 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// Product type definition models
+model ProductType {
+  id          String                 @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  products    Product[]
+  attributes  ProductTypeAttribute[]
+  categories  Category[]
+}
+
+// Attribute types for different product properties
+enum AttributeType {
+  STRING
+  NUMBER
+  BOOLEAN
+  DATE
+  ARRAY
+  COLOR
+  DIMENSION
+  WEIGHT
+}
+
+model ProductTypeAttribute {
+  id              String                    @id @default(cuid())
+  name            String
+  displayName     String
+  description     String?
+  type            AttributeType
+  isRequired      Boolean                   @default(false)
+  options         Json?
+  isForProduct    Boolean                   @default(true)
+  productTypeId   String
+  productType     ProductType               @relation(fields: [productTypeId], references: [id])
+  productValues   ProductAttributeValue[]
+  inventoryValues InventoryAttributeValue[]
+}
+
+// Product attribute values storage
+model ProductAttributeValue {
+  id          String               @id @default(cuid())
+  productId   String
+  attributeId String
+  value       String
+  product     Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attribute   ProductTypeAttribute @relation(fields: [attributeId], references: [id])
+
+  @@unique([productId, attributeId])
+}
+
+// Inventory attribute values storage
+model InventoryAttributeValue {
+  id          String               @id @default(cuid())
+  inventoryId String
+  attributeId String
+  value       String
+  inventory   ProductInventory     @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  attribute   ProductTypeAttribute @relation(fields: [attributeId], references: [id])
+
+  @@unique([inventoryId, attributeId])
 }
 
 enum Role {
