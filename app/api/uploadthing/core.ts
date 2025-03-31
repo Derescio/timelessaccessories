@@ -5,7 +5,7 @@ const f = createUploadthing();
 
 // Simple file router for testing purposes
 export const ourFileRouter = {
-  // For uploading images
+  // For uploading category images
   categoryImage: f({ image: { maxFileSize: "4MB", maxFileCount: 1 } })
     .middleware(() => {
       console.log("UploadThing middleware running");
@@ -20,6 +20,22 @@ export const ourFileRouter = {
       return { 
         url: file.ufsUrl,  // Keep for backward compatibility
         fileUrl: file.ufsUrl // Consistent with our other components
+      };
+    }),
+
+  // For uploading product images
+  productImage: f({ image: { maxFileSize: "4MB", maxFileCount: 1 } })
+    .middleware(() => {
+      console.log("Product image upload middleware running");
+      return { userId: "test-user" };
+    })
+    .onUploadComplete(({ metadata, file }) => {
+      console.log("Product image upload completed for userId:", metadata.userId);
+      console.log("Product image details:", file);
+      
+      return { 
+        url: file.ufsUrl,
+        fileUrl: file.ufsUrl
       };
     })
 } satisfies FileRouter;

@@ -9,7 +9,9 @@ import {
     Tags,
     Users,
     ShoppingCart,
-    Home
+    Home,
+    LayersIcon,
+    PlusCircleIcon
 } from "lucide-react";
 
 interface SidebarProps {
@@ -90,6 +92,33 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                                 </Link>
                             ))}
                         </div>
+                    </div>
+                </div>
+                <div className="pt-4">
+                    <div className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Experimental Features
+                    </div>
+                    <div className="space-y-1 mt-2">
+                        <Link
+                            href="/admin/product-types"
+                            className={cn(
+                                "text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-md hover:bg-accent/50",
+                                pathname.startsWith("/admin/product-types") && "bg-accent text-accent-foreground"
+                            )}
+                        >
+                            <LayersIcon className="h-4 w-4" />
+                            Product Types
+                        </Link>
+                        <Link
+                            href="/admin/products/experimental/new"
+                            className={cn(
+                                "text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-md hover:bg-accent/50",
+                                pathname === "/admin/products/experimental/new" && "bg-accent text-accent-foreground"
+                            )}
+                        >
+                            <PlusCircleIcon className="h-4 w-4" />
+                            New Product (Enhanced)
+                        </Link>
                     </div>
                 </div>
             </div>

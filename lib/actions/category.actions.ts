@@ -3,8 +3,9 @@
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { CategoryFormValues, UpdateCategoryValues } from "@/types";
 import { Prisma } from "@prisma/client";
+import { categorySchema, CategoryFormValues } from "@/lib/types/category.types";
+import { updateCategorySchema } from "@/lib/validators";
 
 /**
  * Get all categories
@@ -86,6 +87,8 @@ export async function getCategoryById(id: string) {
  */
 export async function createCategory(data: CategoryFormValues) {
   try {
+    const validatedData = categorySchema.parse(data);
+    
     const session = await auth();
 
     if (!session || session.user?.role !== "ADMIN") {
@@ -94,7 +97,7 @@ export async function createCategory(data: CategoryFormValues) {
 
     // Check if slug is already in use
     const existingCategory = await db.category.findUnique({
-      where: { slug: data.slug },
+      where: { slug: validatedData.slug },
     });
 
     if (existingCategory) {
@@ -107,11 +110,12 @@ export async function createCategory(data: CategoryFormValues) {
     // Create category with userId from the session
     const category = await db.category.create({
       data: {
-        name: data.name,
-        description: data.description || null,
-        imageUrl: data.imageUrl || "/placeholder.svg",
-        parentId: data.parentId || null,
-        slug: data.slug,
+        name: validatedData.name,
+        description: validatedData.description,
+        imageUrl: validatedData.imageUrl,
+        slug: validatedData.slug,
+        parentId: validatedData.parentId || null,
+        defaultProductTypeId: validatedData.defaultProductTypeId || null,
         userId: session.user.id, // Add the userId from the session
       },
     });
@@ -138,8 +142,10 @@ export async function createCategory(data: CategoryFormValues) {
 /**
  * Update an existing category
  */
-export async function updateCategory(data: UpdateCategoryValues) {
+export async function updateCategory(data: CategoryFormValues & { id: string }) {
   try {
+    const validatedData = updateCategorySchema.parse(data);
+    
     const session = await auth();
 
     if (!session || session.user?.role !== "ADMIN") {
@@ -148,7 +154,7 @@ export async function updateCategory(data: UpdateCategoryValues) {
 
     // Check if category exists
     const existingCategory = await db.category.findUnique({
-      where: { id: data.id },
+      where: { id: validatedData.id },
     });
 
     if (!existingCategory) {
@@ -159,11 +165,11 @@ export async function updateCategory(data: UpdateCategoryValues) {
     const userId = existingCategory.userId || session.user.id;
 
     // Check if new slug is already in use by another category
-    if (data.slug !== existingCategory.slug) {
+    if (validatedData.slug !== existingCategory.slug) {
       const slugExists = await db.category.findFirst({
         where: {
-          slug: data.slug,
-          id: { not: data.id },
+          slug: validatedData.slug,
+          id: { not: validatedData.id },
         },
       });
 
@@ -176,9 +182,9 @@ export async function updateCategory(data: UpdateCategoryValues) {
     }
 
     // Check for circular parent-child relationship
-    if (data.parentId) {
+    if (validatedData.parentId) {
       // Can't set parent to self
-      if (data.parentId === data.id) {
+      if (validatedData.parentId === validatedData.id) {
         return { 
           success: false, 
           error: "A category cannot be its own parent" 
@@ -186,11 +192,11 @@ export async function updateCategory(data: UpdateCategoryValues) {
       }
 
       // If we're keeping the same parent, skip the descendant check
-      if (data.parentId !== existingCategory.parentId) {
-        console.log("Parent is changing from", existingCategory.parentId, "to", data.parentId);
+      if (validatedData.parentId !== existingCategory.parentId) {
+        console.log("Parent is changing from", existingCategory.parentId, "to", validatedData.parentId);
         
         // Check if the new parent is one of this category's descendants
-        const isDescendant = await isChildDescendant(data.id, data.parentId);
+        const isDescendant = await isChildDescendant(validatedData.id, validatedData.parentId);
         if (isDescendant) {
           return { 
             success: false, 
@@ -204,13 +210,14 @@ export async function updateCategory(data: UpdateCategoryValues) {
 
     // Update category with userId
     const updatedCategory = await db.category.update({
-      where: { id: data.id },
+      where: { id: validatedData.id },
       data: {
-        name: data.name,
-        description: data.description,
-        imageUrl: data.imageUrl,
-        parentId: data.parentId,
-        slug: data.slug,
+        name: validatedData.name,
+        description: validatedData.description,
+        imageUrl: validatedData.imageUrl,
+        parentId: validatedData.parentId,
+        slug: validatedData.slug,
+        defaultProductTypeId: validatedData.defaultProductTypeId || null,
         userId: userId, // Add the userId
       },
     });

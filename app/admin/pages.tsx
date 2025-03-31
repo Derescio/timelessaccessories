@@ -1,11 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/app/admin/components/user-avatar";
-
 import {
     DollarSign,
-
     Package,
-
     ShoppingBag,
     Tags,
 } from "lucide-react";
@@ -56,6 +53,7 @@ import { getAnalytics } from "@/lib/actions/analytics.actions";
 //         </Card>
 //     );
 // }
+
 
 export default async function AdminPages() {
     const { success, data, error } = await getAnalytics();

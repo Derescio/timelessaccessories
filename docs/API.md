@@ -3,6 +3,39 @@
 ## Overview
 This document outlines the RESTful API endpoints for the Timeless Accessories e-commerce platform. All API routes are prefixed with `/api`.
 
+## Important Notes
+
+### Route Parameter Handling
+
+In Next.js 15, all dynamic route parameters are Promise-based. This means:
+1. Route parameters must be awaited before use
+2. Error handling should account for Promise rejection
+3. TypeScript types must reflect the Promise-based nature of parameters
+
+Example route parameter type:
+```typescript
+type RouteParams = Promise<{
+    id: string;
+    // ... other parameters
+}>;
+```
+
+### Error Handling
+
+All API routes follow a standardized error handling pattern:
+1. Wrap parameter resolution in try-catch
+2. Return appropriate HTTP status codes
+3. Include detailed error messages in responses
+
+Example error response:
+```typescript
+{
+    success: false,
+    error: string,
+    details?: unknown
+}
+```
+
 ## Authentication
 All authenticated routes require a valid JWT token in the Authorization header:
 ```
@@ -348,3 +381,13 @@ npm start
 - SQL injection prevention via Prisma
 - XSS protection
 - CSRF tokens for mutations 
+
+## Versioning
+
+The API follows semantic versioning. The current version is v1.
+Future breaking changes will be introduced in new major versions.
+
+## Testing
+
+API endpoints can be tested using the provided Postman collection:
+`/docs/postman/TimelessAccessories.postman_collection.json` 

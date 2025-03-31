@@ -42,23 +42,25 @@ export default async function EditInventoryPage({ params }: EditInventoryPagePro
     const { data: product } = productResult;
     const { data: inventoryData } = inventoryResult;
 
-    // Transform the inventory data to match the expected type
+    // Transform the inventory data to match the expected type and ensure numeric values are JavaScript numbers
     const inventory: ProductInventoryFormValues = {
         id: inventoryData.id,
         productId: product.id,
         sku: inventoryData.sku || "",
-        costPrice: inventoryData.costPrice || 0,
-        retailPrice: inventoryData.retailPrice || 0,
-        compareAtPrice: inventoryData.compareAtPrice || null,
-        discountPercentage: inventoryData.discountPercentage || null,
-        hasDiscount: inventoryData.hasDiscount || false,
-        quantity: inventoryData.quantity || 0,
-        lowStock: inventoryData.lowStock || 5,
-        images: inventoryData.images || [],
-        attributes: inventoryData.attributes ?
-            (typeof inventoryData.attributes === 'object' ? inventoryData.attributes : {}) :
-            {},
-        isDefault: inventoryData.isDefault || false,
+        costPrice: typeof inventoryData.costPrice === 'object' ? Number(inventoryData.costPrice) : Number(inventoryData.costPrice) || 0,
+        retailPrice: typeof inventoryData.retailPrice === 'object' ? Number(inventoryData.retailPrice) : Number(inventoryData.retailPrice) || 0,
+        compareAtPrice: inventoryData.compareAtPrice
+            ? (typeof inventoryData.compareAtPrice === 'object' ? Number(inventoryData.compareAtPrice) : Number(inventoryData.compareAtPrice))
+            : null,
+        discountPercentage: inventoryData.discountPercentage !== null ? Number(inventoryData.discountPercentage) : null,
+        hasDiscount: Boolean(inventoryData.hasDiscount),
+        quantity: Number(inventoryData.quantity || 0),
+        lowStock: Number(inventoryData.lowStock || 5),
+        images: Array.isArray(inventoryData.images) ? inventoryData.images : [],
+        attributes: typeof inventoryData.attributes === 'object'
+            ? JSON.parse(JSON.stringify(inventoryData.attributes))
+            : {},
+        isDefault: Boolean(inventoryData.isDefault),
     };
 
     return (

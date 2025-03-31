@@ -19,6 +19,7 @@ export const categorySchema = z.object({
     imageUrl: z.string().optional().default('/placeholder.svg'),
     parentId: z.string().optional().nullable(),
     isActive: z.boolean().default(true),
+    defaultProductTypeId: z.string().optional().nullable(),
     slug: z.string().min(2, 'Slug must be at least 2 characters')
         .max(50, 'Slug must be at most 50 characters')
         .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must be lowercase, with hyphens for spaces')
