@@ -36,12 +36,18 @@ const formSchema = z.object({
     slug: z.string().min(2, { message: "Slug must be at least 2 characters" }),
     categoryId: z.string({ required_error: "Please select a category" }),
     isActive: z.boolean().default(true),
+    isFeatured: z.boolean().default(false),
 });
 
 type ProductFormValues = z.infer<typeof formSchema>;
 
 interface ProductFormProps {
-    initialData?: ProductFormValues;
+    initialData?: ProductFormValues & {
+        inventories?: {
+            retailPrice: number;
+            images?: string[];
+        }[];
+    };
     categories: { id: string; name: string }[];
 }
 
@@ -49,6 +55,10 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const isEditing = !!initialData?.id;
+
+    // Extract inventory details for display
+    const defaultPrice = initialData?.inventories?.[0]?.retailPrice;
+    const productImages = initialData?.inventories?.[0]?.images || [];
 
     const form = useForm<ProductFormValues>({
         resolver: zodResolver(formSchema),
@@ -58,6 +68,7 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
             slug: "",
             categoryId: "",
             isActive: true,
+            isFeatured: false,
         },
     });
 
@@ -117,6 +128,35 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {/* Display product images if available */}
+                {productImages.length > 0 && (
+                    <div className="mb-6">
+                        <FormLabel className="block mb-2">Product Images</FormLabel>
+                        <div className="flex flex-wrap gap-2">
+                            {productImages.map((image, index) => (
+                                <div key={index} className="relative w-24 h-24 overflow-hidden rounded-md border">
+                                    <img
+                                        src={image}
+                                        alt={`Product image ${index + 1}`}
+                                        className="object-cover w-full h-full"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Display price info if available */}
+                {defaultPrice !== undefined && (
+                    <div className="mb-6">
+                        <FormLabel className="block mb-2">Price</FormLabel>
+                        <div className="font-medium text-lg">${defaultPrice.toFixed(2)}</div>
+                        <FormDescription>
+                            To edit pricing information, please use the Inventory tab.
+                        </FormDescription>
+                    </div>
+                )}
+
                 <FormField
                     control={form.control}
                     name="name"
@@ -201,6 +241,28 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
                                 </SelectContent>
                             </Select>
                             <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="isFeatured"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                                <FormLabel className="text-base">Featured</FormLabel>
+                                <FormDescription>
+                                    Enable to feature this product on the homepage.
+                                </FormDescription>
+                            </div>
+                            <FormControl>
+                                <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    disabled={loading}
+                                />
+                            </FormControl>
                         </FormItem>
                     )}
                 />

@@ -19,6 +19,9 @@ export async function addInventory(data: ProductInventoryFormValues) {
       return { success: false, error: "Product ID is required" };
     }
     
+    // Debug logging for images
+    console.log("Received images for new inventory:", data.images);
+    
     // Check if product exists
     const product = await db.product.findUnique({
       where: { id: data.productId },
@@ -50,18 +53,23 @@ export async function addInventory(data: ProductInventoryFormValues) {
       });
     }
     
-    // Convert Decimal values to numbers
+    // Convert Decimal values to numbers and ensure images array is properly included
     const inventoryData = {
       ...data,
       costPrice: Number(data.costPrice),
       retailPrice: Number(data.retailPrice),
       compareAtPrice: data.compareAtPrice ? Number(data.compareAtPrice) : null,
+      images: Array.isArray(data.images) ? data.images : [], // Ensure images is an array
     };
+    
+    console.log("Processed inventory data before saving:", inventoryData);
     
     // Create new inventory item
     const inventory = await db.productInventory.create({
       data: inventoryData
     });
+    
+    console.log("Created inventory with images:", inventory.images);
     
     revalidatePath(`/admin/products/${data.productId}`);
     revalidatePath("/admin/products");
@@ -82,6 +90,9 @@ export async function updateInventory(data: ProductInventoryFormValues) {
     if (!session || session.user?.role !== "ADMIN") {
       return { success: false, error: "Not authorized" };
     }
+    
+    // Debug logging for images
+    console.log("Received images for inventory update:", data.images);
     
     if (!data.id) {
       return { success: false, error: "Inventory ID is required" };
@@ -123,19 +134,24 @@ export async function updateInventory(data: ProductInventoryFormValues) {
       });
     }
     
-    // Convert Decimal values to numbers
+    // Convert Decimal values to numbers and ensure images array is properly included
     const inventoryData = {
       ...data,
       costPrice: Number(data.costPrice),
       retailPrice: Number(data.retailPrice),
       compareAtPrice: data.compareAtPrice ? Number(data.compareAtPrice) : null,
+      images: Array.isArray(data.images) ? data.images : [], // Ensure images is an array
     };
+    
+    console.log("Processed inventory data before updating:", inventoryData);
     
     // Update inventory
     const updatedInventory = await db.productInventory.update({
       where: { id: data.id },
       data: inventoryData
     });
+    
+    console.log("Updated inventory with images:", updatedInventory.images);
     
     // Convert Decimal values to numbers in the response
     const transformedInventory = {

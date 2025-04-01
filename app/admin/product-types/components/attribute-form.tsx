@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoIcon } from "lucide-react";
 import { ProductTypeAttribute } from "@prisma/client";
+import { toast } from "sonner";
 
 const attributeTypes = [
     { label: "Text", value: "TEXT" },
@@ -41,11 +43,13 @@ export type AttributeFormValues = z.infer<typeof attributeSchema>;
 
 interface AttributeFormProps {
     initialData?: Partial<ProductTypeAttribute>;
-    onSubmit: (data: AttributeFormValues) => Promise<void>;
+    productTypeId?: string;
+    onSubmit: (data: AttributeFormValues) => Promise<{ success: boolean; data?: any; error?: string }>;
 }
 
-export function AttributeForm({ initialData, onSubmit }: AttributeFormProps) {
+export function AttributeForm({ initialData, productTypeId, onSubmit }: AttributeFormProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const router = useRouter();
 
     // Determine if this is for product or inventory based on the URL
     const isFromProductTab = initialData?.isForProduct !== false;
@@ -68,11 +72,31 @@ export function AttributeForm({ initialData, onSubmit }: AttributeFormProps) {
     const showOptions = watchType === "SELECT" || watchType === "MULTI_SELECT";
 
     const handleSubmit = async (data: AttributeFormValues) => {
+        if (isLoading) return;
+        
         try {
             setIsLoading(true);
-            await onSubmit(data);
+            const result = await onSubmit(data);
+            
+            if (result.success) {
+                toast.success("Attribute created successfully!");
+                
+                // If we have a productTypeId, redirect to the attributes list page
+                if (productTypeId) {
+                    router.push(`/admin/product-types/${productTypeId}/attributes`);
+                } else {
+                    form.reset(); // Reset the form if no redirection
+                }
+            } else {
+                toast.error(result.error || "Failed to create attribute");
+            }
         } catch (error) {
             console.error("Error submitting form:", error);
+            toast.error(
+                error instanceof Error 
+                    ? error.message 
+                    : "An unexpected error occurred"
+            );
         } finally {
             setIsLoading(false);
         }
@@ -99,21 +123,23 @@ export function AttributeForm({ initialData, onSubmit }: AttributeFormProps) {
     const getTypeDescription = (type: string) => {
         switch (type) {
             case "TEXT":
-                return "Text fields for brand names, descriptions, etc.";
+                return "Free text input";
             case "NUMBER":
-                return "For numeric values like weight, dimensions, etc.";
+                return "Numeric values only";
             case "BOOLEAN":
-                return "Yes/No values like &apos;Is Waterproof&apos;";
+                return "Yes/No values";
             case "SELECT":
-                return "Single-choice dropdown like &apos;Size&apos;";
+                return "Single selection from options";
             case "MULTI_SELECT":
-                return "Multiple-choice selection like &apos;Features&apos;";
+                return "Multiple selections from options";
+            case "DATE":
+                return "Date picker";
             case "COLOR":
-                return "Color values with potential color picker";
+                return "Color selection";
             case "DIMENSION":
-                return "Dimensional values like length, width, height";
+                return "Product dimensions (length, width, height)";
             case "WEIGHT":
-                return "Weight measurements";
+                return "Product weight";
             default:
                 return "";
         }

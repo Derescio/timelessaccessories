@@ -144,7 +144,15 @@ export function ImageUploader({
                     content={{
                         label: dropzoneText,
                     }}
-                    className="ut-label:text-sm ut-allowed-content:text-xs border-dashed border-2 ut-uploading:border-blue-500 ut-button:hidden"
+                    className="
+                        ut-label:text-foreground 
+                        ut-allowed-content:text-foreground 
+                        ut-uploaded-text:text-foreground 
+                        border-dashed border-2 
+                        ut-uploading:border-blue-500 
+                        ut-button:hidden
+                        text-foreground
+                    "
                 />
             )}
         </div>

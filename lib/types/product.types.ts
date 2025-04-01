@@ -15,6 +15,8 @@ export const extendedProductSchema = productSchema.extend({
   productTypeId: z.string().optional(),
   isFeatured: z.boolean().default(false),
   attributeValues: z.record(z.string(), z.any()).optional(),
+  productAttributeValues: z.record(z.string(), z.any()).optional(),
+  inventoryAttributeValues: z.record(z.string(), z.any()).optional(),
   price: z.coerce.number().min(0.01),
   costPrice: z.coerce.number().min(0.01),
   compareAtPrice: z.coerce.number().optional().nullable(),
@@ -23,6 +25,7 @@ export const extendedProductSchema = productSchema.extend({
   sku: z.string().min(3),
   stock: z.coerce.number().int().min(0),
   imageUrl: z.string().optional().nullable(),
+  images: z.array(z.string()).optional(),
 });
 
 //export type ProductFormValues = z.infer<typeof productSchema>;

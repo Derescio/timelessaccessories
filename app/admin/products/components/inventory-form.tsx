@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,10 @@ import { AttributesTab } from "./attributes-tab";
 import { Loader2 } from "lucide-react";
 import { productInventorySchema } from "@/lib/types/product.types";
 import type { ProductInventoryFormValues } from "@/lib/types/product.types";
+import { Switch } from "@/components/ui/switch";
+import Image from "next/image";
+import { ImageUploader } from "@/components/ui/uploadthing";
+import { X } from "lucide-react";
 
 interface InventoryFormProps {
     productId: string;
@@ -36,6 +40,7 @@ export function InventoryForm({ productId, inventory }: InventoryFormProps) {
     const [loading, setLoading] = useState(false);
     const isEditing = !!inventory;
     const [productTypeId, setProductTypeId] = useState<string | null>(null);
+    const [originalPrice, setOriginalPrice] = useState<number | null>(null);
 
     // Transform the inventory data into the form values format
     const defaultValues = isEditing
@@ -77,11 +82,88 @@ export function InventoryForm({ productId, inventory }: InventoryFormProps) {
             costPrice: typeof defaultValues.costPrice === 'object' ? Number(defaultValues.costPrice) : defaultValues.costPrice || 0,
             retailPrice: typeof defaultValues.retailPrice === 'object' ? Number(defaultValues.retailPrice) : defaultValues.retailPrice || 0,
             compareAtPrice: defaultValues.compareAtPrice ? (typeof defaultValues.compareAtPrice === 'object' ? Number(defaultValues.compareAtPrice) : defaultValues.compareAtPrice) : null,
+            discountPercentage: defaultValues.discountPercentage || 0,
+            hasDiscount: defaultValues.hasDiscount || false,
             quantity: defaultValues.quantity || 0,
             lowStock: defaultValues.lowStock || 5,
             attributes: defaultValues.attributes || {},
         },
     });
+
+    // Store the initial retail price for discount calculations
+    useEffect(() => {
+        // Only set the original price once on initial load
+        if (!originalPrice) {
+            const retailPrice = form.getValues('retailPrice');
+            if (retailPrice) {
+                setOriginalPrice(retailPrice);
+                console.log("Setting initial original price:", retailPrice);
+            }
+        }
+    }, [form, originalPrice]);
+
+    // Watch for changes to hasDiscount and discountPercentage
+    const hasDiscount = useWatch({
+        control: form.control,
+        name: 'hasDiscount',
+    });
+
+    const discountPercentage = useWatch({
+        control: form.control,
+        name: 'discountPercentage',
+    });
+
+    // Use a ref to prevent infinite loop
+    const updatingPrices = React.useRef(false);
+
+    // Effect to handle discount calculation with protection against infinite loop
+    useEffect(() => {
+        // Skip if we're already in the middle of an update
+        if (updatingPrices.current) return;
+
+        try {
+            updatingPrices.current = true;
+
+            // Only proceed if we have an original price
+            if (!originalPrice) return;
+
+            if (hasDiscount) {
+                // When discount is enabled
+                // Set compareAtPrice to the original price
+                form.setValue('compareAtPrice', originalPrice, { shouldValidate: true });
+
+                // Calculate discounted price
+                if (discountPercentage) {
+                    const discountedPrice = originalPrice - (originalPrice * (discountPercentage / 100));
+                    form.setValue('retailPrice', Number(discountedPrice.toFixed(2)), { shouldValidate: true });
+                }
+            } else {
+                // When discount is disabled
+                // Restore original price
+                form.setValue('retailPrice', originalPrice, { shouldValidate: true });
+
+                // Clear compareAtPrice
+                form.setValue('compareAtPrice', null, { shouldValidate: true });
+
+                // Reset discount percentage
+                form.setValue('discountPercentage', 0, { shouldValidate: true });
+            }
+        } finally {
+            updatingPrices.current = false;
+        }
+    }, [hasDiscount, discountPercentage, form, originalPrice]);
+
+    // Effect to handle manual changes to retailPrice when discount is off
+    useEffect(() => {
+        if (!hasDiscount && !updatingPrices.current) {
+            // Only update the original price when the user manually changes retail price
+            const currentRetailPrice = form.getValues('retailPrice');
+            if (currentRetailPrice && currentRetailPrice !== originalPrice) {
+                console.log("Updating original price from manual edit:", currentRetailPrice);
+                setOriginalPrice(currentRetailPrice);
+            }
+        }
+    }, [form.watch('retailPrice'), hasDiscount, form, originalPrice]);
 
     // Fetch product type ID and attributes when component loads
     useEffect(() => {
@@ -136,6 +218,10 @@ export function InventoryForm({ productId, inventory }: InventoryFormProps) {
         try {
             setLoading(true);
 
+            // Log form data to debug
+            console.log("Form data before submission:", data);
+            console.log("Images to be saved:", data.images);
+
             // If no SKU is provided, generate one
             if (!data.sku) {
                 data.sku = generateSku();
@@ -149,7 +235,11 @@ export function InventoryForm({ productId, inventory }: InventoryFormProps) {
                 compareAtPrice: data.compareAtPrice ? Number(data.compareAtPrice) : null,
                 quantity: Number(data.quantity),
                 lowStock: Number(data.lowStock),
+                images: data.images || [], // Explicitly include images array
             };
+
+            // Log the final submission data
+            console.log("Final submission data:", submissionData);
 
             // Save data using the appropriate action
             const result = isEditing
@@ -171,6 +261,24 @@ export function InventoryForm({ productId, inventory }: InventoryFormProps) {
         }
     };
 
+    // Function to handle adding a new image
+    const handleAddImage = (newImageUrl?: string) => {
+        if (!newImageUrl) return;
+
+        const currentImages = form.getValues('images') || [];
+        // Add the new image if it doesn't exist already
+        if (!currentImages.includes(newImageUrl)) {
+            form.setValue('images', [...currentImages, newImageUrl], { shouldValidate: true });
+        }
+    };
+
+    // Function to handle removing an image
+    const handleRemoveImage = (imageUrl: string) => {
+        const currentImages = form.getValues('images') || [];
+        const updatedImages = currentImages.filter(image => image !== imageUrl);
+        form.setValue('images', updatedImages, { shouldValidate: true });
+    };
+
     return (
         <Card>
             <CardHeader>
@@ -180,6 +288,59 @@ export function InventoryForm({ productId, inventory }: InventoryFormProps) {
                 </CardDescription>
             </CardHeader>
             <CardContent>
+                {/* Image Upload and Management Section */}
+                <div className="mb-8">
+                    <h3 className="text-lg font-medium mb-4">Product Images</h3>
+
+                    {/* Display current images */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        {form.watch('images')?.map((image, index) => (
+                            <div key={index} className="relative group">
+                                <div className="aspect-square rounded-md overflow-hidden border">
+                                    <img
+                                        src={image}
+                                        alt={`Product image ${index + 1}`}
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveImage(image)}
+                                    className="absolute top-1 right-1 bg-destructive text-destructive-foreground p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    aria-label="Remove image"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Image uploader */}
+                    <div className="mt-4">
+                        <ImageUploader
+                            endpoint="productImage"
+                            onChange={handleAddImage}
+                            onClientUploadComplete={(res) => {
+                                if (!res || !res.length) return;
+
+                                // Extract URL from the response
+                                const file = res[0] as { url?: string, ufsUrl?: string };
+                                const imageUrl = file.ufsUrl || file.url;
+
+                                if (imageUrl) {
+                                    handleAddImage(imageUrl);
+                                    toast.success("Image uploaded successfully");
+                                }
+                            }}
+                            onUploadError={(error) => {
+                                toast.error(`Upload failed: ${error.message}`);
+                            }}
+                            dropzoneText="Upload product image (drag & drop or click)"
+                            className="w-full"
+                        />
+                    </div>
+                </div>
+
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                         <div className="space-y-4">
@@ -200,6 +361,142 @@ export function InventoryForm({ productId, inventory }: InventoryFormProps) {
                                 )}
                             />
 
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="retailPrice"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Retail Price</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    onBlur={field.onBlur}
+                                                    ref={field.ref}
+                                                    name={field.name}
+                                                    value={field.value}
+                                                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                    disabled={hasDiscount || loading}
+                                                />
+                                            </FormControl>
+                                            {hasDiscount && (
+                                                <FormDescription>
+                                                    Price is calculated based on discount percentage.
+                                                </FormDescription>
+                                            )}
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="costPrice"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Cost Price</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    onBlur={field.onBlur}
+                                                    ref={field.ref}
+                                                    name={field.name}
+                                                    value={field.value}
+                                                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                    disabled={loading}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+
+                            <FormField
+                                control={form.control}
+                                name="hasDiscount"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                        <div className="space-y-0.5">
+                                            <FormLabel>Apply Discount</FormLabel>
+                                            <FormDescription>
+                                                Enable to apply a discount to this product
+                                            </FormDescription>
+                                        </div>
+                                        <FormControl>
+                                            <Switch
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                                disabled={loading}
+                                            />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+
+                            {hasDiscount && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="discountPercentage"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Discount Percentage</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        max="100"
+                                                        step="0.1"
+                                                        onBlur={field.onBlur}
+                                                        ref={field.ref}
+                                                        name={field.name}
+                                                        value={field.value || 0}
+                                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                        disabled={loading}
+                                                    />
+                                                </FormControl>
+                                                <FormDescription>
+                                                    Enter a percentage between 0 and 100
+                                                </FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="compareAtPrice"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Original Price</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        onBlur={field.onBlur}
+                                                        ref={field.ref}
+                                                        name={field.name}
+                                                        value={field.value || ''}
+                                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                        disabled={true}
+                                                    />
+                                                </FormControl>
+                                                <FormDescription>
+                                                    Original price before discount (automatically set)
+                                                </FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            )}
+
                             <FormField
                                 control={form.control}
                                 name="quantity"
@@ -207,7 +504,17 @@ export function InventoryForm({ productId, inventory }: InventoryFormProps) {
                                     <FormItem>
                                         <FormLabel>Stock Quantity</FormLabel>
                                         <FormControl>
-                                            <Input type="number" min="0" step="1" {...field} disabled={loading} />
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                step="1"
+                                                onBlur={field.onBlur}
+                                                ref={field.ref}
+                                                name={field.name}
+                                                value={field.value}
+                                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                                disabled={loading}
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

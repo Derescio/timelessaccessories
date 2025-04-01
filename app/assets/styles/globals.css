@@ -138,3 +138,11 @@ html.dark .upload-field .text-white {
     @apply bg-background text-foreground;
   }
 }
+
+html.dark .upload-field .text-white {
+  color: #ffffff !important;
+}
+
+.upload-field .text-white {
+  color: #000 !important;
+}
