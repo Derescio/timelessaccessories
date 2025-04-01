@@ -439,6 +439,8 @@ export async function createProductWithAttributes(data: ExtendedProductFormValue
             productTypeId, 
             isFeatured, 
             attributeValues,
+            productAttributeValues,
+            inventoryAttributeValues,
             price,
             costPrice,
             compareAtPrice,
@@ -447,13 +449,17 @@ export async function createProductWithAttributes(data: ExtendedProductFormValue
             sku,
             stock,
             imageUrl,
+            images,
             ...productData 
         } = data;
 
         console.log("Creating product with data:", {
             ...productData,
             imageUrl,
-            attributeValues
+            images,
+            attributeValues,
+            productAttributeValues,
+            inventoryAttributeValues
         });
         
         // Check if slug is unique
@@ -466,10 +472,15 @@ export async function createProductWithAttributes(data: ExtendedProductFormValue
         }
 
         // Separate product and inventory attributes
-        const productAttributes: Record<string, AttributeValue['value']> = {};
-        const inventoryAttributes: Record<string, AttributeValue['value']> = {};
+        const productAttributes: Record<string, AttributeValue['value']> = 
+            productAttributeValues || {};
         
-        if (attributeValues) {
+        const inventoryAttributes: Record<string, AttributeValue['value']> = 
+            inventoryAttributeValues || {};
+        
+        // If using legacy attributeValues, we need to separate them
+        if (attributeValues && (!productAttributeValues || !inventoryAttributeValues)) {
+            console.log("Using legacy attribute values approach");
             // Get product type attributes to determine which are inventory attributes
             const productType = await db.productType.findUnique({
                 where: { id: productTypeId },
@@ -489,6 +500,9 @@ export async function createProductWithAttributes(data: ExtendedProductFormValue
                 });
             }
         }
+
+        console.log("Final product attributes:", productAttributes);
+        console.log("Final inventory attributes:", inventoryAttributes);
         
         // Create product with inventory
         const product = await db.product.create({
@@ -502,14 +516,16 @@ export async function createProductWithAttributes(data: ExtendedProductFormValue
                 },
                 inventories: {
                     create: [{
-                        sku: generateSku(),
+                        sku: sku || generateSku(),
                         retailPrice: price || 0,
                         costPrice: costPrice || 0,
                         compareAtPrice: compareAtPrice || null,
                         hasDiscount: hasDiscount || false,
                         discountPercentage: discountPercentage || null,
                         quantity: stock || 0,
-                        images: imageUrl ? [imageUrl] : [],
+                        images: Array.isArray(images) && images.length > 0 
+                               ? images 
+                               : (imageUrl ? [imageUrl] : []),
                         attributes: Object.keys(inventoryAttributes).length > 0 ? inventoryAttributes : undefined,
                         isDefault: true
                     }]
@@ -537,24 +553,6 @@ export async function createProductWithAttributes(data: ExtendedProductFormValue
             }
         }
 
-        // Save inventory attribute values if provided
-        if (Object.keys(inventoryAttributes).length > 0) {
-            console.log("Saving inventory attribute values:", inventoryAttributes);
-            const inventory = await db.productInventory.findFirst({
-                where: { productId: product.id }
-            });
-
-            if (inventory) {
-                await db.productInventory.update({
-                    where: { id: inventory.id },
-                    data: {
-                        attributes: inventoryAttributes
-                    }
-                });
-                console.log("Inventory attribute values saved successfully");
-            }
-        }
-        
         revalidatePath("/admin/products");
         return { success: true, data: product };
     } catch (error) {

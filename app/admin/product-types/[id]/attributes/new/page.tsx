@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { AttributeForm } from "@/app/admin/product-types/components/attribute-form";
 import { getProductTypeById, createProductTypeAttribute } from "@/lib/actions/product-type.actions";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -87,14 +87,17 @@ export default async function NewAttributePage({ params, searchParams }: NewAttr
                 isForProduct: data.isForProduct,
             });
 
-            if (result && !result.success) {
-                throw new Error(result.error || "Failed to create attribute");
+            if (!result.success) {
+                return { success: false, error: result.error || "Failed to create attribute" };
             }
 
-            redirect(`/admin/product-types/${productTypeId}/attributes`);
+            return { success: true, data: result.data };
         } catch (error) {
             console.error("Error creating attribute:", error);
-            throw new Error((error as Error).message || "Failed to create attribute");
+            return { 
+                success: false, 
+                error: error instanceof Error ? error.message : "Failed to create attribute" 
+            };
         }
     };
 
@@ -120,6 +123,7 @@ export default async function NewAttributePage({ params, searchParams }: NewAttr
                 <AttributeForm
                     onSubmit={handleCreateAttribute}
                     initialData={{ isForProduct }}
+                    productTypeId={productTypeId}
                 />
             </div>
         </div>

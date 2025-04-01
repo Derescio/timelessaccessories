@@ -14,13 +14,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { getProductTypeAttributes } from "@/lib/actions/product-type.actions";
 
 interface AttributesTabProps {
@@ -53,6 +47,15 @@ export function AttributesTab({ productTypeId, isForProduct }: AttributesTabProp
         loadAttributes();
     }, [productTypeId, isForProduct]);
 
+    // Helper function to handle select all attribute values
+    const handleSelectAllAttributeValues = (attributeName: string, options: string[], checked: boolean) => {
+        if (checked) {
+            form.setValue(`attributes.${attributeName}`, options);
+        } else {
+            form.setValue(`attributes.${attributeName}`, []);
+        }
+    };
+
     if (!productTypeId) {
         return (
             <div className="text-center text-muted-foreground">
@@ -72,7 +75,7 @@ export function AttributesTab({ productTypeId, isForProduct }: AttributesTabProp
     return (
         <div className="space-y-4 py-2 pb-4">
             {productTypeAttributes.map((attribute) => {
-                // Parse options for SELECT attributes
+                // Parse options for ARRAY attributes
                 let options: string[] = [];
                 if (attribute.type === AttributeType.ARRAY && attribute.options) {
                     try {
@@ -88,25 +91,67 @@ export function AttributesTab({ productTypeId, isForProduct }: AttributesTabProp
                         control={form.control}
                         name={`attributes.${attribute.name}`}
                         render={({ field }) => (
-                            <FormItem>
+                            <FormItem className="space-y-2">
                                 <FormLabel>{attribute.displayName}</FormLabel>
                                 <FormControl>
                                     {attribute.type === AttributeType.ARRAY ? (
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            value={field.value || ""}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder={`Select ${attribute.displayName}`} />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {options.map((option, index) => (
-                                                    <SelectItem key={index} value={option}>
-                                                        {option}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between mb-2 pl-2">
+                                                <Label className="text-sm font-medium">Available Options</Label>
+                                                <div className="flex items-center space-x-2">
+                                                    <Label
+                                                        htmlFor={`select-all-${attribute.id}`}
+                                                        className="text-xs font-normal cursor-pointer"
+                                                    >
+                                                        Select All Values
+                                                    </Label>
+                                                    <input
+                                                        id={`select-all-${attribute.id}`}
+                                                        type="checkbox"
+                                                        className="h-3 w-3"
+                                                        onChange={(e) => handleSelectAllAttributeValues(
+                                                            attribute.name,
+                                                            options,
+                                                            e.target.checked
+                                                        )}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-2">
+                                                {options.map((option, index) => {
+                                                    // Ensure field.value is an array for checkbox group
+                                                    const values = Array.isArray(field.value) ? field.value : [];
+                                                    const isChecked = values.includes(option);
+
+                                                    return (
+                                                        <div
+                                                            key={index}
+                                                            className="flex items-center space-x-2"
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                id={`${attribute.id}-option-${index}`}
+                                                                className="h-4 w-4"
+                                                                checked={isChecked}
+                                                                onChange={() => {
+                                                                    const newValues = isChecked
+                                                                        ? values.filter(v => v !== option)
+                                                                        : [...values, option];
+                                                                    field.onChange(newValues);
+                                                                }}
+                                                            />
+                                                            <Label
+                                                                htmlFor={`${attribute.id}-option-${index}`}
+                                                                className="text-sm cursor-pointer"
+                                                            >
+                                                                {option}
+                                                            </Label>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
                                     ) : attribute.type === AttributeType.NUMBER ? (
                                         <Input type="number" {...field} />
                                     ) : attribute.type === AttributeType.BOOLEAN ? (

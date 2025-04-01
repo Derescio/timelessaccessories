@@ -27,28 +27,31 @@ import { getProductTypeAttributes } from "@/lib/actions/product-type.actions";
 import { getCategoryById } from "@/lib/actions/category.actions";
 import { ProductTypeAttribute, AttributeType } from "@prisma/client";
 
-// Define form schema
+// Update the product schema to handle dynamic fields better
 const productSchema = z.object({
-    id: z.string().optional(),
-    name: z.string().min(3, "Name must be at least 3 characters"),
-    description: z.string().min(10, "Description must be at least 10 characters"),
-    slug: z.string().min(3, "Slug must be at least 3 characters"),
-    price: z.coerce.number().min(0.01, "Price must be greater than 0"),
-    costPrice: z.coerce.number().min(0.01, "Cost price must be greater than 0"),
-    compareAtPrice: z.coerce.number().optional().nullable(),
-    discountPercentage: z.coerce.number().min(0).max(100).optional(),
-    hasDiscount: z.boolean().default(false),
+    name: z.string().min(1, "Name is required"),
+    description: z.string().min(1, "Description is required"),
+    slug: z.string().min(1, "Slug is required"),
     categoryId: z.string().min(1, "Category is required"),
-    productTypeId: z.string().min(1, "Product type is required"),
-    sku: z.string().min(3, "SKU must be at least 3 characters"),
-    stock: z.coerce.number().int().min(0, "Stock must be at least 0"),
-    isActive: z.boolean().default(true),
+    productTypeId: z.string().optional(),
     isFeatured: z.boolean().default(false),
-    imageUrl: z.string().optional().nullable(),
-    attributeValues: z.record(z.any()).optional().default({}),
+    isActive: z.boolean().default(true),
+    price: z.number().min(0, "Price cannot be negative"),
+    sku: z.string().min(1, "SKU is required"),
+    costPrice: z.number().min(0, "Cost price cannot be negative"),
+    compareAtPrice: z.number().optional(),
+    hasDiscount: z.boolean().default(false),
+    discountPercentage: z.number().optional(),
+    attributeValues: z.record(z.any()).default({}),
+    stock: z.number().int().min(0, "Stock cannot be negative").default(0),
+    imageUrl: z.string().optional().nullable(), // Keep for backward compatibility
+    images: z.array(z.string()).optional(), // Add support for multiple images
 });
 
-type ProductFormValues = z.infer<typeof productSchema>;
+// Define a more flexible type that includes dynamic fields
+type ProductFormValues = z.infer<typeof productSchema> & {
+    [key: string]: any; // This allows any other fields like include.attributeId
+};
 
 interface UnifiedProductFormProps {
     initialData?: Partial<ProductFormValues>;
@@ -73,7 +76,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
             slug: initialData?.slug || "",
             price: initialData?.price || 0,
             costPrice: initialData?.costPrice || 0,
-            compareAtPrice: initialData?.compareAtPrice || null,
+            compareAtPrice: initialData?.compareAtPrice || undefined,
             discountPercentage: initialData?.discountPercentage || 0,
             hasDiscount: initialData?.hasDiscount !== undefined ? initialData.hasDiscount : false,
             categoryId: initialData?.categoryId || "",
@@ -83,6 +86,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
             isActive: initialData?.isActive !== undefined ? initialData.isActive : true,
             isFeatured: initialData?.isFeatured !== undefined ? initialData.isFeatured : false,
             imageUrl: initialData?.imageUrl || null,
+            images: initialData?.images || [], // Initialize images array
             attributeValues: initialData?.attributeValues || {},
         }
     });
@@ -161,25 +165,49 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
             const discountedPrice = price - (price * (discountPercentage / 100));
             console.log(`Applying ${discountPercentage}% discount to ${price}: ${discountedPrice}`);
         } else {
-            form.setValue("compareAtPrice", null);
+            form.setValue("compareAtPrice", undefined);
         }
     }, [form]);
 
-    // Add this effect to fetch attributes when product type changes
+    // Replace the fetchAttributes function with this
     const fetchAttributes = useCallback(async (productTypeId: string) => {
+        console.log("fetchAttributes called with productTypeId:", productTypeId);
+        if (!productTypeId) {
+            console.log("No productTypeId provided, skipping attribute fetch");
+            setProductTypeAttributes([]);
+            return;
+        }
+
         setLoadingAttributes(true);
         try {
-            const [productResult, inventoryResult] = await Promise.all([
-                getProductTypeAttributes(productTypeId, true),
-                getProductTypeAttributes(productTypeId, false)
-            ]);
+            // Use the API endpoints directly
+            const productUrl = `/api/product-types/${productTypeId}/attributes?for=product`;
+            const inventoryUrl = `/api/product-types/${productTypeId}/attributes?for=inventory`;
+
+            console.log("Fetching product attributes from:", productUrl);
+            console.log("Fetching inventory attributes from:", inventoryUrl);
+
+            const productResponse = await fetch(productUrl);
+            const inventoryResponse = await fetch(inventoryUrl);
+
+            const productResult = await productResponse.json();
+            const inventoryResult = await inventoryResponse.json();
+
+            console.log("Product attributes API response:", productResult);
+            console.log("Inventory attributes API response:", inventoryResult);
 
             if (productResult.success && inventoryResult.success) {
-                setProductTypeAttributes([
+                const combined = [
                     ...(productResult.data || []),
                     ...(inventoryResult.data || [])
-                ]);
+                ];
+                console.log("Combined attributes:", combined);
+                setProductTypeAttributes(combined);
             } else {
+                console.error("API error:", {
+                    productError: productResult.error,
+                    inventoryError: inventoryResult.error
+                });
                 setProductTypeAttributes([]);
             }
         } catch (error) {
@@ -190,14 +218,19 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
         }
     }, []);
 
+    // Improve the effect that watches for product type changes
     useEffect(() => {
         const productTypeId = form.watch("productTypeId");
+        console.log("Product type changed to:", productTypeId);
+
         if (productTypeId) {
+            console.log("Triggering attribute fetch for productTypeId:", productTypeId);
             fetchAttributes(productTypeId);
         } else {
+            console.log("No product type selected, clearing attributes");
             setProductTypeAttributes([]);
         }
-    }, [fetchAttributes, form]);
+    }, [fetchAttributes, form, form.watch("productTypeId")]);
 
     // Add an effect to handle category changes
     useEffect(() => {
@@ -229,15 +262,88 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
     async function onSubmit(values: ProductFormValues) {
         try {
             setIsSubmitting(true);
+            console.log("Form values before processing:", values);
+            console.log("Attribute values before processing:", values.attributeValues);
 
-            // Convert form values to ExtendedProductFormValues
+            // Process attribute values to exclude those not selected for inclusion
+            const rawAttributeValues = values.attributeValues || {};
+            const processedAttributeValues: Record<string, any> = {};
+
+            // For storing product attribute values (normalized approach)
+            const productAttributeValues: Record<string, any> = {};
+
+            // For storing inventory attribute values (JSON approach)
+            const inventoryAttributeValues: Record<string, any> = {};
+
+            // Debug the inclusion flags
+            const inclusionFlags = Object.entries(values)
+                .filter(([key]) => key.startsWith('include.'))
+                .reduce((acc, [key, value]) => {
+                    acc[key] = value;
+                    return acc;
+                }, {} as Record<string, any>);
+
+            console.log("Inclusion flags:", inclusionFlags);
+
+            // Get all the product type attributes to identify which are for product vs inventory
+            const productAttrs = productTypeAttributes.filter(attr => attr.isForProduct);
+            const inventoryAttrs = productTypeAttributes.filter(attr => !attr.isForProduct);
+
+            // Map attribute IDs to their configuration
+            const attrMap = productTypeAttributes.reduce((acc, attr) => {
+                acc[attr.id] = attr;
+                return acc;
+            }, {} as Record<string, ProductTypeAttribute>);
+
+            // Filter attribute values based on inclusion flags and separate by type
+            Object.entries(rawAttributeValues).forEach(([key, value]) => {
+                // Skip inclusion flags
+                if (key.includes('include.')) return;
+
+                // Get the attribute ID from the key
+                const attributeId = key.replace('attributeValues.', '');
+
+                // Check if this attribute should be included
+                const includeKey = `include.${attributeId}`;
+                const isIncluded = values[includeKey] !== false;
+
+                console.log(`Attribute ${attributeId}: include=${isIncluded}, value=${value}`,
+                    Array.isArray(value) ? `(${value.length} options selected)` : '');
+
+                // Only include if the attribute is selected for inclusion
+                if (isIncluded) {
+                    const attribute = attrMap[attributeId];
+                    if (attribute) {
+                        if (attribute.isForProduct) {
+                            // Product attributes go to ProductAttributeValue table
+                            productAttributeValues[attributeId] = value;
+                        } else {
+                            // Inventory attributes go to the JSON field
+                            inventoryAttributeValues[attributeId] = value;
+                        }
+                    }
+
+                    // Keep this for backward compatibility
+                    processedAttributeValues[attributeId] = value;
+                }
+            });
+
+            console.log("Product attribute values:", productAttributeValues);
+            console.log("Inventory attribute values (JSON):", inventoryAttributeValues);
+
+            // Convert form values to ExtendedProductFormValues with JSON inventory attributes
             const extendedValues = {
                 ...values,
                 productTypeId: values.productTypeId || undefined,
                 isFeatured: values.isFeatured || false,
-                attributeValues: values.attributeValues || {}
+                // Original approach (for backward compatibility)
+                attributeValues: processedAttributeValues,
+                // New approach with separated values
+                productAttributeValues: productAttributeValues,
+                inventoryAttributeValues: inventoryAttributeValues
             };
 
+            console.log('Submitting product with JSON inventory attributes:', inventoryAttributeValues);
             const result = await createProductWithAttributes(extendedValues);
 
             if (!result.success) {
@@ -401,7 +507,17 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                             <FormItem>
                                 <FormLabel>Price</FormLabel>
                                 <FormControl>
-                                    <Input type="number" step="0.01" min="0" {...field} />
+                                    <Input
+                                        {...field}
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        onBlur={field.onBlur}
+                                        ref={field.ref}
+                                        name={field.name}
+                                        value={field.value}
+                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -415,7 +531,17 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                             <FormItem>
                                 <FormLabel>Cost Price</FormLabel>
                                 <FormControl>
-                                    <Input type="number" step="0.01" min="0" {...field} />
+                                    <Input
+                                        {...field}
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        onBlur={field.onBlur}
+                                        ref={field.ref}
+                                        name={field.name}
+                                        value={field.value}
+                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -500,7 +626,16 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                         <FormItem>
                             <FormLabel>Stock Quantity</FormLabel>
                             <FormControl>
-                                <Input type="number" min="0" step="1" {...field} />
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    onBlur={field.onBlur}
+                                    ref={field.ref}
+                                    name={field.name}
+                                    value={field.value}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -512,29 +647,76 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
 
     // Image tab
     const ImageTab = () => {
+        // Function to handle adding a new image
+        const handleAddImage = (newImageUrl?: string) => {
+            if (!newImageUrl) return;
+
+            // Also set single imageUrl for backward compatibility
+            form.setValue("imageUrl", newImageUrl, { shouldValidate: true });
+
+            // Add to images array
+            const currentImages = form.getValues('images') || [];
+            // Add the new image if it doesn't exist already
+            if (!currentImages.includes(newImageUrl)) {
+                form.setValue('images', [...currentImages, newImageUrl], { shouldValidate: true });
+            }
+        };
+
+        // Function to handle removing an image
+        const handleRemoveImage = (imageUrl: string) => {
+            const currentImages = form.getValues('images') || [];
+            const updatedImages = currentImages.filter(image => image !== imageUrl);
+
+            form.setValue('images', updatedImages, { shouldValidate: true });
+
+            // Update the single imageUrl if needed
+            if (form.getValues('imageUrl') === imageUrl) {
+                form.setValue('imageUrl', updatedImages[0] || null, { shouldValidate: true });
+            }
+        };
+
         return (
             <div className="space-y-4 py-2 pb-4">
                 <div className="flex flex-col space-y-2">
                     <div className="flex items-center justify-between">
                         <Label htmlFor="imageUrl" className="text-base text-foreground">
-                            Product Image
+                            Product Images
                         </Label>
+                    </div>
+
+                    {/* Display current images */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        {form.watch('images')?.map((image, index) => (
+                            <div key={index} className="relative group">
+                                <div className="aspect-square rounded-md overflow-hidden border">
+                                    <img
+                                        src={image}
+                                        alt={`Product image ${index + 1}`}
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveImage(image)}
+                                    className="absolute top-1 right-1 bg-destructive text-destructive-foreground p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    aria-label="Remove image"
+                                >
+                                    <span className="h-4 w-4 flex items-center justify-center">×</span>
+                                </button>
+                            </div>
+                        ))}
                     </div>
 
                     <ImageUploader
                         endpoint="productImage"
-                        value={form.getValues("imageUrl") || undefined}
-                        onChange={(url) => {
-                            console.log("Image URL changed:", url);
-                            form.setValue("imageUrl", url || null, { shouldValidate: true });
-                        }}
+                        onChange={handleAddImage}
                         onClientUploadComplete={(res) => {
                             console.log("Upload completed:", res);
-                            const file = res[0] as { ufsUrl: string };
-                            if (file?.ufsUrl) {
-                                const imageUrl = file.ufsUrl;
-                                console.log("Setting image URL:", imageUrl);
-                                form.setValue("imageUrl", imageUrl, { shouldValidate: true });
+                            const file = res[0] as { url?: string, ufsUrl?: string };
+                            const imageUrl = file.ufsUrl || file.url;
+
+                            if (imageUrl) {
+                                handleAddImage(imageUrl);
                                 sonnerToast.success("Image uploaded successfully");
                             }
                         }}
@@ -542,6 +724,8 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                             console.error("Upload error:", error);
                             sonnerToast.error(`Upload error: ${error.message}`);
                         }}
+                        dropzoneText="Upload product image (drag & drop or click)"
+                        className="w-full"
                     />
 
                     <FormMessage />
@@ -552,9 +736,42 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
 
     // Attributes tab
     const AttributesTab = () => {
-        if (!form.watch("productTypeId")) {
+        const selectedProductTypeId = form.watch("productTypeId");
+        console.log("AttributesTab - Selected productTypeId:", selectedProductTypeId);
+        console.log("AttributesTab - productTypeAttributes:", productTypeAttributes);
+        console.log("AttributesTab - loadingAttributes:", loadingAttributes);
+
+        // Add functions to handle select all checkboxes
+        const handleSelectAllProductAttributes = (checked: boolean) => {
+            const productAttrs = productTypeAttributes.filter(attr => attr.isForProduct);
+            productAttrs.forEach(attr => {
+                if (!attr.isRequired) {
+                    form.setValue(`include.${attr.id}` as any, checked);
+                }
+            });
+        };
+
+        const handleSelectAllInventoryAttributes = (checked: boolean) => {
+            const inventoryAttrs = productTypeAttributes.filter(attr => !attr.isForProduct);
+            inventoryAttrs.forEach(attr => {
+                if (!attr.isRequired) {
+                    form.setValue(`include.${attr.id}` as any, checked);
+                }
+            });
+        };
+
+        // Helper function to handle select all attribute values
+        const handleSelectAllAttributeValues = (attributeId: string, options: string[], checked: boolean) => {
+            if (checked) {
+                form.setValue(`attributeValues.${attributeId}`, options);
+            } else {
+                form.setValue(`attributeValues.${attributeId}`, []);
+            }
+        };
+
+        if (!selectedProductTypeId) {
             return (
-                <div className="text-center text-muted-foreground">
+                <div className="text-center text-muted-foreground py-8">
                     Please select a product type to view attributes
                 </div>
             );
@@ -562,66 +779,380 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
 
         if (loadingAttributes) {
             return (
-                <div className="flex items-center justify-center">
+                <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-6 w-6 animate-spin" />
+                    <span className="ml-2">Loading attributes...</span>
                 </div>
             );
         }
 
-        return (
-            <div className="space-y-4 py-2 pb-4">
-                {productTypeAttributes.map((attribute) => {
-                    // Parse options if this is a SELECT type attribute
-                    const options = attribute.type === AttributeType.ARRAY && attribute.options
-                        ? JSON.parse(attribute.options as string)
-                        : [];
+        if (productTypeAttributes.length === 0) {
+            return (
+                <div className="text-center text-muted-foreground py-8">
+                    No attributes defined for this product type
+                </div>
+            );
+        }
 
-                    return (
-                        <FormField
-                            key={attribute.id}
-                            control={form.control}
-                            name={`attributeValues.${attribute.id}`}
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>{attribute.displayName}</FormLabel>
-                                    <FormControl>
-                                        {attribute.type === AttributeType.ARRAY ? (
-                                            <Select
-                                                onValueChange={field.onChange}
-                                                value={field.value || ""}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder={`Select ${attribute.displayName}`} />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {options.map((option: string, index: number) => (
-                                                        <SelectItem key={index} value={option}>
-                                                            {option}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        ) : attribute.type === AttributeType.NUMBER ? (
-                                            <Input {...field} type="number" />
-                                        ) : attribute.type === AttributeType.BOOLEAN ? (
-                                            <Switch
-                                                checked={!!field.value}
-                                                onCheckedChange={field.onChange}
-                                            />
-                                        ) : (
-                                            // Default for STRING, TEXT and others
-                                            <Input {...field} />
-                                        )}
-                                    </FormControl>
-                                    {attribute.description && (
-                                        <FormDescription>{attribute.description}</FormDescription>
-                                    )}
-                                    <FormMessage />
-                                </FormItem>
+        // Group attributes by type for display
+        const productAttributes = productTypeAttributes.filter(attr => attr.isForProduct);
+        const inventoryAttributes = productTypeAttributes.filter(attr => !attr.isForProduct);
+
+        return (
+            <div className="space-y-6 py-2 pb-4">
+                {/* Product Attributes Section */}
+                {productAttributes.length > 0 && (
+                    <div className="space-y-4 border rounded-md p-4">
+                        <div className="flex items-center justify-between border-b pb-2">
+                            <h3 className="text-lg font-medium">Product Attributes</h3>
+                            {productAttributes.some(attr => !attr.isRequired) && (
+                                <div className="flex items-center space-x-2">
+                                    <Label htmlFor="select-all-product" className="text-sm font-normal cursor-pointer">
+                                        Select All Attributes
+                                    </Label>
+                                    <input
+                                        id="select-all-product"
+                                        type="checkbox"
+                                        className="h-4 w-4"
+                                        onChange={(e) => handleSelectAllProductAttributes(e.target.checked)}
+                                    />
+                                </div>
                             )}
-                        />
-                    );
-                })}
+                        </div>
+                        <div className="grid grid-cols-1 gap-4">
+                            {productAttributes.map((attribute) => {
+                                const fieldId = `attributeValues.${attribute.id}`;
+                                const includeFieldId = `include.${attribute.id}`;
+
+                                // Parse options for attributes
+                                let options: string[] = [];
+                                if (attribute.type === AttributeType.ARRAY && attribute.options) {
+                                    try {
+                                        options = JSON.parse(attribute.options as string);
+                                    } catch (e) {
+                                        console.error("Failed to parse options:", e);
+                                    }
+                                }
+
+                                return (
+                                    <div
+                                        key={attribute.id}
+                                        className="border rounded-md p-3 relative"
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center">
+                                                <FormField
+                                                    control={form.control}
+                                                    name={includeFieldId as any}
+                                                    defaultValue={true}
+                                                    render={({ field }) => (
+                                                        <FormItem className="flex items-center space-x-2 m-0">
+                                                            <FormLabel className="m-0 text-base font-medium flex-grow">
+                                                                {attribute.displayName}
+                                                                {attribute.isRequired &&
+                                                                    <span className="text-red-500 ml-1">*</span>
+                                                                }
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    className="h-4 w-4"
+                                                                    checked={field.value !== false}
+                                                                    onChange={(e) => field.onChange(e.target.checked)}
+                                                                    disabled={attribute.isRequired}
+                                                                />
+                                                            </FormControl>
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {form.watch(includeFieldId) !== false && (
+                                            <div className="mt-2">
+                                                {attribute.type === AttributeType.ARRAY && options.length > 0 ? (
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center justify-between mb-2 pl-2">
+                                                            <Label className="text-sm font-medium">Available Options</Label>
+                                                            <div className="flex items-center space-x-2">
+                                                                <Label htmlFor={`select-all-${attribute.id}`} className="text-xs font-normal cursor-pointer">
+                                                                    Select All Values
+                                                                </Label>
+                                                                <input
+                                                                    id={`select-all-${attribute.id}`}
+                                                                    type="checkbox"
+                                                                    className="h-3 w-3"
+                                                                    onChange={(e) => handleSelectAllAttributeValues(attribute.id, options, e.target.checked)}
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-2">
+                                                            {options.map((option, index) => (
+                                                                <FormField
+                                                                    key={index}
+                                                                    control={form.control}
+                                                                    name={fieldId}
+                                                                    defaultValue={[]}
+                                                                    render={({ field }) => {
+                                                                        const values = Array.isArray(field.value) ? field.value : [];
+                                                                        const isChecked = values.includes(option);
+
+                                                                        return (
+                                                                            <div className="flex items-center space-x-2">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    id={`${attribute.id}-option-${index}`}
+                                                                                    className="h-4 w-4"
+                                                                                    checked={isChecked}
+                                                                                    onChange={() => {
+                                                                                        const newValues = isChecked
+                                                                                            ? values.filter(v => v !== option)
+                                                                                            : [...values, option];
+                                                                                        field.onChange(newValues);
+                                                                                    }}
+                                                                                />
+                                                                                <Label
+                                                                                    htmlFor={`${attribute.id}-option-${index}`}
+                                                                                    className="text-sm cursor-pointer"
+                                                                                >
+                                                                                    {option}
+                                                                                </Label>
+                                                                            </div>
+                                                                        );
+                                                                    }}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <FormField
+                                                        control={form.control}
+                                                        defaultValue={
+                                                            attribute.type === AttributeType.BOOLEAN
+                                                                ? false
+                                                                : attribute.type === AttributeType.NUMBER
+                                                                    ? 0
+                                                                    : ""
+                                                        }
+                                                        name={fieldId}
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormControl>
+                                                                    {attribute.type === AttributeType.NUMBER ? (
+                                                                        <Input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                                            value={field.value}
+                                                                        />
+                                                                    ) : attribute.type === AttributeType.BOOLEAN ? (
+                                                                        <Switch
+                                                                            checked={!!field.value}
+                                                                            onCheckedChange={field.onChange}
+                                                                        />
+                                                                    ) : (
+                                                                        <Input {...field} />
+                                                                    )}
+                                                                </FormControl>
+                                                                {attribute.description && (
+                                                                    <FormDescription>
+                                                                        {attribute.description}
+                                                                    </FormDescription>
+                                                                )}
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Inventory Attributes Section */}
+                {inventoryAttributes.length > 0 && (
+                    <div className="space-y-4 border rounded-md p-4">
+                        <div className="flex items-center justify-between border-b pb-2">
+                            <h3 className="text-lg font-medium">Inventory Attributes</h3>
+                            {inventoryAttributes.some(attr => !attr.isRequired) && (
+                                <div className="flex items-center space-x-2">
+                                    <Label htmlFor="select-all-inventory" className="text-sm font-normal cursor-pointer">
+                                        Select All Attributes
+                                    </Label>
+                                    <input
+                                        id="select-all-inventory"
+                                        type="checkbox"
+                                        className="h-4 w-4"
+                                        onChange={(e) => handleSelectAllInventoryAttributes(e.target.checked)}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-1 gap-4">
+                            {inventoryAttributes.map((attribute) => {
+                                const fieldId = `attributeValues.${attribute.id}`;
+                                const includeFieldId = `include.${attribute.id}`;
+
+                                // Parse options for attributes
+                                let options: string[] = [];
+                                if (attribute.type === AttributeType.ARRAY && attribute.options) {
+                                    try {
+                                        options = JSON.parse(attribute.options as string);
+                                    } catch (e) {
+                                        console.error("Failed to parse options:", e);
+                                    }
+                                }
+
+                                return (
+                                    <div
+                                        key={attribute.id}
+                                        className="border rounded-md p-3 relative"
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center">
+                                                <FormField
+                                                    control={form.control}
+                                                    name={includeFieldId as any}
+                                                    defaultValue={true}
+                                                    render={({ field }) => (
+                                                        <FormItem className="flex items-center space-x-2 m-0">
+                                                            <FormLabel className="m-0 text-base font-medium flex-grow">
+                                                                {attribute.displayName}
+                                                                {attribute.isRequired &&
+                                                                    <span className="text-red-500 ml-1">*</span>
+                                                                }
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    className="h-4 w-4"
+                                                                    checked={field.value !== false}
+                                                                    onChange={(e) => field.onChange(e.target.checked)}
+                                                                    disabled={attribute.isRequired}
+                                                                />
+                                                            </FormControl>
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {form.watch(includeFieldId) !== false && (
+                                            <div className="mt-2">
+                                                {attribute.type === AttributeType.ARRAY && options.length > 0 ? (
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center justify-between mb-2 pl-2">
+                                                            <Label className="text-sm font-medium">Available Options</Label>
+                                                            <div className="flex items-center space-x-2">
+                                                                <Label htmlFor={`select-all-${attribute.id}`} className="text-xs font-normal cursor-pointer">
+                                                                    Select All Values
+                                                                </Label>
+                                                                <input
+                                                                    id={`select-all-${attribute.id}`}
+                                                                    type="checkbox"
+                                                                    className="h-3 w-3"
+                                                                    onChange={(e) => handleSelectAllAttributeValues(attribute.id, options, e.target.checked)}
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-2">
+                                                            {options.map((option, index) => (
+                                                                <FormField
+                                                                    key={index}
+                                                                    control={form.control}
+                                                                    name={fieldId}
+                                                                    defaultValue={[]}
+                                                                    render={({ field }) => {
+                                                                        const values = Array.isArray(field.value) ? field.value : [];
+                                                                        const isChecked = values.includes(option);
+
+                                                                        return (
+                                                                            <div className="flex items-center space-x-2">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    id={`${attribute.id}-option-${index}`}
+                                                                                    className="h-4 w-4"
+                                                                                    checked={isChecked}
+                                                                                    onChange={() => {
+                                                                                        const newValues = isChecked
+                                                                                            ? values.filter(v => v !== option)
+                                                                                            : [...values, option];
+                                                                                        field.onChange(newValues);
+                                                                                    }}
+                                                                                />
+                                                                                <Label
+                                                                                    htmlFor={`${attribute.id}-option-${index}`}
+                                                                                    className="text-sm cursor-pointer"
+                                                                                >
+                                                                                    {option}
+                                                                                </Label>
+                                                                            </div>
+                                                                        );
+                                                                    }}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <FormField
+                                                        control={form.control}
+                                                        defaultValue={
+                                                            attribute.type === AttributeType.BOOLEAN
+                                                                ? false
+                                                                : attribute.type === AttributeType.NUMBER
+                                                                    ? 0
+                                                                    : ""
+                                                        }
+                                                        name={fieldId}
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormControl>
+                                                                    {attribute.type === AttributeType.NUMBER ? (
+                                                                        <Input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                                            value={field.value}
+                                                                        />
+                                                                    ) : attribute.type === AttributeType.BOOLEAN ? (
+                                                                        <Switch
+                                                                            checked={!!field.value}
+                                                                            onCheckedChange={field.onChange}
+                                                                        />
+                                                                    ) : (
+                                                                        <Input {...field} />
+                                                                    )}
+                                                                </FormControl>
+                                                                {attribute.description && (
+                                                                    <FormDescription>
+                                                                        {attribute.description}
+                                                                    </FormDescription>
+                                                                )}
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {productTypeAttributes.length === 0 && (
+                    <div className="text-center text-muted-foreground py-8">
+                        No attributes found for this product type
+                    </div>
+                )}
             </div>
         );
     };
