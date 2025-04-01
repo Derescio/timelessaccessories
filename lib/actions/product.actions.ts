@@ -502,7 +502,7 @@ export async function createProductWithAttributes(data: ExtendedProductFormValue
                 },
                 inventories: {
                     create: [{
-                        sku: sku || "",
+                        sku: generateSku(),
                         retailPrice: price || 0,
                         costPrice: costPrice || 0,
                         compareAtPrice: compareAtPrice || null,
@@ -561,6 +561,13 @@ export async function createProductWithAttributes(data: ExtendedProductFormValue
         console.error("Error creating product:", error);
         return { success: false, error: "Failed to create product" };
     }
+}
+
+// Helper function to generate a unique SKU
+function generateSku() {
+    const timestamp = new Date().getTime().toString().slice(-6);
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `P${timestamp}${random}`;
 }
 
 // Add this function alongside your existing updateProduct function

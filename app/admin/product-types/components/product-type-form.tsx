@@ -1,11 +1,12 @@
 // app/admin/product-types/components/product-type-form.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import {
     Form,
     FormControl,
@@ -29,11 +30,21 @@ type FormValues = z.infer<typeof formSchema>;
 
 interface ProductTypeFormProps {
     initialData?: Partial<ProductType>;
-    onSubmit: (data: FormValues) => Promise<void>;
+    onSubmit: (data: FormValues) => Promise<{ success: boolean }>;
 }
 
 export function ProductTypeForm({ initialData, onSubmit }: ProductTypeFormProps) {
     const [loading, setLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const mounted = useRef(false);
+    const router = useRouter();
+
+    useEffect(() => {
+        mounted.current = true;
+        return () => {
+            mounted.current = false;
+        };
+    }, []);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -43,21 +54,49 @@ export function ProductTypeForm({ initialData, onSubmit }: ProductTypeFormProps)
         },
     });
 
-    const handleSubmit = async (data: FormValues) => {
+    const onSubmitForm = async (data: FormValues) => {
+        console.log("Form submission started", { loading, isSubmitting, data });
+
+        if (loading || isSubmitting || !mounted.current) {
+            console.log("Form submission prevented", { loading, isSubmitting, mounted: mounted.current });
+            return;
+        }
+
         try {
+            console.log("Setting submission states");
             setLoading(true);
-            await onSubmit(data);
+            setIsSubmitting(true);
+            console.log("Calling onSubmit with data:", data);
+            const result = await onSubmit(data);
+            console.log("onSubmit completed successfully", result);
+
+            if (result.success) {
+                console.log("Redirecting to product types list");
+                router.push("/admin/product-types");
+            }
         } catch (error) {
+            console.error("Error in form submission:", error);
             const errorMessage = error instanceof Error ? error.message : "Failed to save product type";
             toast.error(errorMessage);
         } finally {
+            console.log("Resetting submission states");
             setLoading(false);
+            setIsSubmitting(false);
         }
     };
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+            <form
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    console.log("Form submit event triggered");
+                    if (!isSubmitting) {
+                        form.handleSubmit(onSubmitForm)(e);
+                    }
+                }}
+                className="space-y-4"
+            >
                 <FormField
                     control={form.control}
                     name="name"
@@ -90,8 +129,8 @@ export function ProductTypeForm({ initialData, onSubmit }: ProductTypeFormProps)
                     )}
                 />
 
-                <Button type="submit" disabled={loading}>
-                    {loading ? "Saving..." : initialData ? "Update Product Type" : "Create Product Type"}
+                <Button type="submit" disabled={loading || isSubmitting}>
+                    {loading || isSubmitting ? "Saving..." : initialData ? "Update Product Type" : "Create Product Type"}
                 </Button>
             </form>
         </Form>

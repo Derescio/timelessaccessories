@@ -6,6 +6,9 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { db } from '../db';
 import { Prisma, AttributeType } from '@prisma/client';
+// import { getServerSession } from "next-auth";
+// import { authOptions } from "@/lib/auth";
+
 // import { revalidatePath } from 'next/cache';
 // import { auth } from '@/auth';
 // import { AttributeType } from '@prisma/client';
@@ -183,20 +186,47 @@ export async function updateProductType(data: {
 export async function deleteProductType(id: string) {
   try {
     const session = await auth();
-    
-    if (!session || session.user?.role !== "ADMIN") {
-      return { success: false, error: "Not authorized" };
+    if (!session?.user || session.user.role !== "ADMIN") {
+      return { success: false, error: "Unauthorized" };
     }
-    
-    await db.productType.delete({
-      where: { id }
+
+    // Check if product type exists
+    const existingType = await prisma.productType.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            products: true,
+          },
+        },
+      },
     });
-    
+
+    if (!existingType) {
+      return { success: false, error: "Product type not found" };
+    }
+
+    // Prevent deletion if product type has products
+    if (existingType._count.products > 0) {
+      return { 
+        success: false, 
+        error: "Cannot delete product type with associated products" 
+      };
+    }
+
+    // Delete the product type
+    await prisma.productType.delete({
+      where: { id },
+    });
+
     revalidatePath("/admin/product-types");
     return { success: true };
   } catch (error) {
     console.error("Error deleting product type:", error);
-    return { success: false, error: "Failed to delete product type" };
+    return { 
+      success: false, 
+      error: "Failed to delete product type" 
+    };
   }
 }
 

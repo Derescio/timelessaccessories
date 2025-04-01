@@ -219,6 +219,13 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
         }
     }, [form]);
 
+    const formValues = form.getValues();
+    useEffect(() => {
+        if (formValues.name && formValues.name.length >= 3) {
+            form.setValue("slug", slugify(formValues.name), { shouldValidate: true });
+        }
+    }, [form, formValues.name]);
+
     async function onSubmit(values: ProductFormValues) {
         try {
             setIsSubmitting(true);
