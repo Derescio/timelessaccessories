@@ -514,3 +514,97 @@ function validateAttributeValue(value: any, type: AttributeType): boolean {
 3. Use controlled components for better state management
 4. Handle null/undefined values consistently
 5. Consider user experience when implementing placeholder states
+
+## Form Submission and Redirect Handling
+
+### Issue: Multiple POST Requests and NEXT_REDIRECT Errors
+When implementing form submissions with server actions in Next.js, we encountered issues with multiple POST requests and NEXT_REDIRECT errors. This was particularly evident in the product type creation flow.
+
+#### Problem
+- Server-side redirects were causing multiple POST requests
+- NEXT_REDIRECT errors were appearing in toast notifications
+- Form submissions were being triggered multiple times
+
+#### Solution
+We implemented a client-side redirect approach with proper state management:
+
+1. **Server Action Modification**:
+```typescript
+async function handleCreate(data: { name: string; description?: string }) {
+    "use server";
+    
+    const result = await createProductType(data.name, data.description);
+    
+    if (result.success) {
+        return { success: true }; // Return success instead of redirecting
+    } else {
+        throw new Error(result.error || "Failed to create product type");
+    }
+}
+```
+
+2. **Form Component Updates**:
+```typescript
+export function ProductTypeForm({ onSubmit }: ProductTypeFormProps) {
+    const [loading, setLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const mounted = useRef(false);
+    const router = useRouter();
+
+    // Track component mounting state
+    useEffect(() => {
+        mounted.current = true;
+        return () => {
+            mounted.current = false;
+        };
+    }, []);
+
+    const onSubmitForm = async (data: FormValues) => {
+        if (loading || isSubmitting || !mounted.current) return;
+
+        try {
+            setLoading(true);
+            setIsSubmitting(true);
+            const result = await onSubmit(data);
+
+            if (result.success) {
+                router.push("/admin/product-types");
+            }
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to save");
+        } finally {
+            setLoading(false);
+            setIsSubmitting(false);
+        }
+    };
+}
+```
+
+#### Key Learnings
+1. **Client vs Server Redirects**:
+   - Server-side redirects can cause multiple requests
+   - Client-side redirects provide better control over the flow
+   - Use `useRouter` for client-side navigation after form submission
+
+2. **State Management**:
+   - Track both loading and submission states
+   - Use refs to track component mounting state
+   - Prevent submissions when component is unmounted
+
+3. **Form Submission Prevention**:
+   - Use `e.preventDefault()` in form submission handler
+   - Implement multiple checks to prevent duplicate submissions
+   - Handle cleanup properly in useEffect
+
+4. **Error Handling**:
+   - Provide clear error messages
+   - Reset states properly in finally block
+   - Use toast notifications for user feedback
+
+#### Best Practices
+1. Always handle form submissions on the client side
+2. Use proper state management to prevent duplicate submissions
+3. Implement proper cleanup in useEffect
+4. Provide clear feedback to users
+5. Handle errors gracefully
+6. Use TypeScript for better type safety

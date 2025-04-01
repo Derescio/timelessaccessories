@@ -2,7 +2,6 @@
 import { Metadata } from "next";
 import { ProductTypeForm } from "../components/product-type-form";
 import { createProductType } from "@/lib/actions/product-type.actions";
-import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
     title: "Admin | New Product Type",
@@ -10,17 +9,22 @@ export const metadata: Metadata = {
 };
 
 export default function NewProductTypePage() {
-    const handleCreate = async (data: { name: string; description?: string }) => {
+    async function handleCreate(data: { name: string; description?: string }) {
         "use server";
 
+        console.log("Server action handleCreate called with data:", data);
+
         const result = await createProductType(data.name, data.description);
+        console.log("createProductType result:", result);
 
         if (result.success) {
-            redirect("/admin/product-types");
+            console.log("Product type created successfully");
+            return { success: true };
         } else {
+            console.error("Failed to create product type:", result.error);
             throw new Error(result.error || "Failed to create product type");
         }
-    };
+    }
 
     return (
         <div className="container mx-auto py-6">

@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 
 // Define interface for order data structure
 interface OrderItem {
@@ -106,6 +107,81 @@ export default function OrdersPage() {
             default:
                 return "bg-gray-500";
         }
+    };
+
+    const renderPageNumbers = () => {
+        const pages = [];
+        const maxVisiblePages = 5;
+        const halfMaxPages = Math.floor(maxVisiblePages / 2);
+
+        let startPage = Math.max(1, page - halfMaxPages);
+        const endPage = Math.min(page + 2, totalPages);
+
+        // Adjust start page if we're near the end
+        if (endPage - startPage + 1 < maxVisiblePages) {
+            startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
+
+        // Always show first page
+        if (startPage > 1) {
+            pages.push(
+                <Button
+                    key={1}
+                    variant={page === 1 ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPage(1)}
+                    className="min-w-[2.5rem]"
+                >
+                    1
+                </Button>
+            );
+            if (startPage > 2) {
+                pages.push(
+                    <span key="start-ellipsis" className="px-2">
+                        ...
+                    </span>
+                );
+            }
+        }
+
+        // Show page numbers
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(
+                <Button
+                    key={i}
+                    variant={page === i ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPage(i)}
+                    className="min-w-[2.5rem]"
+                >
+                    {i}
+                </Button>
+            );
+        }
+
+        // Always show last page
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                pages.push(
+                    <span key="end-ellipsis" className="px-2">
+                        ...
+                    </span>
+                );
+            }
+            pages.push(
+                <Button
+                    key={totalPages}
+                    variant={page === totalPages ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPage(totalPages)}
+                    className="min-w-[2.5rem]"
+                >
+                    {totalPages}
+                </Button>
+            );
+        }
+
+        return pages;
     };
 
     if (loading) {
@@ -191,22 +267,47 @@ export default function OrdersPage() {
             </div>
 
             {totalPages > 1 && (
-                <div className="flex justify-center gap-2">
+                <div className="flex items-center justify-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(1)}
+                        disabled={page === 1}
+                        className="h-8 w-8 p-0"
+                    >
+                        <ChevronsLeft className="h-4 w-4" />
+                    </Button>
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                         disabled={page === 1}
+                        className="h-8 w-8 p-0"
                     >
-                        Previous
+                        <ChevronLeft className="h-4 w-4" />
                     </Button>
+
+                    <div className="flex items-center gap-1">
+                        {renderPageNumbers()}
+                    </div>
+
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                         disabled={page === totalPages}
+                        className="h-8 w-8 p-0"
                     >
-                        Next
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(totalPages)}
+                        disabled={page === totalPages}
+                        className="h-8 w-8 p-0"
+                    >
+                        <ChevronsRight className="h-4 w-4" />
                     </Button>
                 </div>
             )}

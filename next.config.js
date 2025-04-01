@@ -13,11 +13,13 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   images: {
-    // domains: [
-    //   "www.paypalobjects.com",
-    //   "hebbkx1anhila5yf.public.blob.vercel-storage.com",
-    //   "merchant-portal.lascobizja.com",
-    // ],
+    domains: [
+      "uploadthing.com",
+      "utfs.io",
+      "img.clerk.com",
+      "subdomain",
+      "files.stripe.com",
+    ],
     remotePatterns: [
       {
         protocol: "https",
@@ -31,15 +33,15 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "utfs.io",
-        pathname: "**",
-      },
-      {
-        protocol: "https",
         hostname: "*.ufs.sh",
         pathname: "**",
       },
     ],
+  },
+  experimental: {
+    serverActions: {
+      allowedOrigins: ["localhost:3000"],
+    },
   },
 };
 
