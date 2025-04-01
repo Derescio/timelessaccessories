@@ -106,7 +106,10 @@ export function CategoryForm({ initialData, categories = [], onSubmit }: Categor
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Parent Category</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value || "none"}>
+                            <Select
+                                onValueChange={(value) => field.onChange(value === "none" ? null : value)}
+                                value={field.value || "none"}
+                            >
                                 <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select a parent category" />
@@ -166,8 +169,8 @@ export function CategoryForm({ initialData, categories = [], onSubmit }: Categor
                             <FormLabel>Default Product Type</FormLabel>
                             <Select
                                 disabled={isLoading || isLoadingProductTypes}
-                                onValueChange={field.onChange}
-                                value={field.value || ""}
+                                onValueChange={(value) => field.onChange(value === "none" ? null : value)}
+                                value={field.value || "none"}
                             >
                                 <FormControl>
                                     <SelectTrigger>
@@ -175,7 +178,7 @@ export function CategoryForm({ initialData, categories = [], onSubmit }: Categor
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                    <SelectItem value="">None</SelectItem>
+                                    <SelectItem value="none">None</SelectItem>
                                     {productTypes.map((type) => (
                                         <SelectItem key={type.id} value={type.id}>
                                             {type.name}

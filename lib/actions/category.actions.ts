@@ -252,13 +252,15 @@ export async function deleteCategory(id: string) {
       return { success: false, error: "Not authorized" };
     }
 
-    // Check if category exists
+    // Check if category exists and has no products
     const category = await db.category.findUnique({
       where: { id },
       include: {
-        children: true,
-        products: {
-          select: { id: true },
+        _count: {
+          select: {
+            products: true,
+            children: true,
+          },
         },
       },
     });
@@ -267,23 +269,23 @@ export async function deleteCategory(id: string) {
       return { success: false, error: "Category not found" };
     }
 
-    // Check if category has children
-    if (category.children.length > 0) {
-      return { 
-        success: false, 
-        error: "Cannot delete a category with subcategories. Please delete or reassign subcategories first." 
-      };
-    }
-
     // Check if category has products
-    if (category.products.length > 0) {
+    if (category._count.products > 0) {
       return { 
         success: false, 
-        error: "Cannot delete a category with associated products. Please reassign or delete the products first." 
+        error: "Cannot delete category with products. Please remove all products first." 
       };
     }
 
-    // Delete category
+    // Check if category has children
+    if (category._count.children > 0) {
+      return { 
+        success: false, 
+        error: "Cannot delete category with subcategories. Please remove all subcategories first." 
+      };
+    }
+
+    // Delete the category
     await db.category.delete({
       where: { id },
     });

@@ -477,3 +477,40 @@ function validateAttributeValue(value: any, type: AttributeType): boolean {
 3. Separate product and inventory attributes clearly
 4. Implement proper error handling
 5. Consider edge cases in attribute processing
+
+### 7. Select Component Validation
+
+**Challenge:** Handling validation in Select components, particularly with empty values and placeholder states.
+
+**Lesson:** When working with Select components:
+- Never use empty strings as values for Select.Item components
+- Use a special value (like "none") for placeholder/empty states
+- Handle null/undefined values properly in controlled components
+- Consider the implications of value changes on form state
+
+**Solution:**
+```typescript
+// Instead of using empty string
+<SelectItem value="">None</SelectItem>
+
+// Use a special value and handle conversion
+<SelectItem value="none">None</SelectItem>
+
+// Handle value changes properly
+<Select
+    value={field.value || "none"}
+    onValueChange={(value) => {
+        field.onChange(value === "none" ? null : value);
+    }}
+>
+    <SelectItem value="none">None</SelectItem>
+    {/* Other options */}
+</Select>
+```
+
+**Key Points:**
+1. Select.Item components must have non-empty string values
+2. Empty strings are reserved for clearing selection
+3. Use controlled components for better state management
+4. Handle null/undefined values consistently
+5. Consider user experience when implementing placeholder states
