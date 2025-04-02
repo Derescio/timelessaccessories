@@ -4,8 +4,10 @@ import { db } from "@/lib/db";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
-import { categorySchema, CategoryFormValues } from "@/lib/types/category.types";
-import { updateCategorySchema } from "@/lib/validators";
+import { categorySchema, updateCategorySchema } from "@/lib/validators";
+import { z } from "zod";
+
+type CategoryFormValues = z.infer<typeof categorySchema>;
 
 /**
  * Get all categories
@@ -41,7 +43,6 @@ export async function getCategories() {
 
     return categories;
   } catch (error) {
-    console.error("Error fetching categories:", error);
     return [];
   }
 }
@@ -77,7 +78,6 @@ export async function getCategoryById(id: string) {
 
     return { success: true, data: category };
   } catch (error) {
-    console.error("Error fetching category:", error);
     return { success: false, error: "Failed to fetch category" };
   }
 }
@@ -87,55 +87,44 @@ export async function getCategoryById(id: string) {
  */
 export async function createCategory(data: CategoryFormValues) {
   try {
-    const validatedData = categorySchema.parse(data);
-    
     const session = await auth();
-
-    if (!session || session.user?.role !== "ADMIN") {
-      return { success: false, error: "Not authorized" };
+    const user = session?.user;
+    const Admin = user?.role === "ADMIN";
+    if (!Admin) {
+      return { error: "Unauthorized" };
     }
 
-    // Check if slug is already in use
+    // Validate input data
+    const validatedData = categorySchema.parse(data);
+
+    // Check if category with same slug exists
     const existingCategory = await db.category.findUnique({
       where: { slug: validatedData.slug },
     });
 
     if (existingCategory) {
-      return { 
-        success: false, 
-        error: "A category with this slug already exists" 
-      };
+      return { error: "A category with this slug already exists" };
     }
 
-    // Create category with userId from the session
+    // Create the category
     const category = await db.category.create({
       data: {
         name: validatedData.name,
         description: validatedData.description,
-        imageUrl: validatedData.imageUrl,
         slug: validatedData.slug,
-        parentId: validatedData.parentId || null,
-        defaultProductTypeId: validatedData.defaultProductTypeId || null,
-        userId: session.user.id, // Add the userId from the session
+        imageUrl: validatedData.imageUrl,
+        parentId: validatedData.parentId,
+        defaultProductTypeId: validatedData.defaultProductTypeId,
       },
     });
 
     revalidatePath("/admin/categories");
-    return { success: true, data: category };
+    return { data: category };
   } catch (error) {
-    console.error("Error creating category:", error);
-    
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      // Unique constraint error
-      if (error.code === 'P2002') {
-        return { 
-          success: false, 
-          error: "A category with this slug already exists" 
-        };
-      }
+    if (error instanceof z.ZodError) {
+      return { error: "Invalid input data", details: error.errors };
     }
-    
-    return { success: false, error: "Failed to create category" };
+    return { error: "Failed to create category" };
   }
 }
 
@@ -193,9 +182,6 @@ export async function updateCategory(data: CategoryFormValues & { id: string }) 
 
       // If we're keeping the same parent, skip the descendant check
       if (validatedData.parentId !== existingCategory.parentId) {
-        console.log("Parent is changing from", existingCategory.parentId, "to", validatedData.parentId);
-        
-        // Check if the new parent is one of this category's descendants
         const isDescendant = await isChildDescendant(validatedData.id, validatedData.parentId);
         if (isDescendant) {
           return { 
@@ -203,8 +189,6 @@ export async function updateCategory(data: CategoryFormValues & { id: string }) 
             error: "Cannot set a descendant category as parent" 
           };
         }
-      } else {
-        console.log("Parent is not changing, skipping descendant check");
       }
     }
 
@@ -218,17 +202,14 @@ export async function updateCategory(data: CategoryFormValues & { id: string }) 
         parentId: validatedData.parentId,
         slug: validatedData.slug,
         defaultProductTypeId: validatedData.defaultProductTypeId || null,
-        userId: userId, // Add the userId
+        userId: userId,
       },
     });
 
     revalidatePath("/admin/categories");
     return { success: true, data: updatedCategory };
   } catch (error) {
-    console.error("Error updating category:", error);
-    
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      // Unique constraint error
       if (error.code === 'P2002') {
         return { 
           success: false, 
@@ -236,7 +217,6 @@ export async function updateCategory(data: CategoryFormValues & { id: string }) 
         };
       }
     }
-    
     return { success: false, error: "Failed to update category" };
   }
 }
@@ -293,7 +273,6 @@ export async function deleteCategory(id: string) {
     revalidatePath("/admin/categories");
     return { success: true };
   } catch (error) {
-    console.error("Error deleting category:", error);
     return { success: false, error: "Failed to delete category" };
   }
 }
@@ -303,11 +282,8 @@ export async function deleteCategory(id: string) {
  * a descendant of the current category (which would create a circular reference)
  */
 async function isChildDescendant(parentId: string, childId: string): Promise<boolean> {
-  console.log(`Checking if ${childId} is a descendant of ${parentId}`);
-  
   // If they're the same, it's a circular reference
   if (parentId === childId) {
-    console.log(`Direct circular reference detected: ${parentId} === ${childId}`);
     return true;
   }
 
@@ -317,23 +293,16 @@ async function isChildDescendant(parentId: string, childId: string): Promise<boo
     include: { children: true },
   });
 
-  console.log(`Child category ${childId}:`, child?.name);
-  console.log(`Children of ${childId}:`, child?.children.map(c => `${c.id} (${c.name})`));
-
   if (!child || child.children.length === 0) {
-    console.log(`No children found for ${childId}, returning false`);
     return false;
   }
 
   // Check if any of the children are the parent or contain the parent as a descendant
   for (const grandchild of child.children) {
-    console.log(`Checking grandchild ${grandchild.id} (${grandchild.name})`);
     if (await isChildDescendant(parentId, grandchild.id)) {
-      console.log(`Found circular reference through grandchild ${grandchild.id}`);
       return true;
     }
   }
 
-  console.log(`No circular reference found between ${parentId} and ${childId}`);
   return false;
 } 

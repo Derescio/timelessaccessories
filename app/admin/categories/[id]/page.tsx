@@ -1,71 +1,103 @@
-import { Metadata } from "next";
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { CategoryForm } from "../components/category-form";
-import { getCategoryById, getCategories, updateCategory } from "@/lib/actions/category.actions";
-import { notFound } from "next/navigation";
-import { CategoryFormValues } from "@/lib/types/category.types";
-import { redirect } from "next/navigation";
+import { getCategoryById, updateCategory } from "@/lib/actions/category.actions";
+import { toast } from "sonner";
 import { Category } from "@prisma/client";
+import { categorySchema } from "@/lib/validators";
+import { z } from "zod";
 
-export const metadata: Metadata = {
-    title: "Admin | Edit Category",
-    description: "Edit product category",
-};
+type CategoryFormValues = z.infer<typeof categorySchema>;
 
-type EditCategoryPageProps = {
+interface EditCategoryPageProps {
     params: Promise<{
         id: string;
     }>;
-    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-};
+}
 
-export default async function EditCategoryPage({ params }: EditCategoryPageProps) {
-    // Await params
-    const resolvedParams = await params;
-    const { id: categoryId } = resolvedParams;
+export default function EditCategoryPage({ params }: EditCategoryPageProps) {
+    const [isLoading, setIsLoading] = useState(false);
+    const [category, setCategory] = useState<Category | null>(null);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [categoryId, setCategoryId] = useState<string | null>(null);
+    const router = useRouter();
 
-    // Get category and all categories for parent dropdown
-    const [categoryResult, allCategories] = await Promise.all([
-        getCategoryById(categoryId),
-        getCategories(),
-    ]);
+    useEffect(() => {
+        const initializeData = async () => {
+            try {
+                const resolvedParams = await params;
+                setCategoryId(resolvedParams.id);
 
-    if (!categoryResult.success || !categoryResult.data) {
-        notFound();
-    }
+                const result = await getCategoryById(resolvedParams.id);
+                if (result.success && result.data) {
+                    setCategory(result.data);
+                } else {
+                    toast.error("Failed to fetch category");
+                }
 
-    const category = categoryResult.data;
+                const response = await fetch('/api/categories');
+                const data = await response.json();
+                if (data.success) {
+                    setCategories(data.data);
+                } else {
+                    toast.error("Failed to fetch categories");
+                }
+            } catch (error) {
+                toast.error("Failed to initialize data");
+            }
+        };
 
-    // Filter out the current category from the list of parent options to prevent self-reference
-    const availableParentCategories = allCategories.filter((cat: Category) => cat.id !== categoryId);
+        initializeData();
+    }, [params]);
 
-    // Create the onSubmit handler for form submission
     const handleUpdateCategory = async (data: CategoryFormValues) => {
-        'use server';
+        if (!categoryId) return;
 
-        const result = await updateCategory({
-            id: categoryId,
-            ...data,
-            // Convert "none" value to null for parentId
-            parentId: data.parentId === "none" ? null : data.parentId,
-            // Ensure imageUrl is always a string
-            imageUrl: data.imageUrl || "",
-            // Ensure required fields for TypeScript
-            isActive: true,
-        });
+        try {
+            setIsLoading(true);
+            const result = await updateCategory({
+                id: categoryId,
+                ...data,
+                parentId: data.parentId === "none" ? null : data.parentId,
+                description: data.description || undefined,
+                imageUrl: data.imageUrl || "/placeholder.svg",
+            });
 
-        if (result.success) {
-            redirect('/admin/categories');
-        } else {
-            console.error("Failed to update category:", result.error);
-            throw new Error(result.error || "Failed to update category");
+            if (result.success) {
+                toast.success("Category updated successfully");
+                router.push("/admin/categories");
+            } else {
+                toast.error(result.error || "Failed to update category");
+            }
+        } catch (error) {
+            toast.error("An error occurred while updating the category");
+        } finally {
+            setIsLoading(false);
         }
     };
 
+    if (!category) {
+        return <div>Loading...</div>;
+    }
+
     return (
-        <div className="container mx-auto py-6">
+        <div className="flex-1 space-y-4 p-8 pt-6">
+            <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold tracking-tight">Edit Category</h1>
+            </div>
             <CategoryForm
-                initialData={category}
-                categories={availableParentCategories}
+                initialData={{
+                    name: category.name,
+                    description: category.description || undefined,
+                    imageUrl: category.imageUrl || undefined,
+                    parentId: category.parentId || undefined,
+                    slug: category.slug,
+                    isActive: true,
+                    defaultProductTypeId: category.defaultProductTypeId || undefined,
+                }}
+                categories={categories}
                 onSubmit={handleUpdateCategory}
             />
         </div>
