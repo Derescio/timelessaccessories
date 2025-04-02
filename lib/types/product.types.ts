@@ -54,7 +54,17 @@ export const productWithInventorySchema = productSchema.extend({
 });
 
 // Types derived from schemas
-export type ProductFormValues = z.infer<typeof productSchema>;
+export interface ProductFormValues {
+  name: string;
+  description: string;
+  slug: string;
+  categoryId: string;
+  isActive: boolean;
+  metadata?: Record<string, any>;
+  isFeatured?: boolean;
+  productTypeId?: string | null;
+}
+
 export type ProductInventoryFormValues = z.infer<typeof productInventorySchema>;
 export type ProductWithInventoryFormValues = z.infer<typeof productWithInventorySchema>;
 
