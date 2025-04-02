@@ -2,16 +2,23 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Star } from "lucide-react";
+import { Star, ArrowRight, Heart } from "lucide-react";
 import { ProductCardProduct } from "@/types";
-import ProductCardButton from "./ProductCardButton";
-import { useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { useMemo, useState, useEffect } from "react";
+import { toggleWishlist, getWishlistStatus } from "@/lib/actions/wishlist.actions";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface ProductCardProps {
     product: ProductCardProduct;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
+    const router = useRouter();
+    const [isInWishlist, setIsInWishlist] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+
     const {
         id,
         name,
@@ -24,39 +31,46 @@ export function ProductCard({ product }: ProductCardProps) {
         category,
         averageRating,
         reviewCount,
-        inventorySku,
-        quantity
     } = product;
 
-    // Check if the product is out of stock
-    const isOutOfStock = typeof quantity === 'number' && quantity <= 0;
+    useEffect(() => {
+        const checkWishlistStatus = async () => {
+            const result = await getWishlistStatus(id);
+            setIsInWishlist(result?.isInWishlist ?? false);
+        };
+        checkWishlistStatus();
+    }, [id]);
 
-    // Extract inventoryId from product if available
-    const inventoryId = product.inventorySku || product.id;
-
-    if (!inventorySku) {
-        console.warn(`Product ${id} (${name}) is using product ID as inventory ID. This should be fixed in the product transformation.`);
-    }
+    const handleWishlistToggle = async (e: React.MouseEvent) => {
+        e.preventDefault(); // Prevent card click
+        setIsLoading(true);
+        try {
+            const result = await toggleWishlist(id);
+            if (result.success) {
+                setIsInWishlist(result.isInWishlist);
+                toast.success(result.isInWishlist ? "Added to wishlist" : "Removed from wishlist");
+            } else if (result.requiresAuth) {
+                toast.error(result.error);
+                router.push("/auth/login");
+            } else {
+                toast.error(result.error);
+            }
+        } catch (error) {
+            toast.error("Failed to update wishlist");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     // Calculate the current price, handling discounts
     const currentPrice = useMemo(() => {
-        // If the product has a discount, apply discount logic
         if (hasDiscount && discountPercentage && discountPercentage > 0) {
-            const discountedPrice = Number(price) - (Number(price) * (discountPercentage / 100));
-            // console.log(`Calculating discounted price for ${name}:`, {
-            //   originalPrice: price,
-            //   discountPercentage,
-            //   discountedPrice
-            // });
-
-            return discountedPrice;
+            return Number(price) - (Number(price) * (discountPercentage / 100));
         }
-
-        // If no discount, use the original price
         return Number(price);
     }, [hasDiscount, discountPercentage, price]);
 
-    // Determine what price to display as the original price (for strikethrough)
+    // Determine what price to display as the original price
     const originalPrice = useMemo(() => {
         if (hasDiscount && compareAtPrice) {
             return Number(compareAtPrice);
@@ -65,7 +79,7 @@ export function ProductCard({ product }: ProductCardProps) {
     }, [hasDiscount, compareAtPrice]);
 
     return (
-        <Card className="overflow-hidden group">
+        <Card className="group overflow-hidden transition-all duration-300 hover:shadow-lg">
             <Link href={`/products/${slug}`} className="block">
                 <div className="aspect-square relative overflow-hidden">
                     <Image
@@ -73,8 +87,19 @@ export function ProductCard({ product }: ProductCardProps) {
                         alt={name}
                         width={500}
                         height={500}
-                        className="object-cover transition-transform group-hover:scale-105"
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <button
+                        onClick={handleWishlistToggle}
+                        disabled={isLoading}
+                        className="absolute top-2 left-2 p-2 rounded-full bg-white/90 hover:bg-white transition-colors duration-200 shadow-sm"
+                    >
+                        <Heart
+                            className={`w-5 h-5 transition-colors duration-200 ${isInWishlist ? "fill-red-500 text-red-500" : "text-gray-600"
+                                }`}
+                        />
+                    </button>
                     {hasDiscount && discountPercentage && (
                         <span className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 text-xs font-semibold rounded">
                             {discountPercentage}% OFF
@@ -82,21 +107,36 @@ export function ProductCard({ product }: ProductCardProps) {
                     )}
                 </div>
                 <CardContent className="p-4">
-                    <div className="text-sm text-muted-foreground mb-2">
-                        {category.name}
-                    </div>
-                    <h3 className="font-medium line-clamp-2 group-hover:text-primary transition-colors">
+                    <h3 className="font-medium line-clamp-2 group-hover:text-primary transition-colors mb-2">
                         {name}
                     </h3>
-                    <div className="mt-2 space-x-2">
-                        {originalPrice ? (
-                            <div className="flex flex-col items-end">
-                                <span className="text-sm font-medium">${currentPrice.toFixed(2)}</span>
-                                <span className="text-sm text-muted-foreground line-through">${originalPrice.toFixed(2)}</span>
-                            </div>
-                        ) : (
-                            <span className="font-bold">${currentPrice.toFixed(2)}</span>
-                        )}
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            {originalPrice ? (
+                                <>
+                                    <span className="text-sm font-medium">${currentPrice.toFixed(2)}</span>
+                                    <span className="text-sm text-muted-foreground line-through">${originalPrice.toFixed(2)}</span>
+                                </>
+                            ) : (
+                                <span className="font-medium">${currentPrice.toFixed(2)}</span>
+                            )}
+                            {hasDiscount && discountPercentage && (
+                                <span className="text-sm font-medium text-green-600">
+                                    -{discountPercentage}%
+                                </span>
+                            )}
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="group-hover:border-primary group-hover:text-primary transition-colors"
+                            asChild
+                        >
+                            <Link href={`/products/${slug}`}>
+                                View More
+                                <ArrowRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" />
+                            </Link>
+                        </Button>
                     </div>
                     {averageRating !== null && (
                         <div className="mt-2 flex items-center gap-1">
@@ -107,18 +147,6 @@ export function ProductCard({ product }: ProductCardProps) {
                     )}
                 </CardContent>
             </Link>
-            <CardFooter className="p-4 pt-0">
-                {isOutOfStock ? (
-                    <div className="w-full py-2 text-center bg-gray-100 text-muted-foreground rounded-md text-sm font-medium">
-                        Out of Stock
-                    </div>
-                ) : (
-                    <ProductCardButton
-                        productId={id}
-                        inventoryId={inventoryId}
-                    />
-                )}
-            </CardFooter>
         </Card>
     );
 } 

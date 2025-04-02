@@ -15,32 +15,34 @@ interface AddToWishlistButtonProps {
     className?: string
 }
 
+interface WishlistItem {
+    id: string;
+    productId: string;
+    userId: string;
+}
+
 export default function AddToWishlistButton({
     productId,
     withText = false,
     variant = "icon",
     className
 }: AddToWishlistButtonProps) {
-    const [inWishlist, setInWishlist] = useState(false)
+    const [isInWishlist, setIsInWishlist] = useState(false)
     const [wishlistItemId, setWishlistItemId] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [isChecking, setIsChecking] = useState(true)
     const router = useRouter()
 
     useEffect(() => {
-        async function checkWishlistStatus() {
+        const checkWishlistStatus = async () => {
             try {
                 setIsChecking(true)
-                const isInList = await isInWishlist(productId)
-                setInWishlist(isInList)
-
-                if (isInList) {
-                    // If it's in the wishlist, get the wishlist item ID
-                    const wishlistItems = await getUserWishlist()
-                    const item = wishlistItems.find(item => item.productId === productId)
-                    if (item) {
-                        setWishlistItemId(item.id)
-                    }
+                // If it's in the wishlist, get the wishlist item ID
+                const wishlistItems = await getUserWishlist()
+                const foundItem = wishlistItems.find((item: WishlistItem) => item.productId === productId)
+                if (foundItem) {
+                    setWishlistItemId(foundItem.id)
+                    setIsInWishlist(true)
                 }
             } catch (error) {
                 console.error("Error checking wishlist status:", error)
@@ -58,45 +60,23 @@ export default function AddToWishlistButton({
         try {
             setIsLoading(true)
 
-            if (inWishlist && wishlistItemId) {
-                // Remove item from wishlist
-                const result = await removeFromWishlist(wishlistItemId)
-
-                if (result.success) {
-                    setInWishlist(false)
-                    setWishlistItemId(null)
-                    toast.success(result.message)
-                } else {
-                    toast.error(result.message)
-                }
-                return
-            }
-
-            const result = await addToWishlist(productId)
-
-            if (result.success) {
-                setInWishlist(true)
+            if (isInWishlist && wishlistItemId) {
+                // Remove from wishlist
+                await removeFromWishlist(wishlistItemId)
+                setIsInWishlist(false)
+                setWishlistItemId(null)
+                toast.success("Item removed from wishlist")
+            } else {
+                // Add to wishlist
+                await addToWishlist(productId)
                 // Refresh to get the wishlist item ID
                 const wishlistItems = await getUserWishlist()
-                const item = wishlistItems.find(item => item.productId === productId)
-                if (item) {
-                    setWishlistItemId(item.id)
+                const foundItem = wishlistItems.find((item: WishlistItem) => item.productId === productId)
+                if (foundItem) {
+                    setWishlistItemId(foundItem.id)
+                    setIsInWishlist(true)
                 }
-                toast.success(result.message)
-            } else {
-                // Check if the error is due to authentication
-                if (result.message === 'You must be logged in to add items to your wishlist.') {
-                    // Show toast with action to sign in
-                    toast.error("Please sign in to save items to your wishlist", {
-                        action: {
-                            label: "Sign In",
-                            onClick: () => router.push(`/sign-in?callbackUrl=${encodeURIComponent(window.location.pathname)}`)
-                        },
-                        duration: 5000,
-                    })
-                } else {
-                    toast.error(result.message)
-                }
+                toast.success("Item added to wishlist")
             }
         } catch (error) {
             console.error("Error toggling wishlist:", error)
@@ -132,15 +112,15 @@ export default function AddToWishlistButton({
                 disabled={isLoading}
                 className={cn(
                     "p-2 bg-white rounded-full transition-colors",
-                    inWishlist ? "text-red-500" : "text-gray-500 hover:text-red-500",
+                    isInWishlist ? "text-red-500" : "text-gray-500 hover:text-red-500",
                     className
                 )}
-                aria-label={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
+                aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
             >
                 {isLoading ? (
                     <Loader2 size={20} className="animate-spin" />
                 ) : (
-                    <Heart size={20} fill={inWishlist ? "currentColor" : "none"} />
+                    <Heart size={20} fill={isInWishlist ? "currentColor" : "none"} />
                 )}
             </button>
         )
@@ -153,16 +133,16 @@ export default function AddToWishlistButton({
             onClick={handleToggleWishlist}
             disabled={isLoading}
             className={cn(
-                inWishlist ? "text-red-500 border-red-200 hover:bg-red-50" : "",
+                isInWishlist ? "text-red-500 border-red-200 hover:bg-red-50" : "",
                 className
             )}
         >
             {isLoading ? (
                 <Loader2 size={16} className="animate-spin mr-2" />
             ) : (
-                <Heart size={16} className="mr-2" fill={inWishlist ? "currentColor" : "none"} />
+                <Heart size={16} className="mr-2" fill={isInWishlist ? "currentColor" : "none"} />
             )}
-            {withText && (inWishlist ? "Remove from Wishlist" : "Add to Wishlist")}
+            {withText && (isInWishlist ? "Remove from Wishlist" : "Add to Wishlist")}
         </Button>
     )
 } 
