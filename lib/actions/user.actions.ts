@@ -1362,105 +1362,57 @@ export async function deleteUserAddress(addressId: string) {
 export async function getUserWishlist() {
     try {
         const session = await auth();
-        if (!session?.user?.id) return [];
-
-        // First get or create the user's wishlist
-        let wishlist = await prisma.wishlist.findUnique({
-            where: { userId: session.user.id },
-            include: {
-                items: {
-                    include: {
-                        product: {
-                            select: {
-                                id: true,
-                                name: true,
-                                slug: true,
-                                categoryId: true,
-                                inventories: {
-                                    where: { isDefault: true },
-                                    select: {
-                                        id: true,
-                                        retailPrice: true,
-                                        compareAtPrice: true,
-                                        hasDiscount: true,
-                                        discountPercentage: true,
-                                        images: true,
-                                    },
-                                    take: 1
-                                },
-                                category: {
-                                    select: {
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        if (!wishlist) {
-            // Create a new wishlist for the user if it doesn't exist
-            wishlist = await prisma.wishlist.create({
-                data: {
-                    userId: session.user.id,
-                },
-                include: {
-                    items: {
-                        include: {
-                            product: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    slug: true,
-                                    categoryId: true,
-                                    inventories: {
-                                        where: { isDefault: true },
-                                        select: {
-                                            id: true,
-                                            retailPrice: true,
-                                            compareAtPrice: true,
-                                            hasDiscount: true,
-                                            discountPercentage: true,
-                                            images: true,
-                                        },
-                                        take: 1
-                                    },
-                                    category: {
-                                        select: {
-                                            name: true
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            });
+        if (!session?.user?.id) {
+            return [];
         }
 
-        // Format the wishlist items for the frontend
-        return wishlist.items.map(item => {
-            const inventory = item.product.inventories[0]; // Default inventory
-            const price = inventory?.retailPrice;
-            const compareAtPrice = inventory?.hasDiscount ? inventory.compareAtPrice : null;
-
-            return {
-                id: item.id,
-                productId: item.product.id,
-                name: item.product.name,
-                slug: item.product.slug,
-                category: item.product.category?.name || "Uncategorized",
-                price: price ? price.toString() : "0",
-                originalPrice: compareAtPrice ? compareAtPrice.toString() : null,
-                image: inventory?.images?.[0] || "/placeholder.svg",
-                hasDiscount: inventory?.hasDiscount || false,
-                discountPercentage: inventory?.discountPercentage || 0
-            };
+        const wishlistItems = await prisma.productWishlist.findMany({
+            where: { userId: session.user.id },
+            include: {
+                product: {
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        inventories: {
+                            where: { isDefault: true },
+                            select: {
+                                retailPrice: true,
+                                compareAtPrice: true,
+                                discountPercentage: true,
+                                hasDiscount: true,
+                                images: true,
+                            },
+                            take: 1,
+                        },
+                        category: {
+                            select: {
+                                name: true,
+                                slug: true,
+                            },
+                        },
+                    },
+                },
+            },
         });
+
+        return wishlistItems.map(item => ({
+            id: item.id,
+            productId: item.product.id,
+            userId: item.userId,
+            mainImage: item.product.inventories[0]?.images[0] || "/placeholder.svg",
+            name: item.product.name,
+            slug: item.product.slug,
+            price: item.product.inventories[0]?.retailPrice?.toString() || "0",
+            compareAtPrice: item.product.inventories[0]?.compareAtPrice?.toString() || null,
+            discountPercentage: item.product.inventories[0]?.discountPercentage || 0,
+            hasDiscount: item.product.inventories[0]?.hasDiscount || false,
+            category: item.product.category.name,
+            originalPrice: item.product.inventories[0]?.compareAtPrice?.toString() || null,
+            image: item.product.inventories[0]?.images[0] || "/placeholder.svg"
+        }));
     } catch (error) {
-        console.error('Error fetching wishlist:', error);
+        console.error("Error fetching user wishlist:", error);
         return [];
     }
 }
@@ -1510,8 +1462,9 @@ export async function addToWishlist(productId: string) {
         // Add item to wishlist
         await prisma.wishlistItem.create({
             data: {
+                id: crypto.randomUUID(),
                 wishlistId: wishlist.id,
-                productId
+                productId: productId
             }
         });
 
@@ -1534,7 +1487,7 @@ export async function removeFromWishlist(wishlistItemId: string) {
         const item = await prisma.wishlistItem.findUnique({
             where: { id: wishlistItemId },
             include: {
-                wishlist: true
+                Wishlist: true
             }
         });
 
@@ -1542,7 +1495,7 @@ export async function removeFromWishlist(wishlistItemId: string) {
             return { success: false, message: 'Wishlist item not found.' };
         }
 
-        if (item.wishlist.userId !== session.user.id) {
+        if (item.Wishlist.userId !== session.user.id) {
             return { success: false, message: 'You do not have permission to remove this item.' };
         }
 

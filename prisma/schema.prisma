@@ -10,23 +10,24 @@ datasource db {
 }
 
 model User {
-  id            String     @id @default(cuid())
-  name          String?
-  email         String     @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  role          Role       @default(USER)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  Account       Account[]
-  addresses     Address[]
-  cart          Cart?
-  categories    Category[]
-  orders        Order[]
-  reviews       Review[]
-  Session       Session[]
-  wishlist      Wishlist?
+  id              String            @id @default(cuid())
+  name            String?
+  email           String            @unique
+  emailVerified   DateTime?
+  image           String?
+  password        String?
+  role            Role              @default(USER)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  Account         Account[]
+  addresses       Address[]
+  cart            Cart?
+  categories      Category[]
+  orders          Order[]
+  reviews         Review[]
+  Session         Session[]
+  wishlist        Wishlist?
+  productWishlist ProductWishlist[] @relation("ProductWishlist")
 }
 
 model Product {
@@ -35,20 +36,21 @@ model Product {
   description     String
   slug            String                  @unique
   categoryId      String
-  productTypeId   String?
-  isFeatured      Boolean                 @default(false)
   isActive        Boolean                 @default(true)
   metadata        Json?
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
+  isFeatured      Boolean                 @default(false)
+  productTypeId   String?
   cartItems       CartItem[]
   orderItems      OrderItem[]
   category        Category                @relation(fields: [categoryId], references: [id])
-  inventories     ProductInventory[]
-  reviews         Review[]
-  wishlistItems   WishlistItem[]
   productType     ProductType?            @relation(fields: [productTypeId], references: [id])
   attributeValues ProductAttributeValue[]
+  inventories     ProductInventory[]
+  reviews         Review[]
+  WishlistItem    WishlistItem[]
+  productWishlist ProductWishlist[]       @relation("ProductWishlist")
 
   @@index([categoryId])
   @@index([isActive])
@@ -71,9 +73,9 @@ model ProductInventory {
   createdAt          DateTime                  @default(now())
   updatedAt          DateTime                  @updatedAt
   cartItems          CartItem[]
+  attributeValues    InventoryAttributeValue[]
   orderItems         OrderItem[]
   product            Product                   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  attributeValues    InventoryAttributeValue[]
 
   @@index([productId])
   @@index([sku])
@@ -90,11 +92,11 @@ model Category {
   slug                 String       @unique
   userId               String?
   defaultProductTypeId String?
+  defaultProductType   ProductType? @relation(fields: [defaultProductTypeId], references: [id])
   parent               Category?    @relation("SubCategories", fields: [parentId], references: [id])
   children             Category[]   @relation("SubCategories")
-  products             Product[]
   user                 User?        @relation(fields: [userId], references: [id])
-  defaultProductType   ProductType? @relation(fields: [defaultProductTypeId], references: [id])
+  products             Product[]
 
   @@index([parentId])
   @@index([userId])
@@ -112,11 +114,11 @@ model Order {
   billingAddress  Json?
   shippingAddress Json
   paymentIntent   String?
-  chargeId        String? // Stripe charge ID  
   notes           String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   cartId          String?
+  chargeId        String?
   address         Address?    @relation(fields: [addressId], references: [id])
   user            User        @relation(fields: [userId], references: [id])
   items           OrderItem[]
@@ -202,9 +204,9 @@ model Address {
   postalCode    String?
   country       String
   userId        String
-  isUserManaged Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  isUserManaged Boolean  @default(false)
   user          User     @relation(fields: [userId], references: [id])
   orders        Order[]
 
@@ -227,27 +229,14 @@ model Payment {
 }
 
 model Wishlist {
-  id        String         @id @default(cuid())
-  userId    String         @unique
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-  user      User           @relation(fields: [userId], references: [id])
-  items     WishlistItem[]
+  id           String         @id @default(cuid())
+  userId       String         @unique
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  user         User           @relation(fields: [userId], references: [id])
+  WishlistItem WishlistItem[]
 
   @@index([userId])
-}
-
-model WishlistItem {
-  id         String   @id @default(cuid())
-  wishlistId String
-  productId  String
-  createdAt  DateTime @default(now())
-  product    Product  @relation(fields: [productId], references: [id])
-  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
-
-  @@unique([wishlistId, productId])
-  @@index([wishlistId])
-  @@index([productId])
 }
 
 model Account {
@@ -287,28 +276,15 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// Product type definition models
 model ProductType {
   id          String                 @id @default(cuid())
   name        String
   description String?
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
+  categories  Category[]
   products    Product[]
   attributes  ProductTypeAttribute[]
-  categories  Category[]
-}
-
-// Attribute types for different product properties
-enum AttributeType {
-  STRING
-  NUMBER
-  BOOLEAN
-  DATE
-  ARRAY
-  COLOR
-  DIMENSION
-  WEIGHT
 }
 
 model ProductTypeAttribute {
@@ -321,33 +297,69 @@ model ProductTypeAttribute {
   options         Json?
   isForProduct    Boolean                   @default(true)
   productTypeId   String
-  productType     ProductType               @relation(fields: [productTypeId], references: [id])
-  productValues   ProductAttributeValue[]
   inventoryValues InventoryAttributeValue[]
+  productValues   ProductAttributeValue[]
+  productType     ProductType               @relation(fields: [productTypeId], references: [id])
 }
 
-// Product attribute values storage
 model ProductAttributeValue {
   id          String               @id @default(cuid())
   productId   String
   attributeId String
   value       String
-  product     Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
   attribute   ProductTypeAttribute @relation(fields: [attributeId], references: [id])
+  product     Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, attributeId])
 }
 
-// Inventory attribute values storage
 model InventoryAttributeValue {
   id          String               @id @default(cuid())
   inventoryId String
   attributeId String
   value       String
-  inventory   ProductInventory     @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
   attribute   ProductTypeAttribute @relation(fields: [attributeId], references: [id])
+  inventory   ProductInventory     @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
 
   @@unique([inventoryId, attributeId])
+}
+
+model WishlistItem {
+  id         String   @id
+  wishlistId String
+  productId  String
+  createdAt  DateTime @default(now())
+  Product    Product  @relation(fields: [productId], references: [id])
+  Wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+
+  @@unique([wishlistId, productId])
+  @@index([productId])
+  @@index([wishlistId])
+}
+
+model ProductWishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation("ProductWishlist", fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation("ProductWishlist", fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+}
+
+enum AttributeType {
+  STRING
+  NUMBER
+  BOOLEAN
+  DATE
+  ARRAY
+  COLOR
+  DIMENSION
+  WEIGHT
 }
 
 enum Role {

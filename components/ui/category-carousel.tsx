@@ -29,12 +29,12 @@ export function CategoryCarousel({ categories }: CategoryCarouselProps) {
 
     // Log the categories and their image sources
     React.useEffect(() => {
-        console.log('Category Carousel Images:', categories.map(category => ({
-            name: category.name,
-            firstInventoryImage: category.firstInventoryImage,
-            categoryImageUrl: category.imageUrl,
-            finalImageUsed: category.firstInventoryImage || category.imageUrl || `/images/placeholder.svg`
-        })));
+        // console.log('Category Carousel Images:', categories.map(category => ({
+        //     name: category.name,
+        //     firstInventoryImage: category.firstInventoryImage,
+        //     categoryImageUrl: category.imageUrl,
+        //     finalImageUsed: category.firstInventoryImage || category.imageUrl || `/images/placeholder.svg`
+        // })));
     }, [categories]);
 
     return (
@@ -49,11 +49,11 @@ export function CategoryCarousel({ categories }: CategoryCarouselProps) {
             <CarouselContent>
                 {categories.map((category) => {
                     const imageSrc = category.firstInventoryImage || category.imageUrl || `/placeholder.svg`;
-                    console.log(`Rendering category: ${category.name}`, {
-                        imageSrc,
-                        hasInventoryImage: !!category.firstInventoryImage,
-                        hasCategoryImage: !!category.imageUrl
-                    });
+                    // console.log(`Rendering category: ${category.name}`, {
+                    //     imageSrc,
+                    //     hasInventoryImage: !!category.firstInventoryImage,
+                    //     hasCategoryImage: !!category.imageUrl
+                    // });
 
                     return (
                         <CarouselItem key={category.id} className="sm:basis-1/2 lg:basis-1/3">

@@ -12,7 +12,7 @@ export default function CartCount() {
 
     useEffect(() => {
         const fetchCartCount = async () => {
-            console.log('Fetching cart count...');
+            // console.log('Fetching cart count...');
             setIsLoading(true);
             try {
                 const cart = await getCart();
@@ -22,7 +22,7 @@ export default function CartCount() {
                     console.log(`Setting item count to ${cart.itemCount}`);
                     setItemCount(cart.itemCount);
                 } else {
-                    console.log('No valid cart or itemCount found, setting count to 0');
+                    // console.log('No valid cart or itemCount found, setting count to 0');
                     setItemCount(0);
                 }
             } catch (error) {

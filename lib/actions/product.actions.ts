@@ -304,15 +304,15 @@ export async function getAllCategories() {
         p.inventories.some(i => i.images.length > 0)
       )?.inventories.find(i => i.images.length > 0)?.images[0] || null;
 
-      console.log(`Category: ${category.name}`, {
-        productCount: category.products.length,
-        firstInventoryImage,
-        categoryImageUrl: category.imageUrl,
-        productsWithImages: category.products.map(p => ({
-          name: p.name,
-          inventoryImages: p.inventories.map(i => i.images)
-        }))
-      });
+      // console.log(`Category: ${category.name}`, {
+      //   productCount: category.products.length,
+      //   firstInventoryImage,
+      //   categoryImageUrl: category.imageUrl,
+      //   productsWithImages: category.products.map(p => ({
+      //     name: p.name,
+      //     inventoryImages: p.inventories.map(i => i.images)
+      //   }))
+      // });
 
       return {
         ...category,

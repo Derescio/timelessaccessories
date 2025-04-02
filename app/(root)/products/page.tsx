@@ -42,7 +42,7 @@ function ProductsPageContent() {
         setIsLoading(true);
         try {
             const rawProducts = await getProducts();
-            console.log(rawProducts);
+            // console.log(rawProducts);
 
             const transformedProducts = rawProducts.data?.map((rawProduct) => {
                 const firstInventory = rawProduct.inventories?.[0] || {};
