@@ -3,13 +3,18 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { categorySchema, CategoryFormValues } from "@/lib/types/category.types";
+import { categorySchema } from "@/lib/validators";
+import { Category, ProductType } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Category, ProductType } from "@prisma/client";
+import { UploadButton } from "@/lib/uploadthing";
+import Image from "next/image";
+import { toast } from "sonner";
+import { z } from "zod";
+import { Switch } from "@/components/ui/switch";
 
 interface CategoryFormProps {
     initialData?: Partial<CategoryFormValues>;
@@ -17,18 +22,21 @@ interface CategoryFormProps {
     onSubmit: (data: CategoryFormValues) => Promise<void>;
 }
 
+type CategoryFormValues = z.infer<typeof categorySchema>;
+
 export function CategoryForm({ initialData, categories = [], onSubmit }: CategoryFormProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [productTypes, setProductTypes] = useState<ProductType[]>([]);
     const [isLoadingProductTypes, setIsLoadingProductTypes] = useState(false);
+    const [imageUrl, setImageUrl] = useState<string | null>(initialData?.imageUrl || null);
 
     const form = useForm<CategoryFormValues>({
-        resolver: zodResolver(categorySchema.omit({ id: true, createdAt: true, updatedAt: true })),
+        resolver: zodResolver(categorySchema),
         defaultValues: {
             name: initialData?.name || "",
-            description: initialData?.description || null,
+            description: initialData?.description || undefined,
             parentId: initialData?.parentId || null,
-            imageUrl: initialData?.imageUrl || null,
+            imageUrl: initialData?.imageUrl || "/placeholder.svg",
             slug: initialData?.slug || "",
             isActive: initialData?.isActive !== undefined ? initialData.isActive : true,
             defaultProductTypeId: initialData?.defaultProductTypeId || null,
@@ -89,11 +97,7 @@ export function CategoryForm({ initialData, categories = [], onSubmit }: Categor
                         <FormItem>
                             <FormLabel>Description</FormLabel>
                             <FormControl>
-                                <Textarea
-                                    placeholder="Category description"
-                                    value={field.value || ""}
-                                    onChange={(e) => field.onChange(e.target.value || null)}
-                                />
+                                <Textarea placeholder="Category description" {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -107,8 +111,8 @@ export function CategoryForm({ initialData, categories = [], onSubmit }: Categor
                         <FormItem>
                             <FormLabel>Parent Category</FormLabel>
                             <Select
-                                onValueChange={(value) => field.onChange(value === "none" ? null : value)}
-                                value={field.value || "none"}
+                                onValueChange={field.onChange}
+                                defaultValue={field.value || "none"}
                             >
                                 <FormControl>
                                     <SelectTrigger>
@@ -134,13 +138,31 @@ export function CategoryForm({ initialData, categories = [], onSubmit }: Categor
                     name="imageUrl"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Image URL</FormLabel>
+                            <FormLabel>Image</FormLabel>
                             <FormControl>
-                                <Input
-                                    placeholder="Category image URL"
-                                    value={field.value || ""}
-                                    onChange={(e) => field.onChange(e.target.value || null)}
-                                />
+                                <div className="flex items-center gap-4">
+                                    <div className="relative w-32 h-32">
+                                        <Image
+                                            src={field.value || "/placeholder.svg"}
+                                            alt="Category image"
+                                            fill
+                                            className="object-cover rounded-md"
+                                        />
+                                    </div>
+                                    <UploadButton
+                                        endpoint="categoryImage"
+                                        onClientUploadComplete={(res) => {
+                                            if (res?.[0]?.url) {
+                                                field.onChange(res[0].url);
+                                                setImageUrl(res[0].url);
+                                                toast.success("Image uploaded successfully");
+                                            }
+                                        }}
+                                        onUploadError={(error: Error) => {
+                                            toast.error(`Error uploading image: ${error.message}`);
+                                        }}
+                                    />
+                                </div>
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -156,7 +178,28 @@ export function CategoryForm({ initialData, categories = [], onSubmit }: Categor
                             <FormControl>
                                 <Input placeholder="category-slug" {...field} />
                             </FormControl>
+                            <FormDescription>
+                                URL-friendly version of the name (e.g., "category-name")
+                            </FormDescription>
                             <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="isActive"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                                <FormLabel className="text-base">Active</FormLabel>
+                            </div>
+                            <FormControl>
+                                <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                />
+                            </FormControl>
                         </FormItem>
                     )}
                 />
@@ -168,13 +211,13 @@ export function CategoryForm({ initialData, categories = [], onSubmit }: Categor
                         <FormItem>
                             <FormLabel>Default Product Type</FormLabel>
                             <Select
-                                disabled={isLoading || isLoadingProductTypes}
-                                onValueChange={(value) => field.onChange(value === "none" ? null : value)}
-                                value={field.value || "none"}
+                                onValueChange={field.onChange}
+                                defaultValue={field.value || "none"}
+                                disabled={isLoadingProductTypes}
                             >
                                 <FormControl>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Select a default product type" />
+                                        <SelectValue placeholder="Select a product type" />
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
@@ -186,16 +229,13 @@ export function CategoryForm({ initialData, categories = [], onSubmit }: Categor
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <FormDescription>
-                                Products in this category will use this product type by default
-                            </FormDescription>
                             <FormMessage />
                         </FormItem>
                     )}
                 />
 
                 <Button type="submit" disabled={isLoading}>
-                    {isLoading ? "Saving..." : "Save"}
+                    {isLoading ? "Saving..." : "Save Changes"}
                 </Button>
             </form>
         </Form>

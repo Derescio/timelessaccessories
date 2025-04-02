@@ -268,6 +268,7 @@ export async function getFeaturedProducts(limit = 8) {
   }
 }
 
+
 // Get all categories with product counts
 export async function getAllCategories() {
   try {
@@ -276,10 +277,21 @@ export async function getAllCategories() {
         products: {
           where: {
             isActive: true,
+            inventories: {
+              some: {
+                quantity: {
+                  gt: 0
+                }
+              }
+            }
           },
-          select: {
-            id: true,
-          },
+          include: {
+            inventories: {
+              select: {
+                images: true
+              }
+            }
+          }
         },
       },
       orderBy: {
@@ -287,10 +299,29 @@ export async function getAllCategories() {
       },
     });
 
-    return categories.map(category => ({
-      ...category,
-      productCount: category.products.length,
-    }));
+    const processedCategories = categories.map(category => {
+      const firstInventoryImage = category.products.find(p => 
+        p.inventories.some(i => i.images.length > 0)
+      )?.inventories.find(i => i.images.length > 0)?.images[0] || null;
+
+      console.log(`Category: ${category.name}`, {
+        productCount: category.products.length,
+        firstInventoryImage,
+        categoryImageUrl: category.imageUrl,
+        productsWithImages: category.products.map(p => ({
+          name: p.name,
+          inventoryImages: p.inventories.map(i => i.images)
+        }))
+      });
+
+      return {
+        ...category,
+        productCount: category.products.length,
+        firstInventoryImage
+      };
+    });
+
+    return processedCategories;
   } catch (error) {
     console.error("Error fetching categories:", error);
     return [];
