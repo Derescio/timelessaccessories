@@ -98,8 +98,88 @@ For complex forms like product management, we found it beneficial to:
 We implemented tables with consistent action patterns:
 1. View, Edit, and Delete actions
 2. Confirmation dialogs for destructive operations
-3. Visual indicators for status (badges, colors)
-4. Empty state handling
+
+### Product Card Optimization
+When implementing the product card component, we learned several important lessons about UI/UX:
+
+1. **Mobile-First Design**
+   - Implement responsive layouts using flexbox
+   - Use appropriate spacing and sizing for mobile devices
+   - Consider touch targets for mobile users
+
+2. **Performance Considerations**
+   - Use Next.js Image component for optimized image loading
+   - Implement proper loading states
+   - Handle image fallbacks gracefully
+
+3. **Interactive Elements**
+   - Add hover states for better user feedback
+   - Implement smooth transitions for interactive elements
+   - Use proper button states (loading, disabled, active)
+
+4. **Layout Structure**
+   - Keep important information visible at a glance
+   - Use proper typography hierarchy
+   - Maintain consistent spacing and alignment
+
+Example implementation:
+```typescript
+<Card className="group overflow-hidden transition-all duration-300 hover:shadow-lg">
+    <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+            {/* Price information */}
+        </div>
+        <Button
+            variant="outline"
+            size="sm"
+            className="group-hover:border-primary group-hover:text-primary transition-colors"
+        >
+            View More
+        </Button>
+    </div>
+</Card>
+```
+
+### Wishlist Implementation
+Implementing the wishlist feature taught us about:
+
+1. **State Management**
+   - Using server actions for data mutations
+   - Implementing optimistic updates for better UX
+   - Handling loading states during operations
+
+2. **Error Handling**
+   - Proper error messages for authentication requirements
+   - Graceful fallbacks for failed operations
+   - User-friendly error notifications
+
+3. **Type Safety**
+   - Ensuring proper type definitions for wishlist items
+   - Handling null/undefined cases
+   - Maintaining type consistency across components
+
+Example:
+```typescript
+const handleWishlistToggle = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+        const result = await toggleWishlist(id);
+        if (result.success) {
+            setIsInWishlist(result.isInWishlist);
+            toast.success(result.isInWishlist ? "Added to wishlist" : "Removed from wishlist");
+        }
+    } finally {
+        setIsLoading(false);
+    }
+};
+```
+
+## Featured Products Implementation
+- **Database Consistency**: When implementing boolean flags like `isFeatured`, ensure consistency between database columns and metadata fields. We initially had a mismatch between the `isFeatured` column and `metadata.featured`, causing confusion in the UI.
+- **Type Safety**: Always define proper TypeScript interfaces and Zod schemas for form data. This helps catch type-related issues early and provides better IDE support.
+- **Backward Compatibility**: When updating database schemas, consider maintaining backward compatibility. In our case, we kept the `metadata.featured` field in sync with the new `isFeatured` column to support existing data.
+- **Data Migration**: When adding new columns to existing tables, plan for data migration. We needed to update existing products to set the `isFeatured` flag correctly based on their metadata.
 
 ## Next Steps and Improvements
 
