@@ -79,6 +79,19 @@
    - Status: Fixed
    - Location: `lib/validators.ts`
 
+### Order Management and Display
+1. **Shipping Address Display**
+   - Issue: Shipping address displayed with each character on a new line in admin order details
+   - Fix: Added proper JSON parsing and formatting for shipping address display
+   - Status: Fixed
+   - Location: `app/admin/orders/[id]/page.tsx`
+
+2. **Order Item Attributes**
+   - Issue: Order item attributes not displaying correctly
+   - Fix: Updated the Prisma query structure to properly include attributes
+   - Status: Fixed
+   - Location: `lib/actions/user.actions.ts`
+
 ## Current Development Status
 
 ### Completed Features
@@ -91,7 +104,7 @@
 - ✓ Category management
 - ✓ Shopping cart functionality
 - ✓ Checkout process
-- ✓ Order management
+- ✓ Order management with proper attribute display
 - ✓ Wishlist functionality with real-time updates
 - ✓ Featured products implementation with proper database integration
 

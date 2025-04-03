@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: '"merchant-portal.lascobizja.com',
+      },
+      {
+        protocol: 'https',
         hostname: '*.uploadthing.com',
       },
       {
