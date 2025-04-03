@@ -350,7 +350,7 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
         productId: item.productId,
         inventoryId: item.inventoryId,
         quantity: item.quantity,
-        price: new Decimal(item.inventory.retailPrice),
+        price: Number(item.inventory.retailPrice),
         name: item.product.name,
         image: item.inventory.images?.[0] || null,
         attributes: attributeData,
@@ -821,7 +821,14 @@ export async function getOrderWithItems(orderId: string) {
           // Ensure image is a string or undefined, not null
           image: item.image || undefined,
           // Add the formatted attributes
-          attributes: attributeData
+          attributes: attributeData,
+          // Serialize inventory data
+          inventory: item.inventory ? {
+            ...item.inventory,
+            retailPrice: Number(item.inventory.retailPrice),
+            compareAtPrice: item.inventory.compareAtPrice ? Number(item.inventory.compareAtPrice) : null,
+            costPrice: Number(item.inventory.costPrice),
+          } : null
         };
       }),
       payment: order.payment ? {

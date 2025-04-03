@@ -36,6 +36,11 @@ const nextConfig = {
         hostname: "*.ufs.sh",
         pathname: "**",
       },
+      {
+        protocol: "https",
+        hostname: '"merchant-portal.lascobizja.com',
+        pathname: "**",
+      },
     ],
   },
   experimental: {

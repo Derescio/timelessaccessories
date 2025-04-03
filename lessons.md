@@ -187,4 +187,77 @@ const handleWishlistToggle = async (e: React.MouseEvent) => {
 2. **Variant Management**: Improve the UI for managing multiple inventory variants
 3. **Batch Operations**: Add functionality for batch creating or updating products
 4. **Advanced Filters**: Implement more advanced filtering and search capabilities
-5. **Caching Strategy**: Implement more efficient data caching for product listings 
+5. **Caching Strategy**: Implement more efficient data caching for product listings
+
+## Order Management and Display
+
+### Shipping Address Display
+When working with JSON data in the database that needs to be displayed in the UI, we learned several important lessons:
+
+1. **JSON String Handling**
+   - Always check if the data is a string that needs parsing or an object that can be used directly
+   - Use try-catch blocks when parsing JSON to handle malformed data gracefully
+   - Format the data appropriately for display using string manipulation and proper styling
+
+Example implementation:
+```typescript
+{typeof shippingAddress === 'string' ? (
+    (() => {
+        try {
+            const parsedAddress = JSON.parse(shippingAddress);
+            return Object.entries(parsedAddress)
+                .filter(([, value]) => value)
+                .map(([key, value]) => (
+                    <p key={key} className="capitalize">
+                        <span className="font-medium">
+                            {key.replace(/([A-Z])/g, ' $1').trim()}:
+                        </span> 
+                        {String(value)}
+                    </p>
+                ));
+        } catch (e) {
+            return <p>{String(shippingAddress)}</p>;
+        }
+    })()
+) : (
+    // Handle object data directly
+)}
+```
+
+### Prisma Query Structure
+When working with Prisma queries that involve nested relations and selections:
+
+1. **Include vs. Select**
+   - Cannot use both `include` and `select` at the same level in a Prisma query
+   - Use `include` when you need to fetch related data with its own selection criteria
+   - Use `select` when you need to pick specific fields from the current model
+
+2. **Nested Relations**
+   - Structure queries to properly handle nested relations
+   - Consider the performance implications of deeply nested includes
+   - Use appropriate field selection to minimize data transfer
+
+Example of proper query structure:
+```typescript
+const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+        items: {
+            include: {
+                product: {
+                    select: {
+                        id: true,
+                        name: true,
+                        // ... other fields
+                    }
+                },
+                inventory: {
+                    select: {
+                        // ... inventory fields
+                    }
+                }
+            }
+        }
+    }
+});
+``` 

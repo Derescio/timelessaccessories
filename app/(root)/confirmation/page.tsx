@@ -28,6 +28,15 @@ interface CartItemDetails {
     inventory?: {
         id: string;
         images: string[];
+        retailPrice?: number;
+        compareAtPrice?: number | null;
+        costPrice?: number;
+        attributeValues?: Array<{
+            value: string;
+            attribute: {
+                name: string;
+            };
+        }>;
     };
     attributes?: Record<string, string>;
 }
@@ -172,10 +181,21 @@ export default function ConfirmationPage() {
                             // Set cart from order items
                             if (order.items) {
                                 const orderItems = order.items.map(item => ({
-                                    ...item,
+                                    id: item.id,
                                     name: item.name || "Unknown Product",
                                     price: parseFloat(String(item.price)),
-                                    image: item.image || "/images/placeholder.jpg"
+                                    quantity: item.quantity,
+                                    image: item.image || "/images/placeholder.jpg",
+                                    productId: item.productId,
+                                    attributes: item.attributes || {},
+                                    inventory: item.inventory ? {
+                                        id: item.inventory.id,
+                                        images: item.inventory.images || [],
+                                        retailPrice: Number(item.inventory.retailPrice),
+                                        compareAtPrice: item.inventory.compareAtPrice ? Number(item.inventory.compareAtPrice) : null,
+                                        costPrice: Number(item.inventory.costPrice),
+                                        attributeValues: item.inventory.attributeValues
+                                    } : undefined
                                 }));
 
                                 setCart({ id: order.id, items: orderItems });
@@ -251,10 +271,21 @@ export default function ConfirmationPage() {
                             // Set cart from order items
                             if (order.items) {
                                 const orderItems = order.items.map(item => ({
-                                    ...item,
+                                    id: item.id,
                                     name: item.name || "Unknown Product",
                                     price: parseFloat(String(item.price)),
-                                    image: item.image || "/images/placeholder.jpg"
+                                    quantity: item.quantity,
+                                    image: item.image || "/images/placeholder.jpg",
+                                    productId: item.productId,
+                                    attributes: item.attributes || {},
+                                    inventory: item.inventory ? {
+                                        id: item.inventory.id,
+                                        images: item.inventory.images || [],
+                                        retailPrice: Number(item.inventory.retailPrice),
+                                        compareAtPrice: item.inventory.compareAtPrice ? Number(item.inventory.compareAtPrice) : null,
+                                        costPrice: Number(item.inventory.costPrice),
+                                        attributeValues: item.inventory.attributeValues
+                                    } : undefined
                                 }));
 
                                 setCart({ id: order.id, items: orderItems });
