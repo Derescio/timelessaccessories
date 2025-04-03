@@ -1,9 +1,10 @@
 "use server";
 
-import { db } from "@/lib/db";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { ProductFormValues , ExtendedProductFormValues} from "../types/product.types";
+import { ProductFormValues, ExtendedProductFormValues, ClientProduct } from "../types/product.types";
+import { db } from "@/lib/db";
+import { z } from "zod";
 
 // import { dbToJSObject } from "@/lib/utils";
 
@@ -111,7 +112,7 @@ export async function getProductById(id: string) {
 }
 
 // Get product by slug (for frontend product pages)
-export async function getProductBySlug(slug: string) {
+export async function getProductBySlug(slug: string): Promise<ClientProduct | null> {
   try {
     if (!slug) {
       return null;
@@ -124,7 +125,12 @@ export async function getProductBySlug(slug: string) {
       },
       include: {
         category: true,
-        inventories: true,
+        inventories: {
+          orderBy: [
+            { isDefault: 'desc' },
+            { createdAt: 'desc' }
+          ]
+        },
         reviews: {
           include: {
             user: {
@@ -144,40 +150,66 @@ export async function getProductBySlug(slug: string) {
       return null;
     }
     
-    // Transform decimal values to numbers
-    const product = {
-      ...productData,
-      inventories: productData.inventories.map(inventory => ({
-        ...inventory,
-        retailPrice: Number(inventory.retailPrice),
-        costPrice: Number(inventory.costPrice),
-        compareAtPrice: inventory.compareAtPrice ? Number(inventory.compareAtPrice) : null
-      }))
+    // Get the default inventory or first available
+    const defaultInventory = productData.inventories.find(inv => inv.isDefault) || productData.inventories[0];
+    
+    // Transform the product data to match ClientProduct type
+    const transformedProduct: ClientProduct = {
+      id: productData.id,
+      name: productData.name,
+      description: productData.description,
+      price: defaultInventory ? Number(defaultInventory.retailPrice) : 0,
+      categoryId: productData.categoryId,
+      inventory: defaultInventory?.quantity || 0,
+      createdAt: productData.createdAt,
+      updatedAt: productData.updatedAt,
+      compareAtPrice: defaultInventory?.compareAtPrice ? Number(defaultInventory.compareAtPrice) : null,
+      discountPercentage: defaultInventory?.discountPercentage || null,
+      hasDiscount: Boolean(defaultInventory?.discountPercentage),
+      isActive: productData.isActive,
+      isFeatured: Boolean(productData.isFeatured),
+      metadata: productData.metadata as Record<string, unknown> | null,
+      sku: defaultInventory?.sku || "",
+      slug: productData.slug,
+      category: {
+        id: productData.category.id,
+        name: productData.category.name,
+        slug: productData.category.slug,
+        description: productData.category.description || undefined,
+        imageUrl: productData.category.imageUrl || undefined,
+        parentId: productData.category.parentId || undefined,
+      },
+      images: defaultInventory?.images.map((url, index) => ({
+        id: `${defaultInventory.id}-image-${index}`,
+        url: url.startsWith("http") ? url : `/uploads/${url}`,
+        alt: `${productData.name} - Image ${index + 1}`,
+        position: index,
+      })) || [],
+      mainImage: defaultInventory?.images[0] || undefined,
+      averageRating: productData.reviews.length > 0
+        ? productData.reviews.reduce((acc, review) => acc + review.rating, 0) / productData.reviews.length
+        : null,
+      reviewCount: productData.reviews.length,
+      inventories: productData.inventories.map(inv => ({
+        id: inv.id,
+        retailPrice: Number(inv.retailPrice),
+        costPrice: Number(inv.costPrice),
+        compareAtPrice: inv.compareAtPrice ? Number(inv.compareAtPrice) : null,
+        discountPercentage: inv.discountPercentage,
+        hasDiscount: Boolean(inv.discountPercentage),
+        images: inv.images,
+        quantity: inv.quantity,
+        sku: inv.sku,
+        attributes: inv.attributes as Record<string, string> || {},
+      })),
+      reviews: productData.reviews.map(review => ({
+        rating: review.rating,
+      })),
     };
-    
-    // Calculate derived values for the frontend
-    const defaultInventory = product.inventories[0] || {};
-    const averageRating = product.reviews.length > 0
-      ? product.reviews.reduce((acc, review) => acc + review.rating, 0) / product.reviews.length
-      : null;
-    
-    // Add computed properties
-    const enhancedProduct = {
-      ...product,
-      price: Number(defaultInventory.retailPrice) || 0,
-      compareAtPrice: defaultInventory.compareAtPrice ? Number(defaultInventory.compareAtPrice) : null,
-      hasDiscount: defaultInventory.hasDiscount || false,
-      discountPercentage: defaultInventory.discountPercentage || null,
-      inventory: defaultInventory.quantity || 0,
-      mainImage: defaultInventory.images?.[0] || "/placeholder.svg",
-      images: defaultInventory.images || [],
-      averageRating,
-      reviewCount: product.reviews.length,
-    };
-    
-    return enhancedProduct;
+
+    return transformedProduct;
   } catch (error) {
-    console.error("Error fetching product by slug:", error);
+    console.error("Error fetching product:", error);
     return null;
   }
 }
@@ -614,4 +646,28 @@ export async function updateProductWithAttributes(data: ExtendedProductFormValue
         console.error("Error updating product:", error);
         return { success: false, error: "Failed to update product" };
     }
+}
+
+export async function getAttributeNamesByIds(attributeIds: string[]) {
+  try {
+    const attributes = await db.productTypeAttribute.findMany({
+      where: {
+        id: {
+          in: attributeIds
+        }
+      },
+      select: {
+        id: true,
+        displayName: true
+      }
+    });
+
+    return attributes.reduce((acc, attr) => {
+      acc[attr.id] = attr.displayName;
+      return acc;
+    }, {} as Record<string, string>);
+  } catch (error) {
+    console.error("Error fetching attribute names:", error);
+    return {};
+  }
 }

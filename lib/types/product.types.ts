@@ -168,6 +168,7 @@ export interface ClientProduct {
         images: string[];
         quantity: number;
         sku: string;
+        attributes?: Record<string, string> | null;
     }[];
     reviews: {
         rating: number;
