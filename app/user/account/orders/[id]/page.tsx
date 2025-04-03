@@ -30,6 +30,7 @@ interface OrderItem {
     price: string | number;
     quantity: number;
     image?: string | null;
+    attributes?: Record<string, string>;
     inventory: {
         sku: string;
     };
@@ -108,6 +109,9 @@ export default function OrderDetailPage() {
                         tax: result.data.tax,
                         total: result.data.total
                     };
+                    console.log('Order data:', orderData);
+                    console.log('Order items:', orderData.items);
+                    console.log('First item attributes:', orderData.items[0]?.attributes);
                     setOrder(orderData)
                     setPaymentStatus(result.data.payment?.status || "PENDING")
 
@@ -124,6 +128,14 @@ export default function OrderDetailPage() {
 
         fetchOrderDetails()
     }, [params.id])
+
+    // Debug: Log attributes when order changes
+    useEffect(() => {
+        if (order && order.items.length > 0) {
+            console.log('Order items in render:', order.items);
+            console.log('First item attributes in render:', order.items[0]?.attributes);
+        }
+    }, [order]);
 
     useEffect(() => {
         async function fetchStatusActions() {
@@ -363,10 +375,27 @@ export default function OrderDetailPage() {
                                         <div className="flex-1">
                                             <h4 className="font-medium">{item.name}</h4>
                                             <div className="text-sm text-gray-500 mt-1">
-                                                <span>Quantity: {item.quantity}</span>
-                                                <span className="mx-2">•</span>
-                                                <span>SKU: {item.inventory.sku}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm text-muted-foreground">Quantity: {item.quantity}</span>
+                                                    {item.inventory?.sku && (
+                                                        <span className="text-sm text-muted-foreground">SKU: {item.inventory.sku}</span>
+                                                    )}
+                                                </div>
                                             </div>
+                                            {/* Display item attributes if available */}
+                                            {item.attributes && Object.keys(item.attributes).length > 0 && (
+                                                <div className="mt-2 text-sm text-gray-700 border-t border-gray-200 pt-2">
+                                                    <h4 className="font-medium mb-1">Attributes</h4>
+                                                    <div className="space-y-1">
+                                                        {Object.entries(item.attributes).map(([key, value]) => (
+                                                            <div key={key} className="flex">
+                                                                <span className="font-medium text-gray-600 mr-2">{key}:</span>
+                                                                <span className="text-gray-800">{value}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="text-right">
                                             <div>{formatPrice(Number(item.price))}</div>
