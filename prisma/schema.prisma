@@ -24,10 +24,10 @@ model User {
   cart            Cart?
   categories      Category[]
   orders          Order[]
+  productWishlist ProductWishlist[] @relation("ProductWishlist")
   reviews         Review[]
   Session         Session[]
   wishlist        Wishlist?
-  productWishlist ProductWishlist[] @relation("ProductWishlist")
 }
 
 model Product {
@@ -48,9 +48,9 @@ model Product {
   productType     ProductType?            @relation(fields: [productTypeId], references: [id])
   attributeValues ProductAttributeValue[]
   inventories     ProductInventory[]
+  productWishlist ProductWishlist[]       @relation("ProductWishlist")
   reviews         Review[]
   WishlistItem    WishlistItem[]
-  productWishlist ProductWishlist[]       @relation("ProductWishlist")
 
   @@index([categoryId])
   @@index([isActive])
@@ -138,6 +138,7 @@ model OrderItem {
   updatedAt   DateTime         @updatedAt
   image       String?
   name        String
+  attributes  Json?
   inventory   ProductInventory @relation(fields: [inventoryId], references: [id])
   order       Order            @relation(fields: [orderId], references: [id])
   product     Product          @relation(fields: [productId], references: [id])
@@ -343,8 +344,8 @@ model ProductWishlist {
   productId String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  user      User     @relation("ProductWishlist", fields: [userId], references: [id], onDelete: Cascade)
   product   Product  @relation("ProductWishlist", fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation("ProductWishlist", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId])
   @@index([userId])

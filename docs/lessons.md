@@ -608,3 +608,44 @@ export function ProductTypeForm({ onSubmit }: ProductTypeFormProps) {
 4. Provide clear feedback to users
 5. Handle errors gracefully
 6. Use TypeScript for better type safety
+
+## Product Attributes Handling
+
+### Type Safety and Null Handling
+- When working with product attributes stored as JSON in the database, ensure proper type handling:
+  * Define clear interfaces for attribute structures
+  * Handle null values explicitly in type definitions
+  * Use proper type guards when accessing attribute values
+  * Consider using discriminated unions for different attribute types
+
+### Read-only Attributes
+- For certain product categories, attributes may need to be read-only:
+  * Define a configuration object mapping category IDs to read-only status
+  * Use this configuration to conditionally render attribute selection UI
+  * Ensure proper type safety when accessing category information
+  * Consider caching category configurations for performance
+
+### UI Considerations
+- When displaying product attributes:
+  * Group related attributes together
+  * Use appropriate form controls based on attribute type
+  * Provide clear labels and descriptions
+  * Handle loading and error states gracefully
+  * Consider mobile responsiveness
+  * Implement proper validation feedback
+
+### Data Transformation
+- When transforming data between server and client:
+  * Ensure consistent handling of null values
+  * Transform dates and special types appropriately
+  * Validate data structure at transformation boundaries
+  * Consider using Zod for runtime type validation
+  * Handle edge cases gracefully
+
+### Error Handling
+- Implement robust error handling for attribute operations:
+  * Validate attribute values before saving
+  * Provide clear error messages for invalid inputs
+  * Handle database constraints gracefully
+  * Log errors appropriately for debugging
+  * Consider implementing retry logic for transient failures

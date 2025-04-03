@@ -29,6 +29,7 @@ interface CartItemDetails {
         id: string;
         images: string[];
     };
+    attributes?: Record<string, string>;
 }
 
 interface OrderItemDetails {
@@ -42,6 +43,7 @@ interface OrderItemDetails {
     inventoryId: string;
     createdAt: Date;
     updatedAt: Date;
+    attributes?: Record<string, string>;
 }
 
 interface Cart {
@@ -590,6 +592,20 @@ export default function ConfirmationPage() {
                                                 <p>
                                                     <span className="font-medium">${formatPrice(item.price)}</span>
                                                 </p>
+
+                                                {/* Display attributes if they exist */}
+                                                {item.attributes && Object.keys(item.attributes).length > 0 && (
+                                                    <div className="mt-2 text-sm">
+                                                        <p className="text-muted-foreground">Product Details:</p>
+                                                        <ul className="list-disc list-inside">
+                                                            {Object.entries(item.attributes).map(([key, value]) => (
+                                                                <li key={key} className="text-muted-foreground">
+                                                                    <span className="font-medium">{key}:</span> {value}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -629,9 +645,26 @@ export default function ConfirmationPage() {
                             <div className="space-y-2">
                                 {cartItems.map((item) => (
                                     <div key={item.id} className="flex justify-between">
-                                        <span className="text-sm">
-                                            {item.name} × {item.quantity}
-                                        </span>
+                                        <div className="text-sm">
+                                            <span>{item.name} × {item.quantity}</span>
+                                            {/* Show key attributes in a compact format */}
+                                            {item.attributes && Object.keys(item.attributes).length > 0 && (
+                                                <div className="text-xs text-muted-foreground mt-1">
+                                                    {Object.entries(item.attributes)
+                                                        .slice(0, 2) // Show only first 2 attributes to keep it compact
+                                                        .map(([key, value]) => (
+                                                            <span key={key} className="mr-2">
+                                                                {key}: {value}
+                                                            </span>
+                                                        ))}
+                                                    {Object.keys(item.attributes).length > 2 && (
+                                                        <span className="text-xs text-muted-foreground">
+                                                            +{Object.keys(item.attributes).length - 2} more
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                         <span className="text-sm">${(item.price * item.quantity).toFixed(2)}</span>
                                     </div>
                                 ))}

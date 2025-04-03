@@ -53,7 +53,21 @@ interface SerializedUser extends Omit<User, 'orders'> {
     };
 }
 
-
+interface InventoryWithAttributes {
+    id: string;
+    sku: string;
+    retailPrice: number;
+    compareAtPrice: number | null;
+    hasDiscount: boolean;
+    discountPercentage: number | null;
+    images: string[];
+    attributeValues: Array<{
+        value: string;
+        attribute: {
+            name: string;
+        };
+    }>;
+}
 
 export async function signInWithCredentials(prevState: unknown, formData: FormData) {
     try {
@@ -969,9 +983,14 @@ export async function getOrderById(orderId: string) {
                                 hasDiscount: true,
                                 discountPercentage: true,
                                 images: true,
+                                attributeValues: {
+                                    include: {
+                                        attribute: true
+                                    }
+                                }
                             }
-                        },
-                    },
+                        }
+                    }
                 },
                 payment: {
                     select: {
@@ -1017,31 +1036,63 @@ export async function getOrderById(orderId: string) {
             notes: order.notes,
             cartId: order.cartId,
             // Map over items with deep serialization
-            items: order.items.map(item => ({
-                id: item.id,
-                quantity: item.quantity,
-                price: item.price.toString(),
-                name: item.name,
-                image: item.image,
-                // Only include necessary product properties
-                product: {
-                    id: item.product.id,
-                    name: item.product.name,
-                    slug: item.product.slug,
-                    description: item.product.description,
-                },
-                // Only include necessary inventory properties
-                inventory: {
-                    id: item.inventory.id,
-                    sku: item.inventory.sku,
-                    retailPrice: item.inventory.retailPrice.toString(),
-                    compareAtPrice: item.inventory.compareAtPrice ? item.inventory.compareAtPrice.toString() : null,
-                    hasDiscount: item.inventory.hasDiscount,
-                    discountPercentage: item.inventory.discountPercentage,
-                    images: item.inventory.images,
+            items: order.items.map(item => {
+                // Format attributes from inventory attributeValues
+                const attributes: Record<string, string> = {};
+                
+                // First check if the order item has attributes directly
+                if (item.attributes) {
+                    console.log(`Item ${item.id} has direct attributes:`, item.attributes);
+                    // If attributes is a string (JSON), parse it
+                    if (typeof item.attributes === 'string') {
+                        try {
+                            const parsedAttributes = JSON.parse(item.attributes);
+                            console.log(`Parsed attributes for item ${item.id}:`, parsedAttributes);
+                            Object.assign(attributes, parsedAttributes);
+                        } catch (e) {
+                            console.error(`Error parsing attributes for item ${item.id}:`, e);
+                        }
+                    } else {
+                        // If it's already an object, use it directly
+                        console.log(`Using direct attributes object for item ${item.id}:`, item.attributes);
+                        Object.assign(attributes, item.attributes);
+                    }
                 }
-            })),
-            // Handle payment serialization
+                
+                // If no direct attributes, try to get them from inventory
+                const inventory = item.inventory as unknown as InventoryWithAttributes;
+                if (Object.keys(attributes).length === 0 && inventory?.attributeValues) {
+                    console.log(`Item ${item.id} has ${inventory.attributeValues.length} attribute values`);
+                    inventory.attributeValues.forEach(av => {
+                        console.log(`Attribute value for item ${item.id}: ${av.attribute?.name} = ${av.value}`);
+                        if (av.attribute && av.value) {
+                            attributes[av.attribute.name] = av.value;
+                        }
+                    });
+                }
+                
+                // Debug: Log final attributes for each item
+                console.log(`Item ${item.id} final attributes:`, attributes);
+                
+                return {
+                    id: item.id,
+                    quantity: item.quantity,
+                    price: item.price.toString(),
+                    name: item.name,
+                    image: item.image,
+                    attributes,
+                    product: item.product,
+                    inventory: {
+                        id: inventory.id,
+                        sku: inventory.sku,
+                        retailPrice: inventory.retailPrice.toString(),
+                        compareAtPrice: inventory.compareAtPrice?.toString() || null,
+                        hasDiscount: inventory.hasDiscount,
+                        discountPercentage: inventory.discountPercentage,
+                        images: inventory.images,
+                    },
+                };
+            }),
             payment: order.payment ? {
                 id: order.payment.id,
                 status: order.payment.status,
@@ -1049,7 +1100,6 @@ export async function getOrderById(orderId: string) {
                 amount: order.payment.amount.toString(),
                 lastUpdated: order.payment.lastUpdated.toISOString(),
             } : null,
-            // Include address data if available
             address: order.address ? {
                 id: order.address.id,
                 street: order.address.street,

@@ -23,10 +23,11 @@ import Image from "next/image";
 interface OrderItem {
     id: string;
     name: string;
+    price: string | number;
     quantity: number;
-    price: number;
-    image?: string;
-    inventory?: {
+    image?: string | null;
+    attributes?: Record<string, string>;
+    inventory: {
         sku: string;
     };
 }
@@ -269,10 +270,19 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                                         <p className="text-sm text-muted-foreground">
                                             SKU: {item.inventory?.sku}
                                         </p>
+                                        {item.attributes && Object.keys(item.attributes).length > 0 && (
+                                            <div className="mt-1 text-xs text-muted-foreground">
+                                                {Object.entries(item.attributes).map(([key, value]) => (
+                                                    <div key={key}>
+                                                        <span className="font-medium">{key}:</span> {value}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <p className="font-medium">${item.price.toFixed(2)}</p>
+                                    <p className="font-medium">${Number(item.price).toFixed(2)}</p>
                                     <p className="text-sm text-muted-foreground">
                                         Quantity: {item.quantity}
                                     </p>
@@ -305,12 +315,33 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-2">
-                            {Object.entries(order.shippingAddress)
-                                .filter(([, value]) => value)
-                                .map(([key, value]) => (
-                                    <p key={key}>{value}</p>
-                                ))
-                            }
+                            {typeof order.shippingAddress === 'string' ? (
+                                // If it's a string, try to parse it as JSON
+                                (() => {
+                                    try {
+                                        const parsedAddress = JSON.parse(order.shippingAddress);
+                                        return Object.entries(parsedAddress)
+                                            .filter(([, value]) => value)
+                                            .map(([key, value]) => (
+                                                <p key={key} className="capitalize">
+                                                    <span className="font-medium">{key.replace(/([A-Z])/g, ' $1').trim()}:</span> {String(value)}
+                                                </p>
+                                            ));
+                                    } catch (e) {
+                                        // If parsing fails, display the raw string
+                                        return <p>{String(order.shippingAddress)}</p>;
+                                    }
+                                })()
+                            ) : (
+                                // If it's already an object, display it directly
+                                Object.entries(order.shippingAddress)
+                                    .filter(([, value]) => value)
+                                    .map(([key, value]) => (
+                                        <p key={key} className="capitalize">
+                                            <span className="font-medium">{key.replace(/([A-Z])/g, ' $1').trim()}:</span> {String(value)}
+                                        </p>
+                                    ))
+                            )}
                         </div>
                     </CardContent>
                 </Card>

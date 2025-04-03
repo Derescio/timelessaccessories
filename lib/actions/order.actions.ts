@@ -65,6 +65,7 @@ interface SerializedOrder {
         price: number;
         quantity: number;
         image?: string | null;
+        attributes?: Record<string, string>;
         product: {
             id: string;
             name: string;
@@ -72,6 +73,12 @@ interface SerializedOrder {
         inventory?: {
             id: string;
             sku: string;
+            attributeValues?: Array<{
+                value: string;
+                attribute: {
+                    name: string;
+                };
+            }>;
         };
     }>;
     address?: {
@@ -177,6 +184,12 @@ export const createOrder = async (orderData: OrderData) => {
                 id: true,
                 retailPrice: true,
                 images: true,
+                attributes: true,
+                attributeValues: {
+                  include: {
+                    attribute: true
+                  }
+                }
               }
             }
           }
@@ -196,17 +209,35 @@ export const createOrder = async (orderData: OrderData) => {
       throw new Error("User not authenticated");
     }
 
-    // Prepare order items
-    const orderItems = cart.items.map(item => ({
-      productId: item.productId,
-      inventoryId: item.inventoryId,
-      price: Number(item.inventory.retailPrice),
-      quantity: item.quantity,
-      name: item.product.name,
-      image: item.inventory.images && item.inventory.images.length > 0
-        ? item.inventory.images[0]
-        : null,
-    }));
+    // Prepare order items with attributes
+    const orderItems = cart.items.map(item => {
+      // Format attributes for storage
+      const attributeData: Record<string, string> = {};
+      
+      // Add attributes from the JSON field
+      if (item.inventory.attributes) {
+        Object.assign(attributeData, item.inventory.attributes);
+      }
+      
+      // Add attributes from the attributeValues relation
+      if (item.inventory.attributeValues) {
+        item.inventory.attributeValues.forEach(attrValue => {
+          attributeData[attrValue.attribute.displayName] = attrValue.value;
+        });
+      }
+      
+      return {
+        productId: item.productId,
+        inventoryId: item.inventoryId,
+        price: Number(item.inventory.retailPrice),
+        quantity: item.quantity,
+        name: item.product.name,
+        image: item.inventory.images && item.inventory.images.length > 0
+          ? item.inventory.images[0]
+          : null,
+        attributes: attributeData,
+      };
+    });
 
     // Add order notes with shipping and payment method
     const notes = `Shipping Method: ${orderData.shipping.method}, Payment Method: ${orderData.payment?.method || 'Not specified'}`;
@@ -274,6 +305,12 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
                 id: true,
                 retailPrice: true,
                 images: true,
+                attributes: true,
+                attributeValues: {
+                  include: {
+                    attribute: true
+                  }
+                }
               }
             }
           }
@@ -293,14 +330,32 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
     const notes = `Shipping Method: ${data.shipping.method}, Payment Method: ${data.payment?.method || 'Not specified'}`;
 
     // Create the order items array to insert
-    const orderItems = cart.items.map((item) => ({
-      productId: item.productId,
-      inventoryId: item.inventoryId,
-      quantity: item.quantity,
-      price: new Decimal(item.inventory.retailPrice),
-      name: item.product.name,
-      image: item.inventory.images?.[0] || null
-    }))
+    const orderItems = cart.items.map((item) => {
+      // Format attributes for storage
+      const attributeData: Record<string, string> = {};
+      
+      // Add attributes from the JSON field
+      if (item.inventory.attributes) {
+        Object.assign(attributeData, item.inventory.attributes);
+      }
+      
+      // Add attributes from the attributeValues relation
+      if (item.inventory.attributeValues) {
+        item.inventory.attributeValues.forEach(attrValue => {
+          attributeData[attrValue.attribute.displayName] = attrValue.value;
+        });
+      }
+      
+      return {
+        productId: item.productId,
+        inventoryId: item.inventoryId,
+        quantity: item.quantity,
+        price: new Decimal(item.inventory.retailPrice),
+        name: item.product.name,
+        image: item.inventory.images?.[0] || null,
+        attributes: attributeData,
+      };
+    })
 
     // Prepare address data with proper validation
     const addressData = {
@@ -679,6 +734,30 @@ export async function updateOrderToPaid({
   await sendOrderConfirmationEmail(orderId);
 };
 
+type OrderWithItems = Prisma.OrderGetPayload<{
+  include: {
+    items: {
+      include: {
+        inventory: {
+          include: {
+            attributeValues: {
+              include: {
+                attribute: true
+              }
+            }
+          }
+        }
+      }
+    },
+    user: {
+      select: {
+        name: true,
+        email: true
+      }
+    },
+    payment: true
+  }
+}>;
 
 // Add a new function to get order with items
 export async function getOrderWithItems(orderId: string) {
@@ -690,7 +769,19 @@ export async function getOrderWithItems(orderId: string) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        items: true,
+        items: {
+          include: {
+            inventory: {
+              include: {
+                attributeValues: {
+                  include: {
+                    attribute: true
+                  }
+                }
+              }
+            }
+          }
+        },
         user: {
           select: {
             name: true,
@@ -699,7 +790,7 @@ export async function getOrderWithItems(orderId: string) {
         },
         payment: true
       }
-    })
+    }) as OrderWithItems | null;
 
     if (!order) {
       return { success: false, error: "Order not found" }
@@ -713,12 +804,26 @@ export async function getOrderWithItems(orderId: string) {
       tax: Number(order.tax),
       total: Number(order.total),
       // Serialize order items, converting Decimal price to number
-      items: order.items.map(item => ({
-        ...item,
-        price: Number(item.price),
-        // Ensure image is a string or undefined, not null
-        image: item.image || undefined
-      })),
+      items: order.items.map(item => {
+        // Format attributes for display
+        let attributeData: Record<string, string> = {};
+        
+        // Get attributes from the inventory's attributeValues
+        if (item.inventory?.attributeValues) {
+          item.inventory.attributeValues.forEach(attrValue => {
+            attributeData[attrValue.attribute.displayName] = attrValue.value;
+          });
+        }
+        
+        return {
+          ...item,
+          price: Number(item.price),
+          // Ensure image is a string or undefined, not null
+          image: item.image || undefined,
+          // Add the formatted attributes
+          attributes: attributeData
+        };
+      }),
       payment: order.payment ? {
         ...order.payment,
         amount: Number(order.payment.amount)
@@ -955,6 +1060,11 @@ export async function getOrderById(id: string): Promise<GetOrderByIdResponse> {
                             select: {
                                 id: true,
                                 sku: true,
+                                attributeValues: {
+                                    include: {
+                                        attribute: true
+                                    }
+                                }
                             },
                         },
                     },
@@ -970,7 +1080,7 @@ export async function getOrderById(id: string): Promise<GetOrderByIdResponse> {
             };
         }
 
-        // Convert Decimal objects to numbers
+        // Convert Decimal objects to numbers and parse attributes
         const serializedOrder = {
             ...order,
             subtotal: Number(order.subtotal),
@@ -980,6 +1090,7 @@ export async function getOrderById(id: string): Promise<GetOrderByIdResponse> {
             items: order.items.map(item => ({
                 ...item,
                 price: Number(item.price),
+                attributes: item.attributes ? JSON.parse(JSON.stringify(item.attributes)) : undefined,
             })),
         } as SerializedOrder;
 
