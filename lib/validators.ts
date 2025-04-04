@@ -268,6 +268,7 @@ export const addToCartSchema = z.object({
     inventoryId: z.string().min(1, 'Inventory ID is required'),
     quantity: z.number().int().positive('Quantity must be a positive number'),
     sessionId: z.string().optional(),
+    selectedAttributes: z.record(z.string()).optional(),
 });
 
 // Schema for updating cart item quantity

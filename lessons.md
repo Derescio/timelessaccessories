@@ -345,3 +345,36 @@ We learned to create more maintainable components by:
    - Use local state for UI-specific state
    - Lift state up when needed
    - Implement proper state initialization 
+
+## Data Mapping and Transformation
+
+1. When displaying user-facing data from database records, always map technical identifiers to user-friendly display names.
+   - Implement proper joins in database queries to retrieve display name information
+   - Create mapping functions to transform internal IDs to user-friendly names
+   - Use display names consistently across the application UI
+   - Example: Transforming product attribute IDs to readable names in order details
+
+2. Handling complex object serialization requires careful planning:
+   - JSON serialization strips methods and complex types
+   - Circular references must be handled before serialization
+   - Date objects need explicit conversion to ISO strings
+   - BigInt and Decimal types need conversion to strings or numbers
+   - Map data structures to plain objects before serialization
+   - Always create explicit serialization functions for complex objects
+
+3. Multi-step data transformations should be properly logged for debugging:
+   - Add console logs at key transformation steps
+   - Log input and output of critical mapping functions
+   - Use structured logging with contextual information
+   - Include identifiers in logs to trace specific records
+   - Remove sensitive information before logging
+
+## Order Management Lessons
+
+6. Order item attributes display:
+   - Store both internal attribute IDs and display names for order items
+   - Query ProductTypeAttribute records to map attribute IDs to display names
+   - Use meaningful labels like "Specifications" instead of technical terms
+   - Present attribute information in a structured, easy-to-read format
+   - Maintain a clear visual hierarchy for order details
+   - Implement proper data transformation pipeline from database to UI 

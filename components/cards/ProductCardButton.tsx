@@ -11,12 +11,14 @@ interface ProductCardButtonProps {
     productId: string;
     inventoryId: string;
     className?: string;
+    selectedAttributes?: Record<string, string>;
 }
 
 export default function ProductCardButton({
     productId,
     inventoryId,
     className = '',
+    selectedAttributes = {},
 }: ProductCardButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
@@ -32,10 +34,18 @@ export default function ProductCardButton({
 
         setIsLoading(true);
         try {
+            // Get session ID from cookie if not logged in
+            const sessionId = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('sessionCartId='))
+                ?.split('=')[1];
+
             const result = await addToCart({
                 productId,
                 inventoryId,
                 quantity: 1,
+                sessionId,
+                selectedAttributes,
             });
 
             //console.log('Add to cart result:', result);

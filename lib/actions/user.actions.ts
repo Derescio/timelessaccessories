@@ -64,7 +64,9 @@ interface InventoryWithAttributes {
     attributeValues: Array<{
         value: string;
         attribute: {
+            id: string;
             name: string;
+            displayName: string;
         };
     }>;
 }
@@ -807,31 +809,113 @@ export async function getUserOrders() {
             notes: order.notes,
             cartId: order.cartId,
             // Map over items with deep serialization
-            items: order.items.map(item => ({
-                id: item.id,
-                quantity: item.quantity,
-                price: item.price.toString(),
-                name: item.name,
-                image: item.image,
-                // Serialize the product to only include basic properties
-                product: {
-                    id: item.product.id,
-                    name: item.product.name,
-                    slug: item.product.slug,
-                    description: item.product.description,
-                },
-                // Serialize the inventory to only include necessary properties
-                inventory: {
-                    id: item.inventory.id,
-                    sku: item.inventory.sku,
-                    retailPrice: item.inventory.retailPrice.toString(),
-                    compareAtPrice: item.inventory.compareAtPrice ? item.inventory.compareAtPrice.toString() : null,
-                    hasDiscount: item.inventory.hasDiscount,
-                    discountPercentage: item.inventory.discountPercentage,
-                    images: item.inventory.images,
+            items: order.items.map(item => {
+                // Format attributes from inventory attributeValues
+                const attributes: Record<string, string> = {};
+                
+                // Get inventory reference first so we can use it throughout
+                const inventory = item.inventory as unknown as InventoryWithAttributes;
+                
+                // First check if the order item has attributes directly
+                if (item.attributes) {
+                    console.log(`Item ${item.id} has direct attributes:`, item.attributes);
+                    
+                    // If attributes is a string (JSON), parse it
+                    if (typeof item.attributes === 'string') {
+                        try {
+                            const parsedAttributes = JSON.parse(item.attributes);
+                            console.log(`Parsed attributes for item ${item.id}:`, parsedAttributes);
+                            
+                            // For each attribute in parsedAttributes, check if it's using internal names
+                            // and attempt to convert to display names
+                            Object.assign(attributes, parsedAttributes);
+                        } catch (e) {
+                            console.error(`Error parsing attributes for item ${item.id}:`, e);
+                        }
+                    } else {
+                        // If it's already an object, use it directly
+                        console.log(`Using direct attributes object for item ${item.id}:`, item.attributes);
+                        
+                        // Convert internal attribute names to friendly names
+                        // This is likely where our issue is - we need to rename keys to be display names
+                        const attributesObject = item.attributes as Record<string, string>;
+                        
+                        // IMPORTANT: Here we convert existing attributes to use pretty names
+                        // Get attribute display names from inventory if available
+                        if (inventory?.attributeValues) {
+                            console.log(`Checking for better attribute names from inventory values`);
+                            
+                            // Create a map of internal name -> display name
+                            const attributeNameMap: Record<string, string> = {};
+                            inventory.attributeValues.forEach(av => {
+                                if (av.attribute) {
+                                    attributeNameMap[av.attribute.name] = av.attribute.displayName || av.attribute.name;
+                                    console.log(`Mapped attribute ${av.attribute.name} to ${av.attribute.displayName || av.attribute.name}`);
+                                }
+                            });
+                            
+                            // Apply the map to transform attribute keys
+                            Object.entries(attributesObject).forEach(([key, value]) => {
+                                const displayKey = attributeNameMap[key] || key; // Use display name if available, otherwise keep original
+                                attributes[displayKey] = value;
+                                console.log(`Setting attribute [${displayKey}] = ${value}`);
+                            });
+                        } else {
+                            // No inventory values to get display names from, just use as-is
+                            Object.assign(attributes, attributesObject);
+                        }
+                    }
                 }
-            })),
-            // Handle payment serialization
+                
+                // If no direct attributes, try to get them from inventory
+                if (Object.keys(attributes).length === 0 && inventory?.attributeValues) {
+                    console.log(`Item ${item.id} has ${inventory.attributeValues.length} attribute values`);
+                    
+                    // Log all attribute values for debugging
+                    console.log('Full attribute values for debugging:');
+                    inventory.attributeValues.forEach((av, index) => {
+                        console.log(`Attribute ${index + 1}:`, {
+                            attributeId: av.attribute?.id,
+                            attributeName: av.attribute?.name,
+                            attributeDisplayName: av.attribute?.displayName,
+                            value: av.value,
+                            rawAttribute: av.attribute
+                        });
+                    });
+                    
+                    inventory.attributeValues.forEach(av => {
+                        console.log(`Processing attribute value for item ${item.id}: ${JSON.stringify(av.attribute)} = ${av.value}`);
+                        if (av.attribute && av.value) {
+                            // Use displayName instead of name for more user-friendly attribute keys
+                            const keyToUse = av.attribute.displayName || av.attribute.name;
+                            console.log(`Setting attribute [${keyToUse}] = ${av.value}`);
+                            attributes[keyToUse] = av.value;
+                        }
+                    });
+                }
+                
+                // Debug: Log final attributes for each item
+                console.log(`Item ${item.id} final attributes:`, attributes);
+                
+                return {
+                    id: item.id,
+                    quantity: item.quantity,
+                    price: item.price.toString(),
+                    name: item.name,
+                    image: item.image,
+                    attributes,
+                    product: item.product,
+                    inventory: {
+                        id: inventory.id,
+                        sku: inventory.sku,
+                        retailPrice: inventory.retailPrice.toString(),
+                        compareAtPrice: inventory.compareAtPrice?.toString() || null,
+                        hasDiscount: inventory.hasDiscount,
+                        discountPercentage: inventory.discountPercentage,
+                        images: inventory.images,
+                    },
+                };
+            }),
             payment: order.payment ? {
                 id: order.payment.id,
                 status: order.payment.status,
@@ -912,30 +996,113 @@ export async function getLascoUserOrders() {
             notes: order.notes,
             cartId: order.cartId,
             // Map over items with deep serialization
-            items: order.items.map(item => ({
-                id: item.id,
-                quantity: item.quantity,
-                price: item.price.toString(),
-                name: item.name,
-                image: item.image,
-                // Serialize the product to only include basic properties
-                product: {
-                    id: item.product.id,
-                    name: item.product.name,
-                    slug: item.product.slug,
-                    description: item.product.description,
-                },
-                // Serialize the inventory to only include necessary properties
-                inventory: {
-                    id: item.inventory.id,
-                    sku: item.inventory.sku,
-                    retailPrice: item.inventory.retailPrice.toString(),
-                    compareAtPrice: item.inventory.compareAtPrice ? item.inventory.compareAtPrice.toString() : null,
-                    hasDiscount: item.inventory.hasDiscount,
-                    discountPercentage: item.inventory.discountPercentage,
-                    images: item.inventory.images,
+            items: order.items.map(item => {
+                // Format attributes from inventory attributeValues
+                const attributes: Record<string, string> = {};
+                
+                // Get inventory reference first so we can use it throughout
+                const inventory = item.inventory as unknown as InventoryWithAttributes;
+                
+                // First check if the order item has attributes directly
+                if (item.attributes) {
+                    console.log(`Item ${item.id} has direct attributes:`, item.attributes);
+                    
+                    // If attributes is a string (JSON), parse it
+                    if (typeof item.attributes === 'string') {
+                        try {
+                            const parsedAttributes = JSON.parse(item.attributes);
+                            console.log(`Parsed attributes for item ${item.id}:`, parsedAttributes);
+                            
+                            // For each attribute in parsedAttributes, check if it's using internal names
+                            // and attempt to convert to display names
+                            Object.assign(attributes, parsedAttributes);
+                        } catch (e) {
+                            console.error(`Error parsing attributes for item ${item.id}:`, e);
+                        }
+                    } else {
+                        // If it's already an object, use it directly
+                        console.log(`Using direct attributes object for item ${item.id}:`, item.attributes);
+                        
+                        // Convert internal attribute names to friendly names
+                        // This is likely where our issue is - we need to rename keys to be display names
+                        const attributesObject = item.attributes as Record<string, string>;
+                        
+                        // IMPORTANT: Here we convert existing attributes to use pretty names
+                        // Get attribute display names from inventory if available
+                        if (inventory?.attributeValues) {
+                            console.log(`Checking for better attribute names from inventory values`);
+                            
+                            // Create a map of internal name -> display name
+                            const attributeNameMap: Record<string, string> = {};
+                            inventory.attributeValues.forEach(av => {
+                                if (av.attribute) {
+                                    attributeNameMap[av.attribute.name] = av.attribute.displayName || av.attribute.name;
+                                    console.log(`Mapped attribute ${av.attribute.name} to ${av.attribute.displayName || av.attribute.name}`);
+                                }
+                            });
+                            
+                            // Apply the map to transform attribute keys
+                            Object.entries(attributesObject).forEach(([key, value]) => {
+                                const displayKey = attributeNameMap[key] || key; // Use display name if available, otherwise keep original
+                                attributes[displayKey] = value;
+                                console.log(`Setting attribute [${displayKey}] = ${value}`);
+                            });
+                        } else {
+                            // No inventory values to get display names from, just use as-is
+                            Object.assign(attributes, attributesObject);
+                        }
+                    }
                 }
-            })),
+                
+                // If no direct attributes, try to get them from inventory
+                if (Object.keys(attributes).length === 0 && inventory?.attributeValues) {
+                    console.log(`Item ${item.id} has ${inventory.attributeValues.length} attribute values`);
+                    
+                    // Log all attribute values for debugging
+                    console.log('Full attribute values for debugging:');
+                    inventory.attributeValues.forEach((av, index) => {
+                        console.log(`Attribute ${index + 1}:`, {
+                            attributeId: av.attribute?.id,
+                            attributeName: av.attribute?.name,
+                            attributeDisplayName: av.attribute?.displayName,
+                            value: av.value,
+                            rawAttribute: av.attribute
+                        });
+                    });
+                    
+                    inventory.attributeValues.forEach(av => {
+                        console.log(`Processing attribute value for item ${item.id}: ${JSON.stringify(av.attribute)} = ${av.value}`);
+                        if (av.attribute && av.value) {
+                            // Use displayName instead of name for more user-friendly attribute keys
+                            const keyToUse = av.attribute.displayName || av.attribute.name;
+                            console.log(`Setting attribute [${keyToUse}] = ${av.value}`);
+                            attributes[keyToUse] = av.value;
+                        }
+                    });
+                }
+                
+                // Debug: Log final attributes for each item
+                console.log(`Item ${item.id} final attributes:`, attributes);
+                
+                return {
+                    id: item.id,
+                    quantity: item.quantity,
+                    price: item.price.toString(),
+                    name: item.name,
+                    image: item.image,
+                    attributes,
+                    product: item.product,
+                    inventory: {
+                        id: inventory.id,
+                        sku: inventory.sku,
+                        retailPrice: inventory.retailPrice.toString(),
+                        compareAtPrice: inventory.compareAtPrice?.toString() || null,
+                        hasDiscount: inventory.hasDiscount,
+                        discountPercentage: inventory.discountPercentage,
+                        images: inventory.images,
+                    },
+                };
+            }),
             // Handle payment serialization
             payment: order.payment ? {
                 id: order.payment.id,
@@ -953,11 +1120,17 @@ export async function getLascoUserOrders() {
 
 export async function getOrderById(orderId: string) {
     try {
+        console.log('===== GET ORDER BY ID CALLED =====');
+        console.log('Order ID:', orderId);
         const session = await auth();
         if (!session?.user?.id) {
+            console.log('User not authenticated');
             return { success: false, message: 'Not authenticated', data: null };
         }
+        
+        console.log('Authenticated user:', session.user.id);
 
+        // First get the order with all required data
         const order = await prisma.order.findUnique({
             where: {
                 id: orderId,
@@ -972,6 +1145,7 @@ export async function getOrderById(orderId: string) {
                                 name: true,
                                 slug: true,
                                 description: true,
+                                productTypeId: true, // Include product type ID to fetch attributes
                             }
                         },
                         inventory: {
@@ -1018,6 +1192,43 @@ export async function getOrderById(orderId: string) {
             return { success: false, message: 'Order not found', data: null };
         }
 
+        // Get all unique product type IDs from items
+        const productTypeIds = [...new Set(
+            order.items
+                .map(item => item.product.productTypeId)
+                .filter(Boolean)
+        )] as string[];
+
+        console.log('Found product type IDs:', productTypeIds);
+
+        // Fetch all attribute display names for these product types to create a mapping
+        let attributeDisplayNames: Record<string, string> = {};
+        
+        if (productTypeIds.length > 0) {
+            const productTypeAttributes = await prisma.productTypeAttribute.findMany({
+                where: {
+                    productTypeId: {
+                        in: productTypeIds
+                    }
+                },
+                select: {
+                    id: true,
+                    name: true,
+                    displayName: true
+                }
+            });
+            
+            console.log('Found product type attributes:', productTypeAttributes.length);
+            
+            // Create ID -> displayName mapping
+            attributeDisplayNames = productTypeAttributes.reduce((acc, attr) => {
+                acc[attr.id] = attr.displayName;
+                return acc;
+            }, {} as Record<string, string>);
+            
+            console.log('Attribute display name mapping:', attributeDisplayNames);
+        }
+
         // Make the response serializable with carefully controlled properties
         const serializedOrder = {
             id: order.id,
@@ -1040,33 +1251,67 @@ export async function getOrderById(orderId: string) {
                 // Format attributes from inventory attributeValues
                 const attributes: Record<string, string> = {};
                 
+                // Get inventory reference first so we can use it throughout
+                const inventory = item.inventory as unknown as InventoryWithAttributes;
+                
                 // First check if the order item has attributes directly
                 if (item.attributes) {
                     console.log(`Item ${item.id} has direct attributes:`, item.attributes);
+                    
                     // If attributes is a string (JSON), parse it
                     if (typeof item.attributes === 'string') {
                         try {
                             const parsedAttributes = JSON.parse(item.attributes);
                             console.log(`Parsed attributes for item ${item.id}:`, parsedAttributes);
-                            Object.assign(attributes, parsedAttributes);
+                            
+                            // Convert ID keys to display names
+                            Object.entries(parsedAttributes).forEach(([key, value]) => {
+                                const displayName = attributeDisplayNames[key] || key;
+                                attributes[displayName] = value as string;
+                                console.log(`Mapped attribute ID ${key} to ${displayName} = ${value}`);
+                            });
                         } catch (e) {
                             console.error(`Error parsing attributes for item ${item.id}:`, e);
                         }
                     } else {
                         // If it's already an object, use it directly
                         console.log(`Using direct attributes object for item ${item.id}:`, item.attributes);
-                        Object.assign(attributes, item.attributes);
+                        
+                        // Convert internal attribute names to friendly names
+                        const attributesObject = item.attributes as Record<string, string>;
+                        
+                        // Map attribute IDs to display names
+                        Object.entries(attributesObject).forEach(([key, value]) => {
+                            const displayName = attributeDisplayNames[key] || key;
+                            attributes[displayName] = value;
+                            console.log(`Mapped attribute ID ${key} to ${displayName} = ${value}`);
+                        });
                     }
                 }
                 
                 // If no direct attributes, try to get them from inventory
-                const inventory = item.inventory as unknown as InventoryWithAttributes;
                 if (Object.keys(attributes).length === 0 && inventory?.attributeValues) {
                     console.log(`Item ${item.id} has ${inventory.attributeValues.length} attribute values`);
+                    
+                    // Log all attribute values for debugging
+                    console.log('Full attribute values for debugging:');
+                    inventory.attributeValues.forEach((av, index) => {
+                        console.log(`Attribute ${index + 1}:`, {
+                            attributeId: av.attribute?.id,
+                            attributeName: av.attribute?.name,
+                            attributeDisplayName: av.attribute?.displayName,
+                            value: av.value,
+                            rawAttribute: av.attribute
+                        });
+                    });
+                    
                     inventory.attributeValues.forEach(av => {
-                        console.log(`Attribute value for item ${item.id}: ${av.attribute?.name} = ${av.value}`);
+                        console.log(`Processing attribute value for item ${item.id}: ${JSON.stringify(av.attribute)} = ${av.value}`);
                         if (av.attribute && av.value) {
-                            attributes[av.attribute.name] = av.value;
+                            // Use displayName instead of name for more user-friendly attribute keys
+                            const keyToUse = av.attribute.displayName || av.attribute.name;
+                            console.log(`Setting attribute [${keyToUse}] = ${av.value}`);
+                            attributes[keyToUse] = av.value;
                         }
                     });
                 }
@@ -1109,6 +1354,14 @@ export async function getOrderById(orderId: string) {
                 country: order.address.country,
             } : null,
         };
+
+        // At the very end, before the return statement
+        console.log('===== FINAL ORDER DATA =====');
+        console.log('Order items:', serializedOrder.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            attributes: item.attributes
+        })));
 
         return { success: true, message: 'Order retrieved successfully', data: serializedOrder };
     } catch (error) {

@@ -88,7 +88,6 @@ export default function OrderDetailPage() {
                 setIsLoading(true)
                 const orderId = params.id as string
                 const result = await getOrderById(orderId)
-                //console.log('order details', result?.data?.shippingAddress)
 
                 if (!result.success) {
                     setError(result.message)
@@ -109,12 +108,22 @@ export default function OrderDetailPage() {
                         tax: result.data.tax,
                         total: result.data.total
                     };
-                    console.log('Order data:', orderData);
-                    console.log('Order items:', orderData.items);
-                    console.log('First item attributes:', orderData.items[0]?.attributes);
+
+                    // Log detailed information about attributes in order items
+                    console.log('Order loaded:', orderData.id);
+                    if (orderData.items && orderData.items.length > 0) {
+                        console.log('Order contains', orderData.items.length, 'items');
+
+                        orderData.items.forEach((item, index) => {
+                            console.log(`Item ${index + 1} (${item.name}):`, {
+                                specifications: item.attributes,
+                                hasSpecifications: item.attributes && Object.keys(item.attributes || {}).length > 0
+                            });
+                        });
+                    }
+
                     setOrder(orderData)
                     setPaymentStatus(result.data.payment?.status || "PENDING")
-
                 } else {
                     setError("Order data is missing")
                 }
@@ -357,8 +366,8 @@ export default function OrderDetailPage() {
                         <CardContent>
                             <div className="space-y-4">
                                 {order.items.map((item) => (
-                                    <div key={item.id} className="flex items-start space-x-4">
-                                        <div className="relative w-16 h-16 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
+                                    <div key={item.id} className="flex items-start space-x-4 border-b border-gray-100 pb-4 mb-4 last:border-0 last:mb-0 last:pb-0">
+                                        <div className="relative w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
                                             {item.image ? (
                                                 <Image
                                                     src={item.image}
@@ -373,24 +382,21 @@ export default function OrderDetailPage() {
                                             )}
                                         </div>
                                         <div className="flex-1">
-                                            <h4 className="font-medium">{item.name}</h4>
-                                            <div className="text-sm text-gray-500 mt-1">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-sm text-muted-foreground">Quantity: {item.quantity}</span>
-                                                    {item.inventory?.sku && (
-                                                        <span className="text-sm text-muted-foreground">SKU: {item.inventory.sku}</span>
-                                                    )}
-                                                </div>
+                                            <h4 className="font-medium text-base">{item.name}</h4>
+                                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500 mt-1">
+                                                <span>Quantity: {item.quantity}</span>
+                                                <span>Price: {formatPrice(Number(item.price))}</span>
                                             </div>
-                                            {/* Display item attributes if available */}
+
+                                            {/* Display item specifications if available */}
                                             {item.attributes && Object.keys(item.attributes).length > 0 && (
-                                                <div className="mt-2 text-sm text-gray-700 border-t border-gray-200 pt-2">
-                                                    <h4 className="font-medium mb-1">Attributes</h4>
-                                                    <div className="space-y-1">
-                                                        {Object.entries(item.attributes).map(([key, value]) => (
-                                                            <div key={key} className="flex">
-                                                                <span className="font-medium text-gray-600 mr-2">{key}:</span>
-                                                                <span className="text-gray-800">{value}</span>
+                                                <div className="mt-2 text-sm text-gray-700 border-t border-gray-100 pt-2">
+                                                    <h4 className="font-medium mb-1 text-gray-600">Specifications</h4>
+                                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                                        {Object.entries(item.attributes as Record<string, string>).map(([key, value]) => (
+                                                            <div key={key} className="flex items-center">
+                                                                <span className="text-gray-500 mr-2">{key}:</span>
+                                                                <span className="font-medium">{value}</span>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -398,10 +404,7 @@ export default function OrderDetailPage() {
                                             )}
                                         </div>
                                         <div className="text-right">
-                                            <div>{formatPrice(Number(item.price))}</div>
-                                            <div className="text-sm text-gray-500">
-                                                {formatPrice(Number(item.price) * item.quantity)}
-                                            </div>
+                                            <div className="font-medium">{formatPrice(Number(item.price) * item.quantity)}</div>
                                         </div>
                                     </div>
                                 ))}
@@ -446,27 +449,27 @@ export default function OrderDetailPage() {
 
                     {/* Order Summary */}
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="pb-2">
                             <CardTitle>Order Summary</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="space-y-3">
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Subtotal</span>
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">Subtotal:</span>
                                     <span>{formatPrice(Number(order.subtotal))}</span>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Shipping</span>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">Shipping:</span>
                                     <span>{formatPrice(Number(order.shipping))}</span>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Tax</span>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">Tax:</span>
                                     <span>{formatPrice(Number(order.tax))}</span>
                                 </div>
-                                <Separator />
-                                <div className="flex justify-between font-medium">
-                                    <span>Total</span>
-                                    <span>{formatPrice(Number(order.total))}</span>
+                                <Separator className="my-2" />
+                                <div className="flex justify-between font-medium text-base">
+                                    <span>Total:</span>
+                                    <span className="text-primary">{formatPrice(Number(order.total))}</span>
                                 </div>
                             </div>
                         </CardContent>
