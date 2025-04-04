@@ -38,6 +38,59 @@ export function ProductInfo({ product }: ProductInfoProps) {
     // Check if this product's category should display attributes as read-only
     const isReadOnlyAttributes = READ_ONLY_ATTRIBUTE_CATEGORIES.includes(product.categoryId);
 
+    // Auto-select first attribute values on mount
+    useEffect(() => {
+        // Group inventories by their attributes
+        const attrGroups = product.inventories.reduce((acc, inventory) => {
+            if (!inventory.attributes) return acc;
+
+            Object.entries(inventory.attributes).forEach(([key, value]) => {
+                if (!acc[key]) {
+                    acc[key] = new Set();
+                }
+                // Handle both string and array values
+                if (Array.isArray(value)) {
+                    value.forEach(v => acc[key].add(v));
+                } else {
+                    acc[key].add(value as string);
+                }
+            });
+            return acc;
+        }, {} as Record<string, Set<string>>);
+
+        // For each attribute, select the first value
+        const initialSelections: Record<string, string> = {};
+        Object.entries(attrGroups).forEach(([attrId, values]) => {
+            if (values.size > 0) {
+                // Get the first value from the Set
+                const firstValue = Array.from(values)[0];
+                initialSelections[attrId] = firstValue;
+            }
+        });
+
+        // Set initial selections
+        setSelectedAttributes(initialSelections);
+
+        // Find inventory that matches these selections
+        const matchingInventory = findMatchingInventory(initialSelections);
+        if (matchingInventory) {
+            setSelectedInventory(matchingInventory);
+        }
+    }, [product.inventories]);
+
+    // Helper function to find matching inventory based on attributes
+    const findMatchingInventory = (attrs: Record<string, string>) => {
+        return product.inventories.find(inv => {
+            if (!inv.attributes) return false;
+            return Object.entries(attrs).every(([key, val]) => {
+                const attrValue = inv.attributes?.[key];
+                return Array.isArray(attrValue)
+                    ? attrValue.includes(val)
+                    : attrValue === val;
+            });
+        });
+    };
+
     // Check if the product is already in the cart
     useEffect(() => {
         const checkCart = async () => {
@@ -104,7 +157,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
         fetchAttributeNames();
     }, [product.inventories]);
 
-    // Group inventories by their attributes
+    // Group inventories by their attributes (keep this for rendering)
     const attributeGroups = product.inventories.reduce((acc, inventory) => {
         if (!inventory.attributes) return acc;
 
@@ -128,15 +181,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
         setSelectedAttributes(newAttributes);
 
         // Find matching inventory
-        const matchingInventory = product.inventories.find(inv => {
-            if (!inv.attributes) return false;
-            return Object.entries(newAttributes).every(([key, val]) => {
-                const attrValue = inv.attributes?.[key];
-                return Array.isArray(attrValue)
-                    ? attrValue.includes(val)
-                    : attrValue === val;
-            });
-        });
+        const matchingInventory = findMatchingInventory(newAttributes);
 
         if (matchingInventory) {
             setSelectedInventory(matchingInventory);
@@ -283,6 +328,34 @@ export function ProductInfo({ product }: ProductInfoProps) {
         toast.success(result.message || "Added to cart successfully");
     };
 
+    // In the component, log the initial inventory data
+    useEffect(() => {
+        console.log('ProductInfo - Initial inventory:', {
+            inventories: product.inventories.map(inv => ({
+                id: inv.id,
+                sku: inv.sku,
+                attributes: inv.attributes
+            }))
+        });
+        console.log('ProductInfo - Selected inventory:', {
+            id: selectedInventory.id,
+            sku: selectedInventory.sku,
+            attributes: selectedInventory.attributes
+        });
+    }, [product.inventories, selectedInventory]);
+
+    // Log the data that will be used for the add to cart button
+    useEffect(() => {
+        if (selectedInventory) {
+            console.log('ProductInfo - Data for AddToCartButton:', {
+                productId: product.id,
+                inventoryId: selectedInventory.id,
+                inventorySku: selectedInventory.sku,
+                attributes: selectedAttributes
+            });
+        }
+    }, []); // Empty dependency array to run only once on mount
+
     return (
         <div className="space-y-6">
             <div>
@@ -307,30 +380,18 @@ export function ProductInfo({ product }: ProductInfoProps) {
             </div>
 
             {/* Attribute Display or Selection */}
-            {isReadOnlyAttributes ? (
-                // Display attributes as read-only information
-                <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Product Specifications</h3>
-                    <div className="grid grid-cols-1 gap-2">
-                        {Object.entries(getSelectedInventoryAttributeValues()).map(([attributeId, value]) => (
-                            <div key={attributeId} className="flex border-b pb-2">
-                                <span className="font-medium w-1/3">
-                                    {attributeNames[attributeId] || attributeId}:
-                                </span>
-                                <span className="w-2/3">{value}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            ) : (
+            {!isReadOnlyAttributes ? (
                 // Display attributes as selectable options
                 Object.entries(attributeGroups).map(([attributeId, values]) => (
                     <div key={attributeId} className="space-y-2">
                         <Label className="text-sm font-medium">
-                            {attributeNames[attributeId] || attributeId}
+                            {attributeNames[attributeId] || attributeId}:
+                            <span className="font-bold ml-2">
+                                {selectedAttributes[attributeId] || "Not selected"}
+                            </span>
                         </Label>
                         <RadioGroup
-                            value={selectedAttributes[attributeId]}
+                            value={selectedAttributes[attributeId] || ""}
                             onValueChange={(value) => handleAttributeChange(attributeId, value)}
                             className="flex flex-wrap gap-2"
                         >
@@ -342,7 +403,8 @@ export function ProductInfo({ product }: ProductInfoProps) {
                                     />
                                     <Label
                                         htmlFor={`${attributeId}-${value}`}
-                                        className="text-sm cursor-pointer"
+                                        className={`text-sm cursor-pointer ${selectedAttributes[attributeId] === value ? "font-bold" : ""
+                                            }`}
                                     >
                                         {value}
                                     </Label>
@@ -351,6 +413,19 @@ export function ProductInfo({ product }: ProductInfoProps) {
                         </RadioGroup>
                     </div>
                 ))
+            ) : (
+                // Display attributes as read-only information
+                <div className="space-y-4">
+                    <h3 className="text-sm font-medium">Specifications:</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                        {Object.entries(getSelectedInventoryAttributeValues()).map(([key, value]) => (
+                            <div key={key} className="text-sm">
+                                <span className="font-medium">{attributeNames[key] || key}:</span>{' '}
+                                <span>{value}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             )}
 
             {/* Stock Status */}
@@ -366,8 +441,10 @@ export function ProductInfo({ product }: ProductInfoProps) {
                     <AddToCartButton
                         productId={product.id}
                         inventoryId={selectedInventory.sku}
+                        quantity={1}
                         disabled={selectedInventory.quantity === 0}
                         onSuccess={handleAddToCartSuccess}
+                        selectedAttributes={selectedAttributes}
                     />
                 ) : (
                     <div className="flex items-center gap-4">

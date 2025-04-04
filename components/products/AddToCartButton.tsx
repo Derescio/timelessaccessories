@@ -42,6 +42,7 @@ interface AddToCartButtonProps {
     className?: string;
     showIcon?: boolean;
     onSuccess?: (result: CartActionResult) => void;
+    selectedAttributes?: Record<string, string>;
 }
 
 export default function AddToCartButton({
@@ -54,11 +55,20 @@ export default function AddToCartButton({
     className = '',
     showIcon = true,
     onSuccess,
+    selectedAttributes,
 }: AddToCartButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
 
     const handleAddToCart = async () => {
+        // Add detailed logging
+        console.log('AddToCartButton - handleAddToCart called with:', {
+            productId,
+            inventoryId,
+            quantity,
+            selectedAttributes
+        });
+
         if (!inventoryId) {
             console.error('Invalid inventory ID:', inventoryId);
             toast.error('Invalid inventory configuration');
@@ -73,12 +83,23 @@ export default function AddToCartButton({
                 .find(row => row.startsWith('sessionCartId='))
                 ?.split('=')[1];
 
+            console.log('AddToCartButton - Calling addToCart with:', {
+                productId,
+                inventoryId,
+                quantity,
+                sessionId,
+                selectedAttributes
+            });
+
             const result = await addToCart({
                 productId,
                 inventoryId,
                 quantity,
                 sessionId,
+                selectedAttributes,
             });
+
+            console.log('AddToCartButton - addToCart result:', result);
 
             if (result.success) {
                 setIsSuccess(true);

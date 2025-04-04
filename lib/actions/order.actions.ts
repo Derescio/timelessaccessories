@@ -211,20 +211,8 @@ export const createOrder = async (orderData: OrderData) => {
 
     // Prepare order items with attributes
     const orderItems = cart.items.map(item => {
-      // Format attributes for storage
-      const attributeData: Record<string, string> = {};
-      
-      // Add attributes from the JSON field
-      if (item.inventory.attributes) {
-        Object.assign(attributeData, item.inventory.attributes);
-      }
-      
-      // Add attributes from the attributeValues relation
-      if (item.inventory.attributeValues) {
-        item.inventory.attributeValues.forEach(attrValue => {
-          attributeData[attrValue.attribute.displayName] = attrValue.value;
-        });
-      }
+      // Use only the selected attributes without fallback
+      const selectedAttrs = item.selectedAttributes || {};
       
       return {
         productId: item.productId,
@@ -235,7 +223,7 @@ export const createOrder = async (orderData: OrderData) => {
         image: item.inventory.images && item.inventory.images.length > 0
           ? item.inventory.images[0]
           : null,
-        attributes: attributeData,
+        attributes: selectedAttrs,
       };
     });
 
@@ -331,20 +319,8 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
 
     // Create the order items array to insert
     const orderItems = cart.items.map((item) => {
-      // Format attributes for storage
-      const attributeData: Record<string, string> = {};
-      
-      // Add attributes from the JSON field
-      if (item.inventory.attributes) {
-        Object.assign(attributeData, item.inventory.attributes);
-      }
-      
-      // Add attributes from the attributeValues relation
-      if (item.inventory.attributeValues) {
-        item.inventory.attributeValues.forEach(attrValue => {
-          attributeData[attrValue.attribute.displayName] = attrValue.value;
-        });
-      }
+      // Use only the selected attributes without fallback
+      const selectedAttrs = item.selectedAttributes || {};
       
       return {
         productId: item.productId,
@@ -353,7 +329,7 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
         price: Number(item.inventory.retailPrice),
         name: item.product.name,
         image: item.inventory.images?.[0] || null,
-        attributes: attributeData,
+        attributes: selectedAttrs,
       };
     })
 

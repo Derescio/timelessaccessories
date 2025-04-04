@@ -57,8 +57,18 @@ export async function getCart() {
  */
 export async function addToCart(data: AddToCartInput) {
   try {
+    console.log('cart.actions.ts - addToCart called with:', data);
+    
     const validatedData = addToCartSchema.parse(data);
-    const { productId, inventoryId, quantity, sessionId: providedSessionId } = validatedData;
+    const { productId, inventoryId, quantity, sessionId: providedSessionId, selectedAttributes } = validatedData;
+
+    console.log('cart.actions.ts - Validated data:', {
+      productId,
+      inventoryId,
+      quantity,
+      sessionId: providedSessionId,
+      hasSelectedAttributes: !!selectedAttributes
+    });
 
     // Check inventory availability
     const inventoryCheck = await checkInventoryAvailability({
@@ -66,12 +76,15 @@ export async function addToCart(data: AddToCartInput) {
       quantity,
     });
 
+    console.log('cart.actions.ts - Inventory check result:', inventoryCheck);
+
     if (!inventoryCheck.success) {
       return inventoryCheck;
     }
 
     // Use the actual inventory SKU returned by checkInventoryAvailability
     const actualInventoryId = inventoryCheck.inventorySku || inventoryId;
+    console.log('cart.actions.ts - Using inventory ID/SKU:', actualInventoryId);
 
     // Get user session
     const session = await auth();
@@ -143,7 +156,8 @@ export async function addToCart(data: AddToCartInput) {
       const updatedItem = await prisma.cartItem.update({
         where: { id: existingCartItem.id },
         data: {
-          quantity: existingCartItem.quantity + quantity
+          quantity: existingCartItem.quantity + quantity,
+          selectedAttributes: selectedAttributes || undefined
         },
         include: {
           product: true,
@@ -159,11 +173,19 @@ export async function addToCart(data: AddToCartInput) {
       };
     } else {
       // Find the inventory item by SKU
+      console.log('cart.actions.ts - Looking up inventory with SKU:', actualInventoryId);
       const inventoryItem = await prisma.productInventory.findUnique({
         where: { sku: actualInventoryId },
       });
 
+      console.log('cart.actions.ts - Inventory lookup result:', {
+        found: !!inventoryItem, 
+        id: inventoryItem?.id,
+        sku: inventoryItem?.sku
+      });
+
       if (!inventoryItem) {
+        console.error('cart.actions.ts - Inventory not found with SKU:', actualInventoryId);
         return {
           success: false,
           message: "Product variant not found"
@@ -177,6 +199,7 @@ export async function addToCart(data: AddToCartInput) {
           productId,
           inventoryId: inventoryItem.id,
           quantity,
+          selectedAttributes: selectedAttributes || undefined
         },
         include: {
           product: true,
@@ -403,47 +426,51 @@ export async function mergeGuestCartWithUserCart(sessionId: string, userId: stri
 }
 
 /**
- * Check if there's enough inventory for a requested quantity
+ * Check if inventory is available for the requested quantity
  */
 export async function checkInventoryAvailability(data: z.infer<typeof checkInventorySchema>) {
   try {
+    console.log('checkInventoryAvailability - Called with:', data);
+    
     const validatedData = checkInventorySchema.parse(data);
     const { inventoryId, quantity } = validatedData;
 
-    if (!inventoryId) {
-      console.error('No inventory ID provided');
-      return { success: false, message: "Missing inventory information" };
-    }
-
-    // Try to find inventory by SKU
+    // Find inventory by SKU
     const inventory = await prisma.productInventory.findUnique({
       where: { sku: inventoryId },
     });
 
+    console.log('checkInventoryAvailability - Inventory lookup result:', {
+      found: !!inventory,
+      id: inventory?.id,
+      sku: inventory?.sku,
+      quantity: inventory?.quantity
+    });
+
     if (!inventory) {
-      console.error(`No inventory found with SKU ${inventoryId}`);
-      return { success: false, message: "Product variant not found" };
+      console.error('checkInventoryAvailability - Inventory not found with SKU:', inventoryId);
+      return {
+        success: false,
+        message: "Product variant not found",
+      };
     }
 
+    // Check if inventory has enough stock
     if (inventory.quantity < quantity) {
       return {
         success: false,
         message: `Only ${inventory.quantity} items available`,
-        availableQuantity: inventory.quantity
       };
     }
 
     return {
       success: true,
-      message: "Inventory available",
-      inventorySku: inventory.sku
+      message: "Inventory is available",
+      inventorySku: inventory.sku, // Return the actual SKU from the database
     };
   } catch (error) {
-    console.error('Error checking inventory:', error);
-    if (error instanceof z.ZodError) {
-      return { success: false, message: 'Invalid data provided' };
-    }
-    return { success: false, message: 'Failed to check inventory' };
+    console.error('checkInventoryAvailability - Error:', error);
+    return { success: false, message: "Failed to check inventory" };
   }
 }
 

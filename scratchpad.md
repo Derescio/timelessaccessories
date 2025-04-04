@@ -33,6 +33,9 @@
   - /admin/products/[id] - Edit product with tabs
   - /admin/products/[id]/inventory/new - Add inventory
   - /admin/products/[id]/inventory/[inventoryId] - Edit inventory
+- Added order items display with proper attribute display names instead of internal IDs
+- Fixed product details display in order history for improved readability
+- Enhanced product specification display with user-friendly attribute names
 
 ### Fixed Issues
 - Decimal serialization issue: Converting Decimal objects to numbers
@@ -40,6 +43,16 @@
 - ProductInventorySchema updated to make productId required
 - Product card layout optimization for mobile responsiveness
 - Wishlist type safety improvements and null handling
+- Fixed Decimal serialization for product prices
+- Fixed TypeScript type issues with product interfaces
+- Fixed layout issues on product detail page
+- Fixed attribute handling for product inventory items
+- Fixed validation for product forms
+- Fixed image display for products without images
+- Fixed price formatting across the application
+- Fixed product inventory selection on product detail page
+- Fixed attribute display in order details to show user-friendly names instead of attribute IDs
+- Implemented proper product type attribute mapping for order item specifications
 
 ### To Do Next
 - Add image upload functionality for products

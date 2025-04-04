@@ -163,16 +163,17 @@ model Cart {
 }
 
 model CartItem {
-  id          String           @id @default(cuid())
-  cartId      String
-  productId   String
-  inventoryId String
-  quantity    Int
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  cart        Cart             @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  inventory   ProductInventory @relation(fields: [inventoryId], references: [id])
-  product     Product          @relation(fields: [productId], references: [id])
+  id                 String           @id @default(cuid())
+  cartId             String
+  productId          String
+  inventoryId        String
+  quantity           Int
+  selectedAttributes Json?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  cart               Cart             @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  inventory          ProductInventory @relation(fields: [inventoryId], references: [id])
+  product            Product          @relation(fields: [productId], references: [id])
 
   @@unique([cartId, inventoryId])
   @@index([cartId])
