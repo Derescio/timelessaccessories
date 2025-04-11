@@ -812,20 +812,20 @@ export async function getUserOrders() {
             items: order.items.map(item => {
                 // Format attributes from inventory attributeValues
                 const attributes: Record<string, string> = {};
-                
+
                 // Get inventory reference first so we can use it throughout
                 const inventory = item.inventory as unknown as InventoryWithAttributes;
-                
+
                 // First check if the order item has attributes directly
                 if (item.attributes) {
                     console.log(`Item ${item.id} has direct attributes:`, item.attributes);
-                    
+
                     // If attributes is a string (JSON), parse it
                     if (typeof item.attributes === 'string') {
                         try {
                             const parsedAttributes = JSON.parse(item.attributes);
                             console.log(`Parsed attributes for item ${item.id}:`, parsedAttributes);
-                            
+
                             // For each attribute in parsedAttributes, check if it's using internal names
                             // and attempt to convert to display names
                             Object.assign(attributes, parsedAttributes);
@@ -835,16 +835,16 @@ export async function getUserOrders() {
                     } else {
                         // If it's already an object, use it directly
                         console.log(`Using direct attributes object for item ${item.id}:`, item.attributes);
-                        
+
                         // Convert internal attribute names to friendly names
                         // This is likely where our issue is - we need to rename keys to be display names
                         const attributesObject = item.attributes as Record<string, string>;
-                        
+
                         // IMPORTANT: Here we convert existing attributes to use pretty names
                         // Get attribute display names from inventory if available
                         if (inventory?.attributeValues) {
                             console.log(`Checking for better attribute names from inventory values`);
-                            
+
                             // Create a map of internal name -> display name
                             const attributeNameMap: Record<string, string> = {};
                             inventory.attributeValues.forEach(av => {
@@ -853,7 +853,7 @@ export async function getUserOrders() {
                                     console.log(`Mapped attribute ${av.attribute.name} to ${av.attribute.displayName || av.attribute.name}`);
                                 }
                             });
-                            
+
                             // Apply the map to transform attribute keys
                             Object.entries(attributesObject).forEach(([key, value]) => {
                                 const displayKey = attributeNameMap[key] || key; // Use display name if available, otherwise keep original
@@ -866,11 +866,11 @@ export async function getUserOrders() {
                         }
                     }
                 }
-                
+
                 // If no direct attributes, try to get them from inventory
                 if (Object.keys(attributes).length === 0 && inventory?.attributeValues) {
                     console.log(`Item ${item.id} has ${inventory.attributeValues.length} attribute values`);
-                    
+
                     // Log all attribute values for debugging
                     console.log('Full attribute values for debugging:');
                     inventory.attributeValues.forEach((av, index) => {
@@ -882,7 +882,7 @@ export async function getUserOrders() {
                             rawAttribute: av.attribute
                         });
                     });
-                    
+
                     inventory.attributeValues.forEach(av => {
                         console.log(`Processing attribute value for item ${item.id}: ${JSON.stringify(av.attribute)} = ${av.value}`);
                         if (av.attribute && av.value) {
@@ -893,10 +893,10 @@ export async function getUserOrders() {
                         }
                     });
                 }
-                
+
                 // Debug: Log final attributes for each item
                 console.log(`Item ${item.id} final attributes:`, attributes);
-                
+
                 return {
                     id: item.id,
                     quantity: item.quantity,
@@ -999,20 +999,20 @@ export async function getLascoUserOrders() {
             items: order.items.map(item => {
                 // Format attributes from inventory attributeValues
                 const attributes: Record<string, string> = {};
-                
+
                 // Get inventory reference first so we can use it throughout
                 const inventory = item.inventory as unknown as InventoryWithAttributes;
-                
+
                 // First check if the order item has attributes directly
                 if (item.attributes) {
                     console.log(`Item ${item.id} has direct attributes:`, item.attributes);
-                    
+
                     // If attributes is a string (JSON), parse it
                     if (typeof item.attributes === 'string') {
                         try {
                             const parsedAttributes = JSON.parse(item.attributes);
                             console.log(`Parsed attributes for item ${item.id}:`, parsedAttributes);
-                            
+
                             // For each attribute in parsedAttributes, check if it's using internal names
                             // and attempt to convert to display names
                             Object.assign(attributes, parsedAttributes);
@@ -1022,16 +1022,16 @@ export async function getLascoUserOrders() {
                     } else {
                         // If it's already an object, use it directly
                         console.log(`Using direct attributes object for item ${item.id}:`, item.attributes);
-                        
+
                         // Convert internal attribute names to friendly names
                         // This is likely where our issue is - we need to rename keys to be display names
                         const attributesObject = item.attributes as Record<string, string>;
-                        
+
                         // IMPORTANT: Here we convert existing attributes to use pretty names
                         // Get attribute display names from inventory if available
                         if (inventory?.attributeValues) {
                             console.log(`Checking for better attribute names from inventory values`);
-                            
+
                             // Create a map of internal name -> display name
                             const attributeNameMap: Record<string, string> = {};
                             inventory.attributeValues.forEach(av => {
@@ -1040,7 +1040,7 @@ export async function getLascoUserOrders() {
                                     console.log(`Mapped attribute ${av.attribute.name} to ${av.attribute.displayName || av.attribute.name}`);
                                 }
                             });
-                            
+
                             // Apply the map to transform attribute keys
                             Object.entries(attributesObject).forEach(([key, value]) => {
                                 const displayKey = attributeNameMap[key] || key; // Use display name if available, otherwise keep original
@@ -1053,11 +1053,11 @@ export async function getLascoUserOrders() {
                         }
                     }
                 }
-                
+
                 // If no direct attributes, try to get them from inventory
                 if (Object.keys(attributes).length === 0 && inventory?.attributeValues) {
                     console.log(`Item ${item.id} has ${inventory.attributeValues.length} attribute values`);
-                    
+
                     // Log all attribute values for debugging
                     console.log('Full attribute values for debugging:');
                     inventory.attributeValues.forEach((av, index) => {
@@ -1069,7 +1069,7 @@ export async function getLascoUserOrders() {
                             rawAttribute: av.attribute
                         });
                     });
-                    
+
                     inventory.attributeValues.forEach(av => {
                         console.log(`Processing attribute value for item ${item.id}: ${JSON.stringify(av.attribute)} = ${av.value}`);
                         if (av.attribute && av.value) {
@@ -1080,10 +1080,10 @@ export async function getLascoUserOrders() {
                         }
                     });
                 }
-                
+
                 // Debug: Log final attributes for each item
                 console.log(`Item ${item.id} final attributes:`, attributes);
-                
+
                 return {
                     id: item.id,
                     quantity: item.quantity,
@@ -1127,7 +1127,7 @@ export async function getOrderById(orderId: string) {
             console.log('User not authenticated');
             return { success: false, message: 'Not authenticated', data: null };
         }
-        
+
         console.log('Authenticated user:', session.user.id);
 
         // First get the order with all required data
@@ -1203,7 +1203,7 @@ export async function getOrderById(orderId: string) {
 
         // Fetch all attribute display names for these product types to create a mapping
         let attributeDisplayNames: Record<string, string> = {};
-        
+
         if (productTypeIds.length > 0) {
             const productTypeAttributes = await prisma.productTypeAttribute.findMany({
                 where: {
@@ -1217,15 +1217,15 @@ export async function getOrderById(orderId: string) {
                     displayName: true
                 }
             });
-            
+
             console.log('Found product type attributes:', productTypeAttributes.length);
-            
+
             // Create ID -> displayName mapping
             attributeDisplayNames = productTypeAttributes.reduce((acc, attr) => {
                 acc[attr.id] = attr.displayName;
                 return acc;
             }, {} as Record<string, string>);
-            
+
             console.log('Attribute display name mapping:', attributeDisplayNames);
         }
 
@@ -1250,20 +1250,20 @@ export async function getOrderById(orderId: string) {
             items: order.items.map(item => {
                 // Format attributes from inventory attributeValues
                 const attributes: Record<string, string> = {};
-                
+
                 // Get inventory reference first so we can use it throughout
                 const inventory = item.inventory as unknown as InventoryWithAttributes;
-                
+
                 // First check if the order item has attributes directly
                 if (item.attributes) {
                     console.log(`Item ${item.id} has direct attributes:`, item.attributes);
-                    
+
                     // If attributes is a string (JSON), parse it
                     if (typeof item.attributes === 'string') {
                         try {
                             const parsedAttributes = JSON.parse(item.attributes);
                             console.log(`Parsed attributes for item ${item.id}:`, parsedAttributes);
-                            
+
                             // Convert ID keys to display names
                             Object.entries(parsedAttributes).forEach(([key, value]) => {
                                 const displayName = attributeDisplayNames[key] || key;
@@ -1276,10 +1276,10 @@ export async function getOrderById(orderId: string) {
                     } else {
                         // If it's already an object, use it directly
                         console.log(`Using direct attributes object for item ${item.id}:`, item.attributes);
-                        
+
                         // Convert internal attribute names to friendly names
                         const attributesObject = item.attributes as Record<string, string>;
-                        
+
                         // Map attribute IDs to display names
                         Object.entries(attributesObject).forEach(([key, value]) => {
                             const displayName = attributeDisplayNames[key] || key;
@@ -1288,11 +1288,11 @@ export async function getOrderById(orderId: string) {
                         });
                     }
                 }
-                
+
                 // If no direct attributes, try to get them from inventory
                 if (Object.keys(attributes).length === 0 && inventory?.attributeValues) {
                     console.log(`Item ${item.id} has ${inventory.attributeValues.length} attribute values`);
-                    
+
                     // Log all attribute values for debugging
                     console.log('Full attribute values for debugging:');
                     inventory.attributeValues.forEach((av, index) => {
@@ -1304,7 +1304,7 @@ export async function getOrderById(orderId: string) {
                             rawAttribute: av.attribute
                         });
                     });
-                    
+
                     inventory.attributeValues.forEach(av => {
                         console.log(`Processing attribute value for item ${item.id}: ${JSON.stringify(av.attribute)} = ${av.value}`);
                         if (av.attribute && av.value) {
@@ -1315,10 +1315,10 @@ export async function getOrderById(orderId: string) {
                         }
                     });
                 }
-                
+
                 // Debug: Log final attributes for each item
                 console.log(`Item ${item.id} final attributes:`, attributes);
-                
+
                 return {
                     id: item.id,
                     quantity: item.quantity,
