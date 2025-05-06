@@ -17,7 +17,7 @@ export default function UploadBasicPage() {
                 <UploadButton<OurFileRouter, "categoryImage">
                     endpoint="categoryImage"
                     onClientUploadComplete={(res) => {
-                        console.log("Files: ", res);
+                        // console.log("Files: ", res);
                         if (res?.[0]?.url) {
                             setUrl(res[0].url);
                             alert("Upload completed successfully!");
@@ -34,7 +34,7 @@ export default function UploadBasicPage() {
                 <UploadDropzone<OurFileRouter, "categoryImage">
                     endpoint="categoryImage"
                     onClientUploadComplete={(res) => {
-                        console.log("Files: ", res);
+                        // console.log("Files: ", res);
                         if (res?.[0]?.url) {
                             setUrl(res[0].url);
                             alert("Upload completed successfully!");

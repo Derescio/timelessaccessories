@@ -21,12 +21,12 @@ export default function SimpleUploadPage() {
                 <UploadButton
                     endpoint="categoryImage"
                     onBeforeUploadBegin={(files) => {
-                        console.log("Before upload:", files);
+                        // console.log("Before upload:", files);
                         setIsUploading(true);
                         return files;
                     }}
                     onClientUploadComplete={(res) => {
-                        console.log("Upload complete response:", res);
+                        //   console.log("Upload complete response:", res);
                         setIsUploading(false);
 
                         if (res && res.length > 0) {
@@ -40,17 +40,17 @@ export default function SimpleUploadPage() {
 
                             // Try all possible response formats
                             const file = res[0] as unknown as UploadResponse;
-                            console.log("Raw file object:", file);
+                            // console.log("Raw file object:", file);
 
                             // Try to extract URL
                             if (file.url) {
-                                console.log("Found URL:", file.url);
+                                //  console.log("Found URL:", file.url);
                                 setImageUrl(file.url);
                             } else if (file.fileUrl) {
-                                console.log("Found fileUrl:", file.fileUrl);
+                                //   console.log("Found fileUrl:", file.fileUrl);
                                 setImageUrl(file.fileUrl);
                             } else if (file.ufsUrl) {
-                                console.log("Found ufsUrl:", file.ufsUrl);
+                                //  console.log("Found ufsUrl:", file.ufsUrl);
                                 setImageUrl(file.ufsUrl);
                             } else {
                                 console.error("No URL in response");

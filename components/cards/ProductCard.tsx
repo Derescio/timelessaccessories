@@ -65,7 +65,7 @@ export function ProductCard({ product }: ProductCardProps) {
     // Calculate the current price, handling discounts
     const currentPrice = useMemo(() => {
         if (hasDiscount && discountPercentage && discountPercentage > 0) {
-            return Number(price) - (Number(price) * (discountPercentage / 100));
+            return Number(price);
         }
         return Number(price);
     }, [hasDiscount, discountPercentage, price]);
@@ -122,8 +122,8 @@ export function ProductCard({ product }: ProductCardProps) {
                                     <span className="font-medium">${currentPrice.toFixed(2)}</span>
                                 )}
                                 {hasDiscount && discountPercentage && (
-                                    <span className="text-sm font-medium text-green-600">
-                                        -{discountPercentage}%
+                                    <span className="text-sm font-medium text-white bg-green-400 px-1 rounded">
+                                        -{discountPercentage}% OFF
                                     </span>
                                 )}
                             </div>
@@ -153,4 +153,4 @@ export function ProductCard({ product }: ProductCardProps) {
             </div>
         </Card>
     );
-} 
+}

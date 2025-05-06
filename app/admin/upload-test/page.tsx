@@ -18,7 +18,7 @@ export default function UploadTestPage() {
                     <UploadButton
                         endpoint="categoryImage"
                         onClientUploadComplete={(res) => {
-                            console.log("Upload completed via button:", res);
+                            // console.log("Upload completed via button:", res);
                             if (res && res.length > 0) {
                                 // Define type for upload response
                                 type UploadResponse = {
@@ -30,7 +30,7 @@ export default function UploadTestPage() {
 
                                 const file = res[0] as unknown as UploadResponse;
                                 const url = file.url;
-                                console.log("URL from response:", url);
+                                // console.log("URL from response:", url);
                                 setImageUrl(url);
                                 toast.success("Image uploaded successfully via button");
                             }
@@ -47,7 +47,7 @@ export default function UploadTestPage() {
                     <UploadDropzone
                         endpoint="categoryImage"
                         onClientUploadComplete={(res) => {
-                            console.log("Upload completed via dropzone:", res);
+                            // console.log("Upload completed via dropzone:", res);
                             if (res && res.length > 0) {
                                 // Define type for upload response
                                 type UploadResponse = {
@@ -61,7 +61,7 @@ export default function UploadTestPage() {
                                 const file = res[0] as unknown as UploadResponse;
                                 // Try to access both possible properties
                                 const url = file.url || file.ufsUrl;
-                                console.log("URL from response:", url);
+                                // console.log("URL from response:", url);
                                 setImageUrl(url);
                                 toast.success("Image uploaded successfully via dropzone");
                             }

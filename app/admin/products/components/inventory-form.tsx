@@ -97,7 +97,7 @@ export function InventoryForm({ productId, inventory }: InventoryFormProps) {
             const retailPrice = form.getValues('retailPrice');
             if (retailPrice) {
                 setOriginalPrice(retailPrice);
-                console.log("Setting initial original price:", retailPrice);
+                // console.log("Setting initial original price:", retailPrice);
             }
         }
     }, [form, originalPrice]);
@@ -159,7 +159,7 @@ export function InventoryForm({ productId, inventory }: InventoryFormProps) {
             // Only update the original price when the user manually changes retail price
             const currentRetailPrice = form.getValues('retailPrice');
             if (currentRetailPrice && currentRetailPrice !== originalPrice) {
-                console.log("Updating original price from manual edit:", currentRetailPrice);
+                //  console.log("Updating original price from manual edit:", currentRetailPrice);
                 setOriginalPrice(currentRetailPrice);
             }
         }
@@ -219,8 +219,8 @@ export function InventoryForm({ productId, inventory }: InventoryFormProps) {
             setLoading(true);
 
             // Log form data to debug
-            console.log("Form data before submission:", data);
-            console.log("Images to be saved:", data.images);
+            // console.log("Form data before submission:", data);
+            // console.log("Images to be saved:", data.images);
 
             // If no SKU is provided, generate one
             if (!data.sku) {
@@ -239,7 +239,7 @@ export function InventoryForm({ productId, inventory }: InventoryFormProps) {
             };
 
             // Log the final submission data
-            console.log("Final submission data:", submissionData);
+            // console.log("Final submission data:", submissionData);
 
             // Save data using the appropriate action
             const result = isEditing

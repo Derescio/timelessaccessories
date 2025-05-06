@@ -30,19 +30,19 @@ export default function UploadThingTest() {
                             endpoint="categoryImage"
                             onClientUploadComplete={(res) => {
                                 setError(null);
-                                console.log("Upload completed:", res);
+                                //console.log("Upload completed:", res);
 
                                 // Debug output
                                 if (res && res.length > 0) {
                                     // Use type assertion for the response
                                     const file = res[0] as unknown as UploadResponse;
-                                    console.log("Response data:", file);
+                                    // console.log("Response data:", file);
 
                                     // Extract URL from response using our custom type
                                     const url = file.fileUrl || file.url;
 
                                     if (url) {
-                                        console.log("Image URL:", url);
+                                        //   console.log("Image URL:", url);
                                         setImageUrl(url);
                                     } else {
                                         console.error("No URL found in response");

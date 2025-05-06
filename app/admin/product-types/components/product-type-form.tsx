@@ -55,23 +55,23 @@ export function ProductTypeForm({ initialData, onSubmit }: ProductTypeFormProps)
     });
 
     const onSubmitForm = async (data: FormValues) => {
-        console.log("Form submission started", { loading, isSubmitting, data });
+        //console.log("Form submission started", { loading, isSubmitting, data });
 
         if (loading || isSubmitting || !mounted.current) {
-            console.log("Form submission prevented", { loading, isSubmitting, mounted: mounted.current });
+            // console.log("Form submission prevented", { loading, isSubmitting, mounted: mounted.current });
             return;
         }
 
         try {
-            console.log("Setting submission states");
+            // console.log("Setting submission states");
             setLoading(true);
             setIsSubmitting(true);
-            console.log("Calling onSubmit with data:", data);
+            //  console.log("Calling onSubmit with data:", data);
             const result = await onSubmit(data);
-            console.log("onSubmit completed successfully", result);
+            //  console.log("onSubmit completed successfully", result);
 
             if (result.success) {
-                console.log("Redirecting to product types list");
+                //   console.log("Redirecting to product types list");
                 router.push("/admin/product-types");
             }
         } catch (error) {
@@ -79,7 +79,7 @@ export function ProductTypeForm({ initialData, onSubmit }: ProductTypeFormProps)
             const errorMessage = error instanceof Error ? error.message : "Failed to save product type";
             toast.error(errorMessage);
         } finally {
-            console.log("Resetting submission states");
+            //  console.log("Resetting submission states");
             setLoading(false);
             setIsSubmitting(false);
         }
@@ -90,7 +90,7 @@ export function ProductTypeForm({ initialData, onSubmit }: ProductTypeFormProps)
             <form
                 onSubmit={(e) => {
                     e.preventDefault();
-                    console.log("Form submit event triggered");
+                    //   console.log("Form submit event triggered");
                     if (!isSubmitting) {
                         form.handleSubmit(onSubmitForm)(e);
                     }

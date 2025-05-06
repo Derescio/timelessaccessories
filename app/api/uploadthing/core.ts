@@ -8,16 +8,16 @@ export const ourFileRouter = {
   // For uploading category images
   categoryImage: f({ image: { maxFileSize: "4MB", maxFileCount: 1 } })
     .middleware(() => {
-      console.log("UploadThing middleware running");
+      // console.log("UploadThing middleware running");
       // Return an object that will be passed to onUploadComplete
       return { userId: "test-user" };
     })
     .onUploadComplete(({ metadata, file }) => {
-      console.log("Upload completed for userId:", metadata.userId);
-      console.log("File details:", file);
-      
+      //console.log("Upload completed for userId:", metadata.userId);
+      //  console.log("File details:", file);
+
       // Use ufsUrl as recommended by UploadThing for v9 compatibility
-      return { 
+      return {
         url: file.ufsUrl,  // Keep for backward compatibility
         fileUrl: file.ufsUrl // Consistent with our other components
       };
@@ -26,14 +26,14 @@ export const ourFileRouter = {
   // For uploading product images
   productImage: f({ image: { maxFileSize: "4MB", maxFileCount: 1 } })
     .middleware(() => {
-      console.log("Product image upload middleware running");
+      // console.log("Product image upload middleware running");
       return { userId: "test-user" };
     })
     .onUploadComplete(({ metadata, file }) => {
-      console.log("Product image upload completed for userId:", metadata.userId);
-      console.log("Product image details:", file);
-      
-      return { 
+      // console.log("Product image upload completed for userId:", metadata.userId);
+      // console.log("Product image details:", file);
+
+      return {
         url: file.ufsUrl,
         fileUrl: file.ufsUrl
       };

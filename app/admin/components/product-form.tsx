@@ -119,8 +119,8 @@ export function ProductForm({
 
     function onSubmit(data: ProductFormValues) {
         // Here you would call your API to create/update the product
-        console.log(data);
-        console.log("Images:", images);
+        // console.log(data);
+        //  console.log("Images:", images);
         alert("Product saved successfully!");
     }
 

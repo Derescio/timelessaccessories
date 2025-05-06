@@ -25,7 +25,7 @@
 export async function POST(request: Request) {
 
     const variable = request.headers.get('x-request-id') || '';
-    console.log(variable);
+    //console.log(variable);
 
     //   try {
     //     // log.info("Stripe payment intent request received");

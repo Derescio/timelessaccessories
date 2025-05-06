@@ -163,7 +163,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
         if (hasDiscount && discountPercentage > 0) {
             form.setValue("compareAtPrice", price);
             const discountedPrice = price - (price * (discountPercentage / 100));
-            console.log(`Applying ${discountPercentage}% discount to ${price}: ${discountedPrice}`);
+            // console.log(`Applying ${discountPercentage}% discount to ${price}: ${discountedPrice}`);
         } else {
             form.setValue("compareAtPrice", undefined);
         }
@@ -171,9 +171,9 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
 
     // Replace the fetchAttributes function with this
     const fetchAttributes = useCallback(async (productTypeId: string) => {
-        console.log("fetchAttributes called with productTypeId:", productTypeId);
+        //console.log("fetchAttributes called with productTypeId:", productTypeId);
         if (!productTypeId) {
-            console.log("No productTypeId provided, skipping attribute fetch");
+            //  console.log("No productTypeId provided, skipping attribute fetch");
             setProductTypeAttributes([]);
             return;
         }
@@ -184,8 +184,8 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
             const productUrl = `/api/product-types/${productTypeId}/attributes?for=product`;
             const inventoryUrl = `/api/product-types/${productTypeId}/attributes?for=inventory`;
 
-            console.log("Fetching product attributes from:", productUrl);
-            console.log("Fetching inventory attributes from:", inventoryUrl);
+            // console.log("Fetching product attributes from:", productUrl);
+            // console.log("Fetching inventory attributes from:", inventoryUrl);
 
             const productResponse = await fetch(productUrl);
             const inventoryResponse = await fetch(inventoryUrl);
@@ -193,15 +193,15 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
             const productResult = await productResponse.json();
             const inventoryResult = await inventoryResponse.json();
 
-            console.log("Product attributes API response:", productResult);
-            console.log("Inventory attributes API response:", inventoryResult);
+            // console.log("Product attributes API response:", productResult);
+            // console.log("Inventory attributes API response:", inventoryResult);
 
             if (productResult.success && inventoryResult.success) {
                 const combined = [
                     ...(productResult.data || []),
                     ...(inventoryResult.data || [])
                 ];
-                console.log("Combined attributes:", combined);
+                // console.log("Combined attributes:", combined);
                 setProductTypeAttributes(combined);
             } else {
                 console.error("API error:", {
@@ -221,13 +221,13 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
     // Improve the effect that watches for product type changes
     useEffect(() => {
         const productTypeId = form.watch("productTypeId");
-        console.log("Product type changed to:", productTypeId);
+        // console.log("Product type changed to:", productTypeId);
 
         if (productTypeId) {
-            console.log("Triggering attribute fetch for productTypeId:", productTypeId);
+            //   console.log("Triggering attribute fetch for productTypeId:", productTypeId);
             fetchAttributes(productTypeId);
         } else {
-            console.log("No product type selected, clearing attributes");
+            //  console.log("No product type selected, clearing attributes");
             setProductTypeAttributes([]);
         }
     }, [fetchAttributes, form, form.watch("productTypeId")]);
@@ -262,8 +262,8 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
     async function onSubmit(values: ProductFormValues) {
         try {
             setIsSubmitting(true);
-            console.log("Form values before processing:", values);
-            console.log("Attribute values before processing:", values.attributeValues);
+            // console.log("Form values before processing:", values);
+            // console.log("Attribute values before processing:", values.attributeValues);
 
             // Process attribute values to exclude those not selected for inclusion
             const rawAttributeValues = values.attributeValues || {};
@@ -283,7 +283,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                     return acc;
                 }, {} as Record<string, any>);
 
-            console.log("Inclusion flags:", inclusionFlags);
+            // console.log("Inclusion flags:", inclusionFlags);
 
             // Get all the product type attributes to identify which are for product vs inventory
             const productAttrs = productTypeAttributes.filter(attr => attr.isForProduct);
@@ -307,8 +307,8 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                 const includeKey = `include.${attributeId}`;
                 const isIncluded = values[includeKey] !== false;
 
-                console.log(`Attribute ${attributeId}: include=${isIncluded}, value=${value}`,
-                    Array.isArray(value) ? `(${value.length} options selected)` : '');
+                // console.log(`Attribute ${attributeId}: include=${isIncluded}, value=${value}`,
+                //     Array.isArray(value) ? `(${value.length} options selected)` : '');
 
                 // Only include if the attribute is selected for inclusion
                 if (isIncluded) {
@@ -328,8 +328,8 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                 }
             });
 
-            console.log("Product attribute values:", productAttributeValues);
-            console.log("Inventory attribute values (JSON):", inventoryAttributeValues);
+            // console.log("Product attribute values:", productAttributeValues);
+            // console.log("Inventory attribute values (JSON):", inventoryAttributeValues);
 
             // Convert form values to ExtendedProductFormValues with JSON inventory attributes
             const extendedValues = {
@@ -343,7 +343,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                 inventoryAttributeValues: inventoryAttributeValues
             };
 
-            console.log('Submitting product with JSON inventory attributes:', inventoryAttributeValues);
+            //console.log('Submitting product with JSON inventory attributes:', inventoryAttributeValues);
             const result = await createProductWithAttributes(extendedValues);
 
             if (!result.success) {
@@ -711,7 +711,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                         endpoint="productImage"
                         onChange={handleAddImage}
                         onClientUploadComplete={(res) => {
-                            console.log("Upload completed:", res);
+                            //console.log("Upload completed:", res);
                             const file = res[0] as { url?: string, ufsUrl?: string };
                             const imageUrl = file.ufsUrl || file.url;
 
@@ -737,9 +737,9 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
     // Attributes tab
     const AttributesTab = () => {
         const selectedProductTypeId = form.watch("productTypeId");
-        console.log("AttributesTab - Selected productTypeId:", selectedProductTypeId);
-        console.log("AttributesTab - productTypeAttributes:", productTypeAttributes);
-        console.log("AttributesTab - loadingAttributes:", loadingAttributes);
+        // console.log("AttributesTab - Selected productTypeId:", selectedProductTypeId);
+        // console.log("AttributesTab - productTypeAttributes:", productTypeAttributes);
+        // console.log("AttributesTab - loadingAttributes:", loadingAttributes);
 
         // Add functions to handle select all checkboxes
         const handleSelectAllProductAttributes = (checked: boolean) => {

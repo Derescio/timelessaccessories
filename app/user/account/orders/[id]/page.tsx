@@ -110,15 +110,15 @@ export default function OrderDetailPage() {
                     };
 
                     // Log detailed information about attributes in order items
-                    console.log('Order loaded:', orderData.id);
+                    // console.log('Order loaded:', orderData.id);
                     if (orderData.items && orderData.items.length > 0) {
-                        console.log('Order contains', orderData.items.length, 'items');
+                        //  console.log('Order contains', orderData.items.length, 'items');
 
                         orderData.items.forEach((item, index) => {
-                            console.log(`Item ${index + 1} (${item.name}):`, {
-                                specifications: item.attributes,
-                                hasSpecifications: item.attributes && Object.keys(item.attributes || {}).length > 0
-                            });
+                            // console.log(`Item ${index + 1} (${item.name}):`, {
+                            //     specifications: item.attributes,
+                            //     hasSpecifications: item.attributes && Object.keys(item.attributes || {}).length > 0
+                            // });
                         });
                     }
 
@@ -141,8 +141,8 @@ export default function OrderDetailPage() {
     // Debug: Log attributes when order changes
     useEffect(() => {
         if (order && order.items.length > 0) {
-            console.log('Order items in render:', order.items);
-            console.log('First item attributes in render:', order.items[0]?.attributes);
+            // console.log('Order items in render:', order.items);
+            // console.log('First item attributes in render:', order.items[0]?.attributes);
         }
     }, [order]);
 
