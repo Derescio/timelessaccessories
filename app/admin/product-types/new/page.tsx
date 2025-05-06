@@ -12,13 +12,13 @@ export default function NewProductTypePage() {
     async function handleCreate(data: { name: string; description?: string }) {
         "use server";
 
-        console.log("Server action handleCreate called with data:", data);
+        // console.log("Server action handleCreate called with data:", data);
 
         const result = await createProductType(data.name, data.description);
-        console.log("createProductType result:", result);
+        // console.log("createProductType result:", result);
 
         if (result.success) {
-            console.log("Product type created successfully");
+            //  console.log("Product type created successfully");
             return { success: true };
         } else {
             console.error("Failed to create product type:", result.error);

@@ -47,7 +47,7 @@ export async function getAnalytics(): Promise<GetAnalyticsResponse> {
             },
         });
 
-        console.log('Monthly Revenue:', monthlyRevenue);
+        //   console.log('Monthly Revenue:', monthlyRevenue);
 
         // Get monthly sales count
         const monthlySales = await prisma.order.groupBy({
@@ -68,7 +68,7 @@ export async function getAnalytics(): Promise<GetAnalyticsResponse> {
             },
         });
 
-        console.log('Monthly Sales:', monthlySales);
+        // console.log('Monthly Sales:', monthlySales);
 
         // Get top products by revenue
         const topProducts = await prisma.orderItem.groupBy({
@@ -91,7 +91,7 @@ export async function getAnalytics(): Promise<GetAnalyticsResponse> {
             take: 5,
         });
 
-        console.log('Top Products:', topProducts);
+        //  console.log('Top Products:', topProducts);
 
         // Get product names for top products
         const productIds = topProducts.map(p => p.productId);
@@ -107,7 +107,7 @@ export async function getAnalytics(): Promise<GetAnalyticsResponse> {
             },
         });
 
-        console.log('Products:', products);
+        //    console.log('Products:', products);
 
         // Create an array of the last 6 months
         const months = Array.from({ length: 6 }, (_, i) => {
@@ -120,7 +120,7 @@ export async function getAnalytics(): Promise<GetAnalyticsResponse> {
         const revenue = months.map(month => {
             const monthData = monthlyRevenue.filter(
                 rev => rev.createdAt.getMonth() === month.getMonth() &&
-                rev.createdAt.getFullYear() === month.getFullYear()
+                    rev.createdAt.getFullYear() === month.getFullYear()
             );
             const total = monthData.reduce((sum, rev) => sum + Number(rev._sum.total), 0);
             return {
@@ -132,7 +132,7 @@ export async function getAnalytics(): Promise<GetAnalyticsResponse> {
         const sales = months.map(month => {
             const monthData = monthlySales.filter(
                 sale => sale.createdAt.getMonth() === month.getMonth() &&
-                sale.createdAt.getFullYear() === month.getFullYear()
+                    sale.createdAt.getFullYear() === month.getFullYear()
             );
             const total = monthData.reduce((sum, sale) => sum + sale._count._all, 0);
             return {
@@ -149,11 +149,11 @@ export async function getAnalytics(): Promise<GetAnalyticsResponse> {
             };
         });
 
-        console.log('Formatted Data:', {
-            revenue,
-            sales,
-            topProducts: topProductsData,
-        });
+        // console.log('Formatted Data:', {
+        //     revenue,
+        //     sales,
+        //     topProducts: topProductsData,
+        // });
 
         return {
             success: true,

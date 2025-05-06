@@ -20,7 +20,7 @@ export async function POST(req: Request) {
             metadata: { orderId },
         });
         // Log the full response from Stripe
-        console.log("Stripe Payment Intent Response:", paymentIntent);
+        //console.log("Stripe Payment Intent Response:", paymentIntent);
 
         return NextResponse.json({ clientSecret: paymentIntent.client_secret });
     } catch (error) {
