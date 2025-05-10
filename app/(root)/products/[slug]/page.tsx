@@ -1,11 +1,13 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getProductBySlug } from '@/lib/actions/product.actions';
-import { ClientProduct } from "@/lib/types/product.types";
+import ReviewList from './review-list';
+// import { ClientProduct } from "@/lib/types/product.types";
 import { ProductGallery } from "@/components/product/product-gallery";
 import { ProductInfo } from "@/components/product/product-info";
-import { ProductReviews } from "@/components/product/product-reviews";
+// import { ProductReviews } from "@/components/product/product-reviews";
 import { Metadata } from 'next';
+import { auth } from '@/auth';
 
 type ProductPageProps = {
     params: Promise<{
@@ -37,16 +39,18 @@ export default async function ProductPage({
 }: ProductPageProps) {
     const resolvedParams = await params;
     const product = await getProductBySlug(resolvedParams.slug);
+    const session = await auth();
+    const userId = session?.user?.id;
 
     if (!product) {
         notFound();
     }
 
     // Calculate average rating and review count
-    const averageRating = product.reviews.length > 0
-        ? product.reviews.reduce((acc: number, review: { rating: number }) => acc + review.rating, 0) / product.reviews.length
-        : 0;
-    const reviewCount = product.reviews.length;
+    // const averageRating = product.reviews.length > 0
+    //     ? product.reviews.reduce((acc: number, review: { rating: number }) => acc + review.rating, 0) / product.reviews.length
+    //     : 0;
+    // const reviewCount = product.reviews.length;
 
     return (
         <div className="container mx-auto px-4 py-8">
@@ -72,11 +76,12 @@ export default async function ProductPage({
                 <ProductInfo product={product} />
             </div>
             <div className="mt-12">
-                <ProductReviews
+                {/* <ProductReviews
                     reviews={product.reviews}
                     averageRating={averageRating}
                     reviewCount={reviewCount}
-                />
+                /> */}
+                <ReviewList userId={userId ?? ''} productId={product.id} productSlug={product.slug} />
             </div>
         </div>
     );

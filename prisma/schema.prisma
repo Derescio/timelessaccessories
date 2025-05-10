@@ -42,6 +42,8 @@ model Product {
   updatedAt       DateTime                @updatedAt
   isFeatured      Boolean                 @default(false)
   productTypeId   String?
+  numReviews      Int?
+  rating          Float?
   cartItems       CartItem[]
   orderItems      OrderItem[]
   category        Category                @relation(fields: [categoryId], references: [id])
@@ -168,9 +170,9 @@ model CartItem {
   productId          String
   inventoryId        String
   quantity           Int
-  selectedAttributes Json?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
+  selectedAttributes Json?
   cart               Cart             @relation(fields: [cartId], references: [id], onDelete: Cascade)
   inventory          ProductInventory @relation(fields: [inventoryId], references: [id])
   product            Product          @relation(fields: [productId], references: [id])
@@ -188,7 +190,7 @@ model Review {
   content    String
   userId     String
   productId  String
-  isVerified Boolean  @default(false)
+  isVerified Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)

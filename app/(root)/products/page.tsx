@@ -60,6 +60,8 @@ function ProductsPageContent() {
                     inventory: firstInventory.quantity || 0,
                     createdAt: rawProduct.createdAt,
                     updatedAt: rawProduct.updatedAt,
+                    numReviews: rawProduct.numReviews || 0,
+                    rating: rawProduct.rating || 0,
                     compareAtPrice: firstInventory.compareAtPrice ? Number(firstInventory.compareAtPrice) : null,
                     discountPercentage: firstInventory.discountPercentage,
                     hasDiscount: firstInventory.hasDiscount || false,

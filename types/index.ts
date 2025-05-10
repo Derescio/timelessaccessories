@@ -114,8 +114,10 @@ export interface ProductCardProduct {
         name: string;
         slug: string;
     };
-    averageRating: number | null;
-    reviewCount: number;
+    // averageRating: number | null;
+    // reviewCount: number;
+    rating: number;
+    numReviews: number;
     inventorySku?: string | null;
     sku?: string | null;
     quantity?: number;

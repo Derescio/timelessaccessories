@@ -13,6 +13,7 @@ import { getAttributeNamesByIds } from "@/lib/actions/product.actions";
 import AddToCartButton from "@/components/products/AddToCartButton";
 import { toast } from "sonner";
 import { updateCartItem, getCart, removeFromCart } from "@/lib/actions/cart.actions";
+import Rating from "../rating";
 
 // Categories that should display attributes as read-only information
 // rather than as selectable options
@@ -105,13 +106,13 @@ export function ProductInfo({ product }: ProductInfoProps) {
                         const isMatch = item.productId === product.id &&
                             item.inventoryId === selectedInventory.id;
 
-                        console.log('Comparing:', {
-                            itemProductId: item.productId,
-                            productId: product.id,
-                            itemInventoryId: item.inventoryId,
-                            selectedInventoryId: selectedInventory.id,
-                            isMatch
-                        });
+                        // console.log('Comparing:', {
+                        //     itemProductId: item.productId,
+                        //     productId: product.id,
+                        //     itemInventoryId: item.inventoryId,
+                        //     selectedInventoryId: selectedInventory.id,
+                        //     isMatch
+                        // });
 
                         return isMatch;
                     });
@@ -378,6 +379,8 @@ export function ProductInfo({ product }: ProductInfoProps) {
                     </Badge>
                 )}
             </div>
+            <Rating value={product.rating ?? 0} />
+            <span className="text-sm text-muted-foreground font-semibold">Reviews: ({product.numReviews})</span>
 
             {/* Attribute Display or Selection */}
             {!isReadOnlyAttributes ? (

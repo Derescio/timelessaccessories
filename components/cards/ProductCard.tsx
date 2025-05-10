@@ -9,6 +9,7 @@ import { useMemo, useState, useEffect } from "react";
 import { toggleWishlist, getWishlistStatus } from "@/lib/actions/wishlist.actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Rating from "../rating";
 
 interface ProductCardProps {
     product: ProductCardProduct;
@@ -29,8 +30,10 @@ export function ProductCard({ product }: ProductCardProps) {
         mainImage,
         slug,
         category,
-        averageRating,
-        reviewCount,
+        // averageRating,
+        // reviewCount,
+        rating,
+        numReviews,
     } = product;
 
     useEffect(() => {
@@ -128,13 +131,9 @@ export function ProductCard({ product }: ProductCardProps) {
                                 )}
                             </div>
                         </div>
-                        {averageRating !== null && (
-                            <div className="mt-2 flex items-center gap-1">
-                                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                                <span className="text-sm font-medium">{averageRating.toFixed(1)}</span>
-                                <span className="text-sm text-muted-foreground">({reviewCount})</span>
-                            </div>
-                        )}
+
+                        <Rating value={rating ?? 0} />
+                        <span className="text-sm text-muted-foreground font-semibold">Reviews: ({product.numReviews})</span>
                     </CardContent>
                 </Link>
                 <div className="px-4 pb-4">

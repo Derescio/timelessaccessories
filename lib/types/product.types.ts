@@ -74,6 +74,10 @@ export interface ProductListItem {
   name: string;
   slug: string;
   isActive: boolean;
+  // averageRating: number | null;
+  // reviewCount: number;
+  numReviews: number;
+  rating: number;
   category: {
     name: string;
   } | null;
@@ -133,6 +137,7 @@ export interface ClientProduct {
     inventory: number;
     createdAt: Date;
     updatedAt: Date;
+    rating: number;
     compareAtPrice: number | null;
     discountPercentage: number | null;
     hasDiscount: boolean;
@@ -157,7 +162,8 @@ export interface ClientProduct {
     }[];
     mainImage?: string;
     averageRating?: number | null;
-    reviewCount?: number;
+    // reviewCount?: number;
+    numReviews: number;
     inventories: {
         id: string;
         retailPrice: number;
@@ -170,7 +176,7 @@ export interface ClientProduct {
         sku: string;
         attributes?: Record<string, string> | null;
     }[];
-    reviews: {
-        rating: number;
-    }[];
+    // reviews: {
+    //     rating: number;
+    // }[];
 } 

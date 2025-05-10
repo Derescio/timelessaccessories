@@ -50,10 +50,10 @@ export function ProductCard({ product }: ProductCardProps) {
                                 </span>
                             )}
                         </div>
-                        {product.reviewCount > 0 && (
+                        {product.numReviews > 0 && (
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                                 <Star className="h-4 w-4 fill-primary text-primary" />
-                                <span>{product.reviewCount}</span>
+                                <span>{product.numReviews}</span>
                             </div>
                         )}
                     </div>
