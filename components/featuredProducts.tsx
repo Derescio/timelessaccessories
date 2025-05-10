@@ -28,8 +28,10 @@ export default async function FeaturedProducts() {
             name: product.category.name,
             slug: product.category.slug,
         },
-        averageRating: product.averageRating || null,
-        reviewCount: product.reviewCount || 0,
+        // averageRating: product.averageRating || null,
+        // reviewCount: product.reviewCount || 0,
+        rating: product.averageRating ?? 0,      // <-- map averageRating to rating
+        numReviews: product.reviewCount ?? 0,
         inventorySku: null,
         quantity: product.quantity || 0
     }));

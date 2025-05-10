@@ -1,11 +1,12 @@
 import Image from "next/image";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Star, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { ClientProduct } from "@/lib/types/product.types";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import Rating from "../rating";
 
 interface ProductCardProps {
     product: ClientProduct;
@@ -20,7 +21,9 @@ export function ProductCard({ product }: ProductCardProps) {
         inventories,
         mainImage,
         averageRating,
-        reviewCount,
+        // reviewCount,
+        // numReviews,
+        rating,
         price,
         compareAtPrice,
         hasDiscount,
@@ -98,13 +101,16 @@ export function ProductCard({ product }: ProductCardProps) {
                                 )}
                             </div>
 
-                            {averageRating !== null && (
+                            {/* {averageRating !== null && (
                                 <div className="flex items-center gap-1">
                                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                                     <span className="text-sm font-medium">{averageRating?.toFixed(1)}</span>
                                 </div>
-                            )}
+                            )} */}
+
                         </div>
+                        <Rating value={rating ?? 0} />
+                        <span className="text-sm text-muted-foreground font-semibold">Reviews: ({product.numReviews})</span>
                     </CardContent>
                 </Link>
 

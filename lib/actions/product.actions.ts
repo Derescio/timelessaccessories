@@ -186,10 +186,8 @@ export async function getProductBySlug(slug: string): Promise<ClientProduct | nu
         position: index,
       })) || [],
       mainImage: defaultInventory?.images[0] || undefined,
-      averageRating: productData.reviews.length > 0
-        ? productData.reviews.reduce((acc, review) => acc + review.rating, 0) / productData.reviews.length
-        : null,
-      reviewCount: productData.reviews.length,
+      rating: productData.rating ?? 0,
+      numReviews: productData.numReviews ?? 0,
       inventories: productData.inventories.map(inv => ({
         id: inv.id,
         retailPrice: Number(inv.retailPrice),
@@ -202,9 +200,9 @@ export async function getProductBySlug(slug: string): Promise<ClientProduct | nu
         sku: inv.sku,
         attributes: inv.attributes as Record<string, string> || {},
       })),
-      reviews: productData.reviews.map(review => ({
-        rating: review.rating,
-      })),
+      // reviews: productData.reviews.map(review => ({
+      //   rating: review.rating,
+      // })),
     };
 
     return transformedProduct;

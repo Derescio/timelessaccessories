@@ -10,5 +10,9 @@ export const metadata: Metadata = {
 export default async function ProductsPage() {
     const { success, data: products = [], error } = await getProducts();
 
-    return <ProductClient initialProducts={products} success={success} error={error} />;
+    return <ProductClient initialProducts={products.map(p => ({
+        ...p,
+        numReviews: p.numReviews ?? 0,
+        rating: p.rating ?? 0,
+    }))} success={success} error={error} />;
 } 

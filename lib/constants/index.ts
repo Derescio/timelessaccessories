@@ -48,6 +48,7 @@ export const productDefaultValues = {
 
 //User Roles
 export const USER_ROLES = process.env.USER_ROLES ? process.env.USER_ROLES.split(', ') : ['user', 'admin', 'root'];
+
 export const reviewFormDefaultValues = {
     title: '',
     comment: '',
@@ -64,3 +65,4 @@ export const SENDER_EMAIL = process.env.SENDER_EMAIL || 'onboarding@resend.dev';
 //   ];
   
 //   export const SERVER_URL = process.env.SERVER_URL || "http://localhost:3000"; 
+
