@@ -146,3 +146,16 @@ html.dark .upload-field .text-white {
 .upload-field .text-white {
   color: #000 !important;
 }
+.embla {
+  width: 100%;
+  height: 100%;
+}
+.embla__container {
+  display: flex;
+  height: 100%;
+}
+.embla__slide {
+  position: relative;
+  min-width: 100%;
+  height: 100%;
+}
