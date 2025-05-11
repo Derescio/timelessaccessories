@@ -9,6 +9,7 @@ const connectionString = `${process.env.DATABASE_URL}`;
 
 // Connection pool setup
 const pool = new Pool({ connectionString });
+// @ts-expect-error - Pool type from @neondatabase/serverless is compatible with PrismaNeon
 const adapter = new PrismaNeon(pool);
 
 // Extended PrismaClient with price transformations

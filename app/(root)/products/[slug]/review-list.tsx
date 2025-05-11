@@ -52,7 +52,7 @@ const ReviewList = ({ userId, productId, productSlug }
                 ) : hasPurchased ? (
                     <ReviewForm userId={userId} productId={productId} onReviewSubmitted={reload} />
                 ) : (
-                    <div className="text-yellow-600">
+                    <div className="text-green-600 font-light text-">
                         Only verified purchasers can leave reviews for this product.
                     </div>
                 )
