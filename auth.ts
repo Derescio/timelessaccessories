@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { prisma } from '@/lib/db/config';
+import { db } from '@/lib/db';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import type { NextAuthConfig } from 'next-auth';
 import { NextResponse } from 'next/server';
@@ -20,7 +21,8 @@ export const config = {
         maxAge: 30 * 24 * 60 * 60,
         // maxAge: 60,
     },
-    adapter: PrismaAdapter(prisma),
+    adapter: PrismaAdapter(db),
+   
 
     providers: [
         GoogleProvider({
@@ -44,7 +46,7 @@ export const config = {
             async authorize(credentials) {
                 if (credentials == null) return null
                 // Find user in database
-                const user = await prisma.user.findFirst({
+                const user = await db.user.findFirst({
                     where: {
                         email: credentials.email as string,
                     }
@@ -88,11 +90,11 @@ export const config = {
                 // Assign user properties to the token
                 //token.id = user.id;
                 token.role = user.role;
-                console.log(user)
+               console.log(user)
                 if (trigger === 'signIn' || trigger === 'signUp') {
                     const cookiesObject = await cookies();
                     const sessionCartId = cookiesObject.get('sessionCartId')?.value;
-                    console.log(sessionCartId)
+                   // console.log(sessionCartId)
 
                     // if (sessionCartId) {
                     //     const sessionCart = await prisma.cart.findFirst({

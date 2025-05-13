@@ -20,7 +20,7 @@ export async function addInventory(data: ProductInventoryFormValues) {
     }
     
     // Debug logging for images
-    console.log("Received images for new inventory:", data.images);
+    //console.log("Received images for new inventory:", data.images);
     
     // Check if product exists
     const product = await db.product.findUnique({
@@ -62,14 +62,14 @@ export async function addInventory(data: ProductInventoryFormValues) {
       images: Array.isArray(data.images) ? data.images : [], // Ensure images is an array
     };
     
-    console.log("Processed inventory data before saving:", inventoryData);
+    //console.log("Processed inventory data before saving:", inventoryData);
     
     // Create new inventory item
     const inventory = await db.productInventory.create({
       data: inventoryData
     });
     
-    console.log("Created inventory with images:", inventory.images);
+    //console.log("Created inventory with images:", inventory.images);
     
     revalidatePath(`/admin/products/${data.productId}`);
     revalidatePath("/admin/products");
@@ -92,7 +92,7 @@ export async function updateInventory(data: ProductInventoryFormValues) {
     }
     
     // Debug logging for images
-    console.log("Received images for inventory update:", data.images);
+    //console.log("Received images for inventory update:", data.images);
     
     if (!data.id) {
       return { success: false, error: "Inventory ID is required" };
@@ -143,7 +143,7 @@ export async function updateInventory(data: ProductInventoryFormValues) {
       images: Array.isArray(data.images) ? data.images : [], // Ensure images is an array
     };
     
-    console.log("Processed inventory data before updating:", inventoryData);
+    //console.log("Processed inventory data before updating:", inventoryData);
     
     // Update inventory
     const updatedInventory = await db.productInventory.update({
@@ -151,7 +151,7 @@ export async function updateInventory(data: ProductInventoryFormValues) {
       data: inventoryData
     });
     
-    console.log("Updated inventory with images:", updatedInventory.images);
+   // console.log("Updated inventory with images:", updatedInventory.images);
     
     // Convert Decimal values to numbers in the response
     const transformedInventory = {

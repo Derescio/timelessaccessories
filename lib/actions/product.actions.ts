@@ -547,7 +547,7 @@ export async function createProductWithAttributes(data: ExtendedProductFormValue
             }
         });
 
-        console.log("Product created:", product);
+       // console.log("Product created:", product);
         return { success: true, data: product };
     } catch (error) {
         console.error("Error creating product:", error);

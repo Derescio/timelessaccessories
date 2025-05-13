@@ -12,7 +12,7 @@ import { z } from 'zod';
 // import { getCart } from './cart.actions';
 import { Role, Prisma, User } from "@prisma/client";
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
-// import { db } from "@/lib/db"
+import { db } from "@/lib/db"
 // import type { ShippingAddress } from '@/types';
 // import { updateUserProfileSchema } from '@/lib/validators';
 
@@ -112,7 +112,7 @@ export async function signUp(prevState: unknown, formData: FormData) {
 
         // user.password = hashSync(user.password, 10);
         user.password = hashSync(user.password, 10);
-        await prisma.user.create({
+        await db.user.create({
             data: {
                 name: user.name,
                 email: user.email,
@@ -152,7 +152,7 @@ interface GetUserByIdResponse {
 
 export async function getUserById(id: string): Promise<GetUserByIdResponse> {
     try {
-        const user = await prisma.user.findUnique({
+        const user = await db.user.findUnique({
             where: { id },
             include: {
                 _count: {
@@ -227,7 +227,7 @@ export async function getUserById(id: string): Promise<GetUserByIdResponse> {
 export async function getUserAddress() {
     const session = await auth();
     const currentUser = session?.user.id;
-    const address = await prisma.address.findFirst({
+    const address = await db.address.findFirst({
         where: {
             userId: currentUser,
             isUserManaged: true,
@@ -324,6 +324,7 @@ export async function getUserAddress() {
 // }
 
 // Get All Users
+
 interface GetUsersParams {
     page?: number;
     limit?: number;
@@ -364,10 +365,10 @@ export async function getUsers({
         };
 
         // Get total count
-        const total = await prisma.user.count({ where });
+        const total = await db.user.count({ where });
 
         // Get users with related data
-        const users = await prisma.user.findMany({
+        const users = await db.user.findMany({
             where,
             include: {
                 _count: {
@@ -443,7 +444,7 @@ export async function updateUserRole({
     role,
 }: UpdateUserRoleParams): Promise<UpdateUserRoleResponse> {
     try {
-        const user = await prisma.user.update({
+        const user = await db.user.update({
             where: { id },
             data: { role },
             include: {
@@ -515,7 +516,7 @@ interface DeleteUserResponse {
 
 export async function deleteUser(id: string): Promise<DeleteUserResponse> {
     try {
-        await prisma.user.delete({
+        await db.user.delete({
             where: { id },
         });
 
@@ -567,7 +568,7 @@ export async function getUserProfile() {
         const session = await auth();
         if (!session?.user?.id) return null;
 
-        const user = await prisma.user.findUnique({
+        const user = await db.user.findUnique({
             where: { id: session.user.id },
             select: {
                 id: true,
@@ -626,7 +627,7 @@ export async function updateProfile(data: z.infer<typeof updateUserSchema>) {
         if (!session?.user?.id) {
             return { success: false, message: 'Not authenticated' };
         }
-        const currentUser = await prisma.user.findUnique({
+        const currentUser = await db.user.findUnique({
             where: { id: session?.user?.id },
             // select: {
             //     name: true,
@@ -641,7 +642,7 @@ export async function updateProfile(data: z.infer<typeof updateUserSchema>) {
         const validatedData = updateUserSchema.parse(data);
         // console.log('validatedData', validatedData)
 
-        await prisma.user.update({
+        await db.user.update({
             where: { id: currentUser.id },
             data: {
                 name: validatedData.name,
@@ -673,7 +674,7 @@ export async function changePassword(data: z.infer<typeof changePasswordSchema>)
         const validatedData = changePasswordSchema.parse(data);
 
         // Get current user with password
-        const user = await prisma.user.findUnique({
+        const user = await db.user.findUnique({
             where: { id: session.user.id },
             select: { password: true }
         });
@@ -690,7 +691,7 @@ export async function changePassword(data: z.infer<typeof changePasswordSchema>)
 
         // Hash new password and update
         const hashedPassword = hashSync(validatedData?.newPassword || '', 10);
-        await prisma.user.update({
+        await db.user.update({
             where: { id: session.user.id },
             data: { password: hashedPassword }
         });
@@ -724,7 +725,7 @@ export async function getUserAddresses() {
 
         // Only get addresses that were explicitly created in the address management UI
         // or have been specifically marked as user-managed
-        const addresses = await prisma.address.findMany({
+        const addresses = await db.address.findMany({
             where: {
                 userId,
                 isUserManaged: true // Only get addresses explicitly managed by the user
@@ -747,7 +748,7 @@ export async function getUserOrders() {
         const session = await auth();
         if (!session?.user?.id) return [];
 
-        const orders = await prisma.order.findMany({
+        const orders = await db.order.findMany({
             where: {
                 userId: session.user.id,
                 payment: {
@@ -934,7 +935,7 @@ export async function getLascoUserOrders() {
         const session = await auth();
         if (!session?.user?.id) return [];
 
-        const orders = await prisma.order.findMany({
+        const orders = await db.order.findMany({
             where: {
                 userId: session.user.id,
                 payment: {
@@ -1131,7 +1132,7 @@ export async function getOrderById(orderId: string) {
         console.log('Authenticated user:', session.user.id);
 
         // First get the order with all required data
-        const order = await prisma.order.findUnique({
+        const order = await db.order.findUnique({
             where: {
                 id: orderId,
                 userId: session.user.id // Ensure order belongs to current user
@@ -1205,7 +1206,7 @@ export async function getOrderById(orderId: string) {
         let attributeDisplayNames: Record<string, string> = {};
 
         if (productTypeIds.length > 0) {
-            const productTypeAttributes = await prisma.productTypeAttribute.findMany({
+            const productTypeAttributes = await db.productTypeAttribute.findMany({
                 where: {
                     productTypeId: {
                         in: productTypeIds
@@ -1439,7 +1440,7 @@ export async function createOrUpdateUserAddress(addressData: {
         console.log("Creating/updating address for user:", userId, "with data:", addressData);
 
         // Check if user already has an address with same data to avoid duplicates
-        const existingAddresses = await prisma.address.findMany({
+        const existingAddresses = await db.address.findMany({
             where: {
                 userId,
                 street: addressData.street,
@@ -1455,7 +1456,7 @@ export async function createOrUpdateUserAddress(addressData: {
 
         if (existingAddresses.length > 0) {
             // Update the first matching address
-            address = await prisma.address.update({
+            address = await db.address.update({
                 where: { id: existingAddresses[0].id },
                 data: {
                     street: addressData.street,
@@ -1472,7 +1473,7 @@ export async function createOrUpdateUserAddress(addressData: {
             console.log("Updated existing address:", address.id);
         } else {
             // Create a new address
-            address = await prisma.address.create({
+            address = await db.address.create({
                 data: {
                     userId,
                     street: addressData.street,
@@ -1512,7 +1513,7 @@ export async function getUserPrimaryAddress() {
 
         const userId = session.user.id;
 
-        const address = await prisma.address.findFirst({
+        const address = await db.address.findFirst({
             where: { userId },
             orderBy: { createdAt: 'desc' },
         });
@@ -1541,7 +1542,7 @@ export async function addUserAddress(addressData: {
 
         const userId = session.user.id;
 
-        const address = await prisma.address.create({
+        const address = await db.address.create({
             data: {
                 userId,
                 street: addressData.street,
@@ -1583,7 +1584,7 @@ export async function updateUserAddress(addressId: string, addressData: {
         }
 
         // Check if address belongs to user
-        const existingAddress = await prisma.address.findFirst({
+        const existingAddress = await db.address.findFirst({
             where: {
                 id: addressId,
                 userId: session.user.id
@@ -1594,7 +1595,7 @@ export async function updateUserAddress(addressId: string, addressData: {
             return { success: false, message: "Address not found or does not belong to you" };
         }
 
-        const address = await prisma.address.update({
+        const address = await db.address.update({
             where: { id: addressId },
             data: {
                 street: addressData.street,
@@ -1633,7 +1634,7 @@ export async function deleteUserAddress(addressId: string) {
         const userId = session.user.id;
 
         // Verify the address belongs to the user
-        const existingAddress = await prisma.address.findFirst({
+        const existingAddress = await db.address.findFirst({
             where: {
                 id: addressId,
                 userId
@@ -1644,7 +1645,7 @@ export async function deleteUserAddress(addressId: string) {
             return { success: false, message: "Address not found" };
         }
 
-        await prisma.address.delete({
+        await db.address.delete({
             where: { id: addressId }
         });
 
@@ -1669,7 +1670,7 @@ export async function getUserWishlist() {
             return [];
         }
 
-        const wishlistItems = await prisma.productWishlist.findMany({
+        const wishlistItems = await db.productWishlist.findMany({
             where: { userId: session.user.id },
             include: {
                 product: {
@@ -1729,7 +1730,7 @@ export async function addToWishlist(productId: string) {
         }
 
         // Check if product exists
-        const product = await prisma.product.findUnique({
+        const product = await db.product.findUnique({
             where: { id: productId }
         });
 
@@ -1738,12 +1739,12 @@ export async function addToWishlist(productId: string) {
         }
 
         // Get or create wishlist
-        let wishlist = await prisma.wishlist.findUnique({
+        let wishlist = await db.wishlist.findUnique({
             where: { userId: session.user.id }
         });
 
         if (!wishlist) {
-            wishlist = await prisma.wishlist.create({
+            wishlist = await db.wishlist.create({
                 data: {
                     userId: session.user.id
                 }
@@ -1751,7 +1752,7 @@ export async function addToWishlist(productId: string) {
         }
 
         // Check if item is already in wishlist
-        const existingItem = await prisma.wishlistItem.findFirst({
+        const existingItem = await db.wishlistItem.findFirst({
             where: {
                 wishlistId: wishlist.id,
                 productId
@@ -1763,7 +1764,7 @@ export async function addToWishlist(productId: string) {
         }
 
         // Add item to wishlist
-        await prisma.wishlistItem.create({
+        await db.wishlistItem.create({
             data: {
                 id: crypto.randomUUID(),
                 wishlistId: wishlist.id,
@@ -1787,7 +1788,7 @@ export async function removeFromWishlist(wishlistItemId: string) {
         }
 
         // Verify the item belongs to the user's wishlist
-        const item = await prisma.wishlistItem.findUnique({
+        const item = await db.wishlistItem.findUnique({
             where: { id: wishlistItemId },
             include: {
                 Wishlist: true
@@ -1803,7 +1804,7 @@ export async function removeFromWishlist(wishlistItemId: string) {
         }
 
         // Remove the item
-        await prisma.wishlistItem.delete({
+        await db.wishlistItem.delete({
             where: { id: wishlistItemId }
         });
 
@@ -1820,13 +1821,13 @@ export async function isInWishlist(productId: string) {
         const session = await auth();
         if (!session?.user?.id) return false;
 
-        const wishlist = await prisma.wishlist.findUnique({
+        const wishlist = await db.wishlist.findUnique({
             where: { userId: session.user.id }
         });
 
         if (!wishlist) return false;
 
-        const item = await prisma.wishlistItem.findFirst({
+        const item = await db.wishlistItem.findFirst({
             where: {
                 wishlistId: wishlist.id,
                 productId
@@ -1850,7 +1851,7 @@ export async function markAddressAsUserManaged(addressId: string) {
         }
 
         // Check if address belongs to user
-        const existingAddress = await prisma.address.findFirst({
+        const existingAddress = await db.address.findFirst({
             where: {
                 id: addressId,
                 userId: session.user.id
@@ -1862,7 +1863,7 @@ export async function markAddressAsUserManaged(addressId: string) {
         }
 
         // Update address to mark as user-managed
-        const address = await prisma.address.update({
+        const address = await db.address.update({
             where: { id: addressId },
             data: {
                 isUserManaged: true,
