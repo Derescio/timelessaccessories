@@ -19,8 +19,9 @@ export function CategoryCard({ title, href, imageUrl, description }: CategoryCar
                         alt={title}
                         fill
                         className="object-cover"
-                        sizes="(max-width: 768px) 99vw, (max-width: 1200px) 50vw, 33vw"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     />
+
                 </div>
                 <CardContent className="p-4">
                     <h3 className="text-lg font-semibold">{title}</h3>

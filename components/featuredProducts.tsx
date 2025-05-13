@@ -5,7 +5,7 @@ import { ProductCardProduct } from "@/types";
 export default async function FeaturedProducts() {
     // Fetch featured products
     const products = await getFeaturedProducts(8);
-    console.log(products)
+    //console.log(products)
 
     // Convert to ProductCardProduct type which is what the ProductCard component expects
     const formattedProducts: ProductCardProduct[] = products.map(product => ({

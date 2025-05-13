@@ -358,7 +358,7 @@ export default function ShippingPage() {
                             country: formData.parish || "",
                             isUserManaged: true // Explicitly mark as not user-managed so it won't appear in address book
                         });
-                        console.log("Address save response:", addressResult);
+                        //  console.log("Address save response:", addressResult);
                     } catch (addressError) {
                         console.error("Error saving address:", addressError);
                         // Continue with order creation even if address save fails
@@ -449,7 +449,7 @@ export default function ShippingPage() {
                         country: formData.parish || "",
                         isUserManaged: true // Explicitly mark as not user-managed so it won't appear in address book
                     });
-                    console.log("Address save response:", addressResult);
+                    //  console.log("Address save response:", addressResult);
                 } catch (addressError) {
                     console.error("Error saving address:", addressError);
                     // Continue with order creation even if address save fails

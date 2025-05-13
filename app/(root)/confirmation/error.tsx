@@ -13,7 +13,7 @@ export default function ErrorBoundary({
 }) {
     useEffect(() => {
         // Log the error to console for debugging
-        console.error('Confirmation page error:', error);
+        //console.error('Confirmation page error:', error);
 
         // Specifically look for PayPal-related errors
         const isPayPalError = error.message?.includes('paypal') ||
