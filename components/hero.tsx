@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import useEmblaCarousel from 'embla-carousel-react';
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 
 const heroImages = [
     'https://z8rvk24gry.ufs.sh/f/wfxchweshiC13XlZMTi0DVEWUspmG9b75qKzROFPY3QhjCJ8',
