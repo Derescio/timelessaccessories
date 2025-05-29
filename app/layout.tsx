@@ -38,16 +38,16 @@ export default function RootLayout({
         className={`${poppins.variable} ${poppins.variable} antialiased`}
       >
         <SessionProvider>
-          <ThemeProvider
+          {/* <ThemeProvider
             attribute="class"
-            defaultTheme="light"
+            defaultTheme="system"
             enableSystem
             disableTransitionOnChange
-          >
+          > */}
 
-            {children}
-            <Toaster richColors position="top-center" />
-          </ThemeProvider>
+          {children}
+          <Toaster richColors position="top-center" />
+          {/* </ThemeProvider> */}
         </SessionProvider>
       </body>
     </html>

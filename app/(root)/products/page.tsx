@@ -10,7 +10,7 @@ import { useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type ClientProduct } from "@/lib/types/product.types";
 
-const DEFAULT_PER_PAGE = 5;
+const DEFAULT_PER_PAGE = 8;
 
 function ProductSkeleton() {
     return (
@@ -29,14 +29,20 @@ function ProductSkeleton() {
 function ProductsPageContent() {
     const searchParams = useSearchParams();
     const categoryId = searchParams.get('category');
+    const urlSearchQuery = searchParams.get('search') || "";
 
     const [products, setProducts] = useState<ClientProduct[]>([]);
     const [filteredProducts, setFilteredProducts] = useState<ClientProduct[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [perPage, setPerPage] = useState(DEFAULT_PER_PAGE);
-    const [searchQuery, setSearchQuery] = useState("");
+    const [searchQuery, setSearchQuery] = useState(urlSearchQuery);
     const [sortOrder, setSortOrder] = useState("name_asc");
     const [isLoading, setIsLoading] = useState(true);
+
+    // Update search query when URL search parameter changes
+    useEffect(() => {
+        setSearchQuery(urlSearchQuery);
+    }, [urlSearchQuery]);
 
     const fetchProducts = useCallback(async () => {
         setIsLoading(true);
@@ -174,7 +180,7 @@ function ProductsPageContent() {
     return (
         <main className="flex flex-col gap-6 max-w-6xl mx-auto px-4 py-10">
             <div className="flex flex-col gap-4">
-                <h1 className="text-3xl font-bold">
+                <h1 className="text-3xl font-bold text-black">
                     {categoryId && currentProducts.length > 0
                         ? `${currentProducts[0]?.category.name || 'Category'} Products`
                         : 'All Products'

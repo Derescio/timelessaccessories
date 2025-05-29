@@ -29,7 +29,7 @@ const Hero = () => {
 
 
     return (
-        <section className="relative min-h-[80vh] flex items-center justify-center mt-8">
+        <section className="relative min-h-[80vh] flex items-center justify-center mt-0.5">
             {/* Embla Carousel */}
             <div className="absolute inset-0 overflow-hidden">
                 <div ref={emblaRef} className="embla h-full">
