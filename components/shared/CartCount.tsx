@@ -49,11 +49,11 @@ export default function CartCount() {
     //console.log('CartCount rendering with count:', itemCount);
 
     return (
-        <Button variant="ghost" size="icon" className="relative" asChild>
+        <Button variant='outline' size="icon" className="relative text-black" asChild>
             <Link href="/cart">
                 <ShoppingCart className="h-5 w-5" />
                 {!isLoading && itemCount > 0 && (
-                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-[11px] font-medium text-primary-foreground flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-orange-300 text-[11px] font-medium text-primary-foreground flex items-center justify-center">
                         {itemCount > 99 ? '99+' : itemCount}
                     </span>
                 )}

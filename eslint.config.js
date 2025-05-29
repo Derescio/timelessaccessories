@@ -8,6 +8,7 @@ module.exports = {
     "public/**",
     "**/*.config.js",
     "**/*.config.ts",
+    "components/payment/temp/**",
   ],
   // ... rest of the config
 };
