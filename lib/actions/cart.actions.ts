@@ -18,39 +18,88 @@ import crypto from 'crypto';
  * Get the current user's cart or create a guest cart
  */
 export async function getCart() {
-  const sessionCartId = (await cookies()).get('sessionCartId')?.value;
-  if (!sessionCartId) {
-    throw new Error('Session cart id not found');
-  }
-  //Get Seesion cart id as well as user id
-  const session = await auth();
-  //Get the user id from the session and display undefined instead of an error if it isnt found
-  const userId = session?.user?.id ? (session.user.id as string) : undefined;
-  //Get Cart items from the database
-  const cart = await prisma.cart.findFirst({
-    where: userId ? { userId: userId } : { sessionId: sessionCartId },
-    include: {
-      items: {
-        include: {
-          product: true,
-          inventory: true,
-        },
-      },
-    },
-  })
-  if (!cart || !cart.items) return undefined
+  try {
+    const session = await auth();
+    const userId = session?.user?.id;
 
-  if (cart) {
-    //revalidatePath('/cart');
-    return formatCartResponse(cart);
+    console.log('🛒 getCart - User ID:', userId || 'Guest');
+
+    // Find cart based on user authentication status
+    let cart;
+    if (userId) {
+      // For authenticated users, find by userId
+      cart = await prisma.cart.findFirst({
+        where: { userId: userId },
+        include: {
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                }
+              },
+              inventory: {
+                select: {
+                  id: true,
+                  sku: true,
+                  retailPrice: true,
+                  images: true,
+                }
+              }
+            }
+          }
+        }
+      });
+      console.log('🛒 getCart - Found user cart:', !!cart, 'Items:', cart?.items.length || 0);
+    } else {
+      // For guests, find by sessionId
+      const cookieStore = await cookies();
+      const sessionCartId = cookieStore.get('sessionCartId')?.value;
+      
+      console.log('🛒 getCart - Session Cart ID:', sessionCartId);
+
+      if (sessionCartId) {
+        cart = await prisma.cart.findFirst({
+          where: { sessionId: sessionCartId },
+          include: {
+            items: {
+              include: {
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                  }
+                },
+                inventory: {
+                  select: {
+                    id: true,
+                    sku: true,
+                    retailPrice: true,
+                    images: true,
+                  }
+                }
+              }
+            }
+          }
+        });
+        console.log('🛒 getCart - Found session cart:', !!cart, 'Items:', cart?.items.length || 0);
+      } else {
+        console.log('🛒 getCart - No session cart ID found');
+      }
+    }
+
+    if (cart) {
+      //revalidatePath('/cart');
+      return formatCartResponse(cart);
+    }
+  } catch (error) {
+    console.error('Error getting cart:', error);
+    return undefined;
   }
 }
-
-
-
-
-// For guests or users without a cart, check for session ID
-
 
 /**
  * Add an item to the cart
@@ -577,7 +626,6 @@ function formatCartItemResponse(item: Record<string, unknown>): CartItemDetails 
     maxQuantity: typedItem.inventory.quantity ?? 0,
   };
 }
-
 
 /**
  * Clean up cart after successful payment

@@ -278,7 +278,7 @@ export default function CartPageContent() {
                                                 className="w-full"
                                                 asChild
                                             >
-                                                <Link href="/api/auth/signin?callbackUrl=/shipping">
+                                                <Link href="/sign-in?callbackUrl=/cart">
                                                     Sign In for Faster Checkout
                                                 </Link>
                                             </Button>

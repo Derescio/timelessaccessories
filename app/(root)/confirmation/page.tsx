@@ -495,31 +495,42 @@ export default function ConfirmationPage() {
                     : await createGuestOrder(orderData);
             }
 
-            if (!response.success || !response.data) {
+            if (!response.success) {
                 console.error("Order creation failed:", response.error);
                 setOrderCreationError(response.error as string || "Failed to create your order");
                 toast.error("Failed to create your order. Please try again.");
                 return;
             }
 
-            // console.log("Order created successfully:", response.data);
+            // console.log("Order created successfully:", response);
+
+            // Get the order ID from either data or order property - using type assertion to handle different response types
+            const responseAny = response as any;
+            const orderId = responseAny.data?.id || responseAny.order?.id || responseAny.id || '';
+
+            if (!orderId) {
+                console.error("No order ID found in response");
+                setOrderCreationError("Failed to get order ID");
+                toast.error("Failed to create your order. Please try again.");
+                return;
+            }
 
             // Update checkoutData with the new order ID
             const updatedCheckoutData = {
                 ...checkoutData,
-                orderId: response.data?.id || "",
+                orderId: orderId,
                 pendingCreation: false
             };
 
             // Update state and localStorage
             setCheckoutData(updatedCheckoutData);
-            setCreatedOrderId(response.data?.id || "");
+            setCreatedOrderId(orderId);
             setIsOrderCreated(true);
             localStorage.setItem("checkoutData", JSON.stringify(updatedCheckoutData));
 
             // For LASCO market, store order ID to prevent duplicates
-            if (IS_LASCO_MARKET && response.data?.id) {
-                localStorage.setItem("lascoPayOrderId", response.data.id);
+            if (IS_LASCO_MARKET && orderId) {
+                localStorage.setItem("lascoPayOrderId", orderId);
                 // Also set a flag to skip payment update since we just created the payment
                 localStorage.setItem("skipPaymentUpdate", "true");
             }

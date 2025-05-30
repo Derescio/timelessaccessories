@@ -1199,6 +1199,13 @@ export async function deleteOrder(id: string): Promise<DeleteOrderResponse> {
  */
 export const createGuestOrder = async (orderData: OrderData) => {
   try {
+    console.log('🎯 createGuestOrder - Starting guest order creation');
+    console.log('🎯 createGuestOrder - Order data:', {
+      cartId: orderData.cartId,
+      email: orderData.shippingAddress.email,
+      total: orderData.total
+    });
+
     // Get the cart to ensure it exists
     const cart = await prisma.cart.findUnique({
       where: { id: orderData.cartId },
@@ -1226,11 +1233,19 @@ export const createGuestOrder = async (orderData: OrderData) => {
             }
           }
         }
-      },
+      }
     });
 
     if (!cart) {
-      throw new Error("Cart not found");
+      console.error('🎯 createGuestOrder - Cart not found:', orderData.cartId);
+      return { success: false, error: "Cart not found" };
+    }
+
+    console.log('🎯 createGuestOrder - Cart found with', cart.items.length, 'items');
+
+    if (cart.items.length === 0) {
+      console.error('🎯 createGuestOrder - Cart is empty');
+      return { success: false, error: "Cart is empty" };
     }
 
     // For guest checkout, we require a sessionId
@@ -1259,42 +1274,48 @@ export const createGuestOrder = async (orderData: OrderData) => {
     // Add order notes with shipping and payment method
     const notes = `Guest Order - Shipping Method: ${orderData.shipping.method}, Payment Method: ${orderData.payment?.method || 'Not specified'}`;
 
-    // Create the order without userId (guest order)
-    const order = await prisma.order.create({
-      data: {
-        // No userId for guest orders
-        guestEmail: orderData.shippingAddress.email || undefined,
-        cartId: cart.id,
-        subtotal: orderData.subtotal,
-        tax: orderData.tax,
-        shipping: orderData.shipping.cost,
-        total: orderData.total,
-        status: orderData.status ? OrderStatus[orderData.status as keyof typeof OrderStatus] || OrderStatus.PENDING : OrderStatus.PENDING,
-        items: {
-          create: orderItems
+    // Create the order in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      console.log('🎯 createGuestOrder - Starting database transaction');
+      
+      // Create the order
+      const order = await tx.order.create({
+        data: {
+          // No userId for guest orders - don't include it at all
+          guestEmail: orderData.shippingAddress.email,
+          subtotal: orderData.subtotal,
+          tax: orderData.tax,
+          shipping: orderData.shipping.cost,
+          total: orderData.total,
+          shippingAddress: JSON.stringify(orderData.shippingAddress),
+          notes: notes,
+          items: {
+            create: orderItems
+          }
         },
-        shippingAddress: JSON.stringify(orderData.shippingAddress),
-        notes: notes,
-      },
-      include: {
-        items: true,
-      },
+      });
+
+      console.log('🎯 createGuestOrder - Order created with ID:', order.id);
+
+      // Delete the cart after successful order creation
+      await tx.cart.delete({
+        where: { id: orderData.cartId },
+      });
+
+      console.log('🎯 createGuestOrder - Cart deleted successfully');
+
+      return order;
     });
 
-    // We do NOT delete the cart here - it will be deleted after payment confirmation
+    console.log('🎯 createGuestOrder - Transaction completed successfully');
+    console.log('🎯 createGuestOrder - Final order ID:', result.id);
 
-    return {
-      success: true,
-      data: {
-        id: order.id,
-        total: Number(order.total)
-      }
-    };
+    return { success: true, order: result };
   } catch (error) {
-    console.error("Error creating guest order:", error);
-    return { success: false, error: error };
+    console.error('🎯 createGuestOrder - Error creating guest order:', error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to create order" };
   }
-}
+};
 
 /**
  * Create Guest Order Without Deleting Cart (for LASCO market)

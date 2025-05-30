@@ -25,12 +25,20 @@ export async function sendOrderConfirmationEmail(orderId: string): Promise<void>
         throw new Error(`Order with ID ${orderId} not found`);
     }
 
+    // Determine email and name for both authenticated and guest users
+    const userEmail = order.user?.email || order.guestEmail;
+    const userName = order.user?.name || "Customer";
+
+    if (!userEmail) {
+        throw new Error(`No email found for order ${orderId}. Cannot send confirmation email.`);
+    }
+
     // Format the order data for the email
     const formattedOrder = {
         id: order.id,
         user: {
-            name: order.user?.name || "Customer",
-            email: order.user?.email || "",
+            name: userName,
+            email: userEmail,
         },
         createdAt: order.createdAt,
         totalPrice: Number(order.total),
@@ -51,7 +59,7 @@ export async function sendOrderConfirmationEmail(orderId: string): Promise<void>
     // Send the email using Resend
     await resend.emails.send({
         from: `${APP_NAME} <${SENDER_EMAIL}>`,
-        to: formattedOrder.user.email,
+        to: userEmail,
         subject: `Order Confirmation - ${formattedOrder.id}`,
         react: <PurchaseReceiptEmail order={formattedOrder} />,
     });
