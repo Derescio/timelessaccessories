@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import ProgressSteps from "@/components/cart/cart-progress-steps";
 import { Card } from "@/components/ui/card";
 import { getCart } from "@/lib/actions/cart.actions";
-import { createOrder, getOrderWithItems, createOrderWithoutDeletingCart } from "@/lib/actions/order.actions";
+import { createOrder, getOrderWithItems, createOrderWithoutDeletingCart, createGuestOrder, createGuestOrderWithoutDeletingCart } from "@/lib/actions/order.actions";
 import { toast } from "sonner";
 import { CreditCard, MapPin, Package, Truck, Loader2, Check } from "lucide-react";
 import { z } from "zod";
@@ -64,6 +65,8 @@ interface Cart {
 // Define the type for the checkout data
 interface CheckoutData {
     fullName?: string;
+    email?: string;
+    phone?: string;
     streetAddress?: string;
     city?: string;
     state?: string;
@@ -79,6 +82,8 @@ interface CheckoutData {
         address?: string;
         zipCode?: string;
         postalCode?: string;
+        email?: string;
+        phone?: string;
     };
     cartId?: string;
     subtotal?: number;
@@ -113,6 +118,7 @@ async function fetchCart() {
 export default function ConfirmationPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const session = useSession();
 
     // State for cart data
     const [cart, setCart] = useState<Cart | null>(null);
@@ -433,12 +439,20 @@ export default function ConfirmationPage() {
 
             // Prepare order data
             const paymentMethod = IS_LASCO_MARKET ? "LascoPay" : checkoutData.paymentMethod?.type || "PayPal";
+
+            // Check if user is authenticated to determine email source
+            const isAuthenticated = session.status === 'authenticated';
+            const userEmail = isAuthenticated
+                ? (session.data?.user?.email || "")
+                : (checkoutData.email || checkoutData.shippingAddress?.email || "");
+            const userPhone = checkoutData.phone || checkoutData.shippingAddress?.phone || "";
+
             const orderData = {
                 cartId: cart.id,
                 shippingAddress: {
                     fullName: checkoutData.fullName || "",
-                    email: "", // Will be populated from session
-                    phone: "", // Optional
+                    email: String(userEmail),
+                    phone: String(userPhone),
                     address: checkoutData.streetAddress || "",
                     city: checkoutData.city || "",
                     state: checkoutData.state || "",
@@ -464,10 +478,22 @@ export default function ConfirmationPage() {
 
             //console.log("Creating order with payment method:", paymentMethod);
 
-            // Use the appropriate order creation function based on market
-            const response = IS_LASCO_MARKET
-                ? await createOrderWithoutDeletingCart(orderData)
-                : await createOrder(orderData);
+            // Check if user is authenticated (moved after orderData construction)
+            // const isAuthenticated = session.status === 'authenticated';
+
+            // Use the appropriate order creation function based on market and authentication
+            let response;
+            if (isAuthenticated) {
+                // Authenticated user - use existing functions
+                response = IS_LASCO_MARKET
+                    ? await createOrderWithoutDeletingCart(orderData)
+                    : await createOrder(orderData);
+            } else {
+                // Guest user - use guest functions
+                response = IS_LASCO_MARKET
+                    ? await createGuestOrderWithoutDeletingCart(orderData)
+                    : await createGuestOrder(orderData);
+            }
 
             if (!response.success || !response.data) {
                 console.error("Order creation failed:", response.error);

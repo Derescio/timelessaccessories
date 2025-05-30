@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { triggerCartUpdate } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
 import { Card } from '@/components/ui/card';
+import { useDebounce } from '@/hooks/use-debounce';
 
 interface CartItem {
     id: string;
@@ -31,54 +32,80 @@ export default function CartPageContent() {
     const [isLoading, setIsLoading] = useState(true);
     const [cart, setCart] = useState<Cart | null>(null);
     const [isUpdating, setIsUpdating] = useState<string | null>(null);
+    const [pendingQuantities, setPendingQuantities] = useState<Record<string, number>>({});
 
-    // Load cart
-    useEffect(() => {
-        async function loadCart() {
-            setIsLoading(true);
-            try {
-                const cartData = await getCart();
-                setCart(cartData || null);
-            } catch (error) {
-                console.error('Error loading cart:', error);
-                toast.error('Failed to load cart');
-            } finally {
-                setIsLoading(false);
-            }
+    // Debounce pending quantity updates
+    const debouncedQuantities = useDebounce(pendingQuantities, 500);
+
+    // Load cart with caching
+    const loadCart = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const cartData = await getCart();
+            setCart(cartData || null);
+        } catch (error) {
+            console.error('Error loading cart:', error);
+            toast.error('Failed to load cart');
+        } finally {
+            setIsLoading(false);
         }
-
-        loadCart();
     }, []);
 
-    // Update quantity
-    const handleQuantityChange = async (itemId: string, newQuantity: number) => {
-        setIsUpdating(itemId);
-        try {
-            if (newQuantity <= 0) {
-                // If quantity is zero, remove the item
-                await handleRemoveItem(itemId);
-                return;
+    useEffect(() => {
+        loadCart();
+    }, [loadCart]);
+
+    // Handle debounced quantity updates
+    useEffect(() => {
+        const updateQuantities = async () => {
+            for (const [itemId, quantity] of Object.entries(debouncedQuantities)) {
+                if (quantity <= 0) {
+                    await handleRemoveItem(itemId);
+                } else {
+                    try {
+                        const result = await updateCartItem({ cartItemId: itemId, quantity });
+                        if (result.success) {
+                            triggerCartUpdate();
+                        } else {
+                            // Revert optimistic update on failure
+                            setCart(prev => prev ? {
+                                ...prev,
+                                items: prev.items.map(item =>
+                                    item.id === itemId ? { ...item, quantity: item.quantity } : item
+                                )
+                            } : null);
+                            toast.error(result.message || 'Failed to update quantity');
+                        }
+                    } catch (error) {
+                        console.error('Error updating quantity:', error);
+                        toast.error('Failed to update quantity');
+                    }
+                }
             }
-            const result = await updateCartItem({ cartItemId: itemId, quantity: newQuantity });
-            if (result.success) {
-                setCart(prev => prev ? {
-                    ...prev,
-                    items: prev.items.map(item =>
-                        item.id === itemId ? { ...item, quantity: newQuantity } : item
-                    )
-                } : null);
-                triggerCartUpdate();
-                toast.success('Quantity updated');
-            } else {
-                toast.error(result.message || 'Failed to update quantity');
-            }
-        } catch (error) {
-            console.error('Error updating quantity:', error);
-            toast.error('Failed to update quantity');
-        } finally {
-            setIsUpdating(null);
+            setPendingQuantities({});
+        };
+
+        if (Object.keys(debouncedQuantities).length > 0) {
+            updateQuantities();
         }
-    };
+    }, [debouncedQuantities]);
+
+    // Optimistic quantity update
+    const handleQuantityChange = useCallback((itemId: string, newQuantity: number) => {
+        // Optimistic update
+        setCart(prev => prev ? {
+            ...prev,
+            items: prev.items.map(item =>
+                item.id === itemId ? { ...item, quantity: newQuantity } : item
+            )
+        } : null);
+
+        // Queue for debounced API call
+        setPendingQuantities(prev => ({
+            ...prev,
+            [itemId]: newQuantity
+        }));
+    }, []);
 
     // Remove item
     const handleRemoveItem = async (itemId: string) => {
@@ -103,12 +130,18 @@ export default function CartPageContent() {
         }
     };
 
-    // Calculate cart totals
-    const subtotal = cart?.items.reduce((total: number, item: CartItem) =>
-        total + (item.price * item.quantity), 0) || 0;
-    const estimatedTax = subtotal * 0.07; // 7% tax rate
-    const shipping = subtotal > 50 ? 0 : 5.99; // Free shipping over $50
-    const total = subtotal + estimatedTax + shipping;
+    // Calculate cart totals with memoization
+    const cartTotals = useMemo(() => {
+        const subtotal = cart?.items.reduce((total: number, item: CartItem) =>
+            total + (item.price * item.quantity), 0) || 0;
+        const estimatedTax = subtotal * 0.07; // 7% tax rate
+        const shipping = subtotal > 50 ? 0 : 5.99; // Free shipping over $50
+        const total = subtotal + estimatedTax + shipping;
+
+        return { subtotal, estimatedTax, shipping, total };
+    }, [cart?.items]);
+
+    const { subtotal, estimatedTax, shipping, total } = cartTotals;
 
     return (
         <div className="container mx-auto px-4 py-8">
@@ -228,36 +261,36 @@ export default function CartPageContent() {
                                             </Link>
                                         </Button>
                                     ) : (
-                                        <div className="space-y-4">
-                                            <div className="p-4 bg-blue-50 border border-blue-100 rounded-md text-blue-800">
-                                                <p className="text-sm font-medium mb-2">Please sign in to complete your purchase</p>
-                                                <p className="text-sm">Sign in to access your account, track your orders, and enjoy a faster checkout experience.</p>
-                                            </div>
-                                            <div>
-                                                <Button
-                                                    className="w-full"
-                                                    asChild
-                                                >
-                                                    <Link href="/api/auth/signin">
-                                                        Sign In to Continue
-                                                    </Link>
-                                                </Button>
-                                            </div>
-                                            <div className="flex items-center justify-between mt-4">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    asChild
-                                                >
-                                                    <Link href="/products">
-                                                        Continue Shopping
-                                                    </Link>
-                                                </Button>
-                                            </div>
-                                            <div className="border-t mt-4 pt-4">
-                                                <p className="text-xs text-center text-muted-foreground">
-                                                    Need help with your order? Check our <Link href="/#footer" className="text-primary hover:underline">FAQ section</Link> in the footer for assistance.
-                                                </p>
+                                        <div className="space-y-3">
+                                            {/* Primary CTA - Guest Checkout */}
+                                            <Button
+                                                className="w-full"
+                                                asChild
+                                            >
+                                                <Link href="/shipping?guest=true">
+                                                    Continue as Guest
+                                                </Link>
+                                            </Button>
+
+                                            {/* Secondary CTA - Sign In */}
+                                            <Button
+                                                variant="outline"
+                                                className="w-full"
+                                                asChild
+                                            >
+                                                <Link href="/api/auth/signin?callbackUrl=/shipping">
+                                                    Sign In for Faster Checkout
+                                                </Link>
+                                            </Button>
+
+                                            {/* Benefits of signing in */}
+                                            <div className="p-3 bg-blue-50 border border-blue-100 rounded-md">
+                                                <p className="text-xs text-blue-800 font-medium mb-1">Benefits of signing in:</p>
+                                                <ul className="text-xs text-blue-700 space-y-1">
+                                                    <li>• Save addresses for faster checkout</li>
+                                                    <li>• Track your order history</li>
+                                                    <li>• Faster returns and support</li>
+                                                </ul>
                                             </div>
                                         </div>
                                     )}

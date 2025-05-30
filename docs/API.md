@@ -42,9 +42,42 @@ All authenticated routes require a valid JWT token in the Authorization header:
 Authorization: Bearer <token>
 ```
 
+### Guest Checkout Support
+The API supports guest checkout for order creation and payment processing. Guest endpoints:
+- Do not require authentication headers
+- Use session-based cart identification
+- Store guest email for order tracking
+- Support all payment methods (PayPal, Stripe, LascoPay)
+
+### Guest vs Authenticated Endpoints
+
+**Guest Order Creation:**
+```typescript
+// POST /api/orders/guest
+{
+  cartId: string,
+  guestEmail: string,
+  shippingAddress: {...},
+  paymentMethod: string
+}
+```
+
+**Authenticated Order Creation:**
+```typescript
+// POST /api/orders
+// Requires: Authorization header
+{
+  cartId: string,
+  shippingAddress: {...},
+  paymentMethod: string
+  // userId extracted from JWT token
+}
+```
+
 ### Rate Limiting
 - Anonymous requests: 100 requests per IP per hour
 - Authenticated requests: 1000 requests per user per hour
+- **Guest checkout requests: 50 requests per IP per hour** (stricter limits for security)
 
 ## API Endpoints
 

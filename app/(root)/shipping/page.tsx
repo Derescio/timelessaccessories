@@ -53,7 +53,7 @@ import { calculateShipping, getEstimatedShippingTime } from "@/lib/utils/shippin
 import { calculateTax } from "@/lib/utils/tax-calculator"
 import LascoPayButton from "@/components/checkout/LascoPayButton"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { createOrderWithoutDeletingCart } from "@/lib/actions/order.actions"
+import { createOrderWithoutDeletingCart, createGuestOrderWithoutDeletingCart } from "@/lib/actions/order.actions"
 import { OrderStatus, PaymentStatus } from "@prisma/client"
 import { ArrowLeft } from "lucide-react"
 import { useSession } from "next-auth/react"
@@ -100,6 +100,8 @@ interface Cart {
 // Update the form data interface
 interface FormData {
     fullName: string;
+    email: string;
+    phone: string;
     streetAddress: string;
     city: string;
     state: string;
@@ -125,7 +127,8 @@ const IS_LASCO_MARKET = MARKET === 'LASCO'
 
 export default function ShippingPage() {
     const router = useRouter()
-    const { data: session } = useSession()
+    const { data: session, status } = useSession()
+    const isAuthenticated = status === 'authenticated'
 
     // State for cart data
     const [cart, setCart] = useState<Cart | null>(null)
@@ -134,6 +137,8 @@ export default function ShippingPage() {
     // State for form data
     const [formData, setFormData] = useState<FormData>({
         fullName: '',
+        email: '',
+        phone: '',
         streetAddress: '',
         city: '',
         state: IS_LASCO_MARKET ? 'Jamaica' : '', // Default to Jamaica for LASCO market
@@ -176,23 +181,28 @@ export default function ShippingPage() {
         async function loadData() {
             setIsLoading(true)
             try {
-                const [cartResult, addresses] = await Promise.all([
-                    getCart(),
-                    getUserAddresses()
-                ])
+                // Always load cart data
+                const cartResult = await getCart()
+
+                // Only load user addresses if authenticated
+                let addresses = null
+                if (isAuthenticated) {
+                    addresses = await getUserAddresses()
+                }
 
                 // console.log('Loading data:', {
                 //     cartResult,
                 //     addresses,
-                //     marketType: IS_LASCO_MARKET ? 'LASCO' : 'GLOBAL'
+                //     marketType: IS_LASCO_MARKET ? 'LASCO' : 'GLOBAL',
+                //     isAuthenticated
                 // })
 
                 if (cartResult) {
                     setCart(cartResult)
                 }
 
-                // If user has addresses, populate the form with the first address
-                if (addresses && addresses.length > 0) {
+                // If user has addresses and is authenticated, populate the form with the first address
+                if (isAuthenticated && addresses && addresses.length > 0) {
                     const address = addresses[0] as Address
                     // console.log('Populating form with address:', {
                     //     address,
@@ -203,6 +213,8 @@ export default function ShippingPage() {
                     setFormData(prev => ({
                         ...prev,
                         fullName: session?.user?.name || "",
+                        email: session?.user?.email || "",
+                        phone: "", // Phone not available in session, leave empty
                         streetAddress: address.street || "",
                         city: address.city || "",
                         state: IS_LASCO_MARKET ? "Jamaica" : (address.state || ""),
@@ -212,7 +224,16 @@ export default function ShippingPage() {
                         courier: prev.courier,
                         shippingPrice: prev.shippingPrice,
                     }))
+                } else if (isAuthenticated && session?.user?.name) {
+                    // For authenticated users without saved addresses, just set the name and email
+                    setFormData(prev => ({
+                        ...prev,
+                        fullName: session.user.name || "",
+                        email: session.user.email || "",
+                        phone: "", // Phone not available in session, leave empty
+                    }))
                 }
+                // For guest users, form starts empty (which is fine)
             } catch (error) {
                 console.error("Error loading data:", error)
                 toast.error("Failed to load data")
@@ -222,7 +243,7 @@ export default function ShippingPage() {
         }
 
         loadData()
-    }, [session?.user?.name])
+    }, [session?.user?.name, isAuthenticated])
 
     // Calculate standard shipping based on region and order total
     const calculateStandardShipping = useCallback((region: string) => {
@@ -348,8 +369,8 @@ export default function ShippingPage() {
                 // console.log("LASCO market: Creating order directly in database");
 
                 try {
-                    // Save the user's address to their profile
-                    try {
+                    // Save the user's address to their profile (only for authenticated users)
+                    if (isAuthenticated) {
                         const addressResult = await createOrUpdateUserAddress({
                             street: formData.streetAddress || "",
                             city: formData.city || "",
@@ -359,9 +380,6 @@ export default function ShippingPage() {
                             isUserManaged: true // Explicitly mark as not user-managed so it won't appear in address book
                         });
                         //  console.log("Address save response:", addressResult);
-                    } catch (addressError) {
-                        console.error("Error saving address:", addressError);
-                        // Continue with order creation even if address save fails
                     }
 
                     // Prepare order data for LASCO market
@@ -369,8 +387,8 @@ export default function ShippingPage() {
                         cartId: cart?.id || "",
                         shippingAddress: {
                             fullName: formData.fullName || "",
-                            email: "", // Will be populated from session
-                            phone: "", // Optional
+                            email: formData.email || "",
+                            phone: formData.phone || "",
                             address: formData.streetAddress || "",
                             city: formData.city || "",
                             state: formData.state || "",
@@ -396,8 +414,10 @@ export default function ShippingPage() {
 
                     // console.log("Creating LASCO order with data:", orderData);
 
-                    // Create order without deleting cart
-                    const response = await createOrderWithoutDeletingCart(orderData);
+                    // Create order without deleting cart - use guest function if not authenticated
+                    const response = isAuthenticated
+                        ? await createOrderWithoutDeletingCart(orderData)
+                        : await createGuestOrderWithoutDeletingCart(orderData);
 
                     if (!response.success || !response.data) {
                         throw new Error(response.error ? String(response.error) : "Failed to create order");
@@ -441,15 +461,18 @@ export default function ShippingPage() {
 
 
                 try {
-                    const addressResult = await createOrUpdateUserAddress({
-                        street: formData.streetAddress || "",
-                        city: formData.city || "",
-                        state: formData.state || "",
-                        postalCode: formData.postalCode || "",
-                        country: formData.parish || "",
-                        isUserManaged: true // Explicitly mark as not user-managed so it won't appear in address book
-                    });
-                    //  console.log("Address save response:", addressResult);
+                    // Save the user's address to their profile (only for authenticated users)
+                    if (isAuthenticated) {
+                        const addressResult = await createOrUpdateUserAddress({
+                            street: formData.streetAddress || "",
+                            city: formData.city || "",
+                            state: formData.state || "",
+                            postalCode: formData.postalCode || "",
+                            country: formData.parish || "",
+                            isUserManaged: true // Explicitly mark as not user-managed so it won't appear in address book
+                        });
+                        //  console.log("Address save response:", addressResult);
+                    }
                 } catch (addressError) {
                     console.error("Error saving address:", addressError);
                     // Continue with order creation even if address save fails
@@ -467,7 +490,18 @@ export default function ShippingPage() {
                     useCourier: selectedCourier !== null,
                     courierName: selectedCourier,
                     pendingCreation: true,  // Flag to indicate this needs to be created in the database
-                    timestamp: new Date().toISOString()  // Add timestamp for tracking
+                    timestamp: new Date().toISOString(),  // Add timestamp for tracking
+                    // Include email for guest orders
+                    shippingAddress: {
+                        fullName: formData.fullName || "",
+                        email: formData.email || "",
+                        phone: formData.phone || "",
+                        address: formData.streetAddress || "",
+                        city: formData.city || "",
+                        state: formData.state || "",
+                        zipCode: formData.postalCode || "",
+                        country: !IS_LASCO_MARKET ? (formData.country || "") : (formData.parish || ""),
+                    }
                 };
 
                 //  console.log("Saving checkout data to localStorage:", checkoutDataToSave);
@@ -499,6 +533,13 @@ export default function ShippingPage() {
         if (!formData.fullName) errors.fullName = "Full name is required";
         if (!formData.streetAddress) errors.streetAddress = "Street address is required";
         if (!formData.city) errors.city = "City is required";
+
+        // Email is required for guest users, optional for authenticated users
+        if (!isAuthenticated && !formData.email) {
+            errors.email = "Email is required for guest checkout";
+        } else if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
+            errors.email = "Please enter a valid email address";
+        }
 
         // Check for either country or parish depending on market type
         if (IS_LASCO_MARKET && !formData.parish) {
@@ -562,7 +603,19 @@ export default function ShippingPage() {
                     {/* Shipping Address Form */}
                     <div className="border p-6 rounded-md">
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-medium">Shipping Address</h2>
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-xl font-medium">Shipping Address</h2>
+                                {!isAuthenticated && (
+                                    <span className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full border border-blue-200">
+                                        Guest Checkout
+                                    </span>
+                                )}
+                                {isAuthenticated && (
+                                    <span className="px-3 py-1 bg-green-50 text-green-700 text-sm rounded-full border border-green-200">
+                                        Signed In
+                                    </span>
+                                )}
+                            </div>
                             {qualifiesForFreeShipping && !IS_LASCO_MARKET && (
                                 <span className="px-3 py-1 bg-green-50 text-green-700 text-sm rounded-full border border-green-200">
                                     Free Shipping Eligible
@@ -582,6 +635,36 @@ export default function ShippingPage() {
                                 />
                                 {formErrors.fullName && (
                                     <p className="text-red-500 text-sm mt-1">{formErrors.fullName}</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <Label htmlFor="email">Email</Label>
+                                <Input
+                                    id="email"
+                                    name="email"
+                                    value={formData.email || ""}
+                                    onChange={handleInputChange}
+                                    className={formErrors.email ? "border-red-500" : ""}
+                                    disabled={!!orderCreated}
+                                />
+                                {formErrors.email && (
+                                    <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <Label htmlFor="phone">Phone</Label>
+                                <Input
+                                    id="phone"
+                                    name="phone"
+                                    value={formData.phone || ""}
+                                    onChange={handleInputChange}
+                                    className={formErrors.phone ? "border-red-500" : ""}
+                                    disabled={!!orderCreated}
+                                />
+                                {formErrors.phone && (
+                                    <p className="text-red-500 text-sm mt-1">{formErrors.phone}</p>
                                 )}
                             </div>
 

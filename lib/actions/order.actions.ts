@@ -1191,3 +1191,276 @@ export async function deleteOrder(id: string): Promise<DeleteOrderResponse> {
     }
 }
 
+/**
+ * Create Guest Order
+ * 
+ * Creates an order for guest users (non-authenticated) without requiring a userId.
+ * This is a separate function to avoid disrupting the existing authenticated user flow.
+ */
+export const createGuestOrder = async (orderData: OrderData) => {
+  try {
+    // Get the cart to ensure it exists
+    const cart = await prisma.cart.findUnique({
+      where: { id: orderData.cartId },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+              }
+            },
+            inventory: {
+              select: {
+                id: true,
+                retailPrice: true,
+                images: true,
+                attributes: true,
+                attributeValues: {
+                  include: {
+                    attribute: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+    });
+
+    if (!cart) {
+      throw new Error("Cart not found");
+    }
+
+    // For guest checkout, we require a sessionId
+    if (!cart.sessionId) {
+      throw new Error("Session ID is required for guest checkout");
+    }
+
+    // Prepare order items with attributes
+    const orderItems = cart.items.map(item => {
+      // Use only the selected attributes without fallback
+      const selectedAttrs = item.selectedAttributes || {};
+      
+      return {
+        productId: item.productId,
+        inventoryId: item.inventoryId,
+        price: Number(item.inventory.retailPrice),
+        quantity: item.quantity,
+        name: item.product.name,
+        image: item.inventory.images && item.inventory.images.length > 0
+          ? item.inventory.images[0]
+          : null,
+        attributes: selectedAttrs,
+      };
+    });
+
+    // Add order notes with shipping and payment method
+    const notes = `Guest Order - Shipping Method: ${orderData.shipping.method}, Payment Method: ${orderData.payment?.method || 'Not specified'}`;
+
+    // Create the order without userId (guest order)
+    const order = await prisma.order.create({
+      data: {
+        // No userId for guest orders
+        guestEmail: orderData.shippingAddress.email || undefined,
+        cartId: cart.id,
+        subtotal: orderData.subtotal,
+        tax: orderData.tax,
+        shipping: orderData.shipping.cost,
+        total: orderData.total,
+        status: orderData.status ? OrderStatus[orderData.status as keyof typeof OrderStatus] || OrderStatus.PENDING : OrderStatus.PENDING,
+        items: {
+          create: orderItems
+        },
+        shippingAddress: JSON.stringify(orderData.shippingAddress),
+        notes: notes,
+      },
+      include: {
+        items: true,
+      },
+    });
+
+    // We do NOT delete the cart here - it will be deleted after payment confirmation
+
+    return {
+      success: true,
+      data: {
+        id: order.id,
+        total: Number(order.total)
+      }
+    };
+  } catch (error) {
+    console.error("Error creating guest order:", error);
+    return { success: false, error: error };
+  }
+}
+
+/**
+ * Create Guest Order Without Deleting Cart (for LASCO market)
+ * 
+ * Creates an order for guest users in LASCO market without deleting the cart.
+ * Similar to createOrderWithoutDeletingCart but for guest users.
+ */
+export async function createGuestOrderWithoutDeletingCart(data: OrderData) {
+  try {
+    // Get cart items
+    const cart = await prisma.cart.findUnique({
+      where: { id: data.cartId },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+              }
+            },
+            inventory: {
+              select: {
+                id: true,
+                retailPrice: true,
+                images: true,
+                attributes: true,
+                attributeValues: {
+                  include: {
+                    attribute: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+    })
+
+    if (!cart) {
+      return { success: false, error: "Cart not found" }
+    }
+
+    if (cart.items.length === 0) {
+      return { success: false, error: "Cart is empty" }
+    }
+
+    // For guest checkout, we require a sessionId
+    if (!cart.sessionId) {
+      return { success: false, error: "Session ID is required for guest checkout" }
+    }
+
+    // Add notes with shipping and payment method information
+    const notes = `Guest Order - Shipping Method: ${data.shipping.method}, Payment Method: ${data.payment?.method || 'Not specified'}`;
+
+    // Create the order items array to insert
+    const orderItems = cart.items.map((item) => {
+      // Use only the selected attributes without fallback
+      const selectedAttrs = item.selectedAttributes || {};
+      
+      return {
+        productId: item.productId,
+        inventoryId: item.inventoryId,
+        quantity: item.quantity,
+        price: Number(item.inventory.retailPrice),
+        name: item.product.name,
+        image: item.inventory.images?.[0] || null,
+        attributes: selectedAttrs,
+      };
+    })
+
+    // Map payment status string to enum
+    const paymentStatusValue = typeof data.payment?.status === 'string'
+      ? (data.payment.status === 'PENDING' || data.payment.status === 'pending'
+        ? PaymentStatus.PENDING
+        : PaymentStatus.PENDING)
+      : (data.payment?.status || PaymentStatus.PENDING);
+
+    // Map order status string to enum
+    const orderStatusValue = typeof data.status === 'string'
+      ? (data.status === 'PENDING' || data.status === 'pending'
+        ? OrderStatus.PENDING
+        : OrderStatus.PENDING)
+      : (data.status || OrderStatus.PENDING);
+
+    // Create order without userId (guest order)
+    const order = await prisma.order.create({
+      data: {
+        // No userId for guest orders
+        guestEmail: data.shippingAddress.email || undefined,
+        cartId: cart.id,
+        status: orderStatusValue,
+        shippingAddress: JSON.stringify(data.shippingAddress),
+        shipping: new Decimal(data.shipping.cost),
+        subtotal: new Decimal(data.subtotal),
+        tax: new Decimal(data.tax),
+        total: new Decimal(data.total),
+        paymentIntent: data.payment?.providerId || null,
+        notes: notes,
+        items: {
+          create: orderItems
+        }
+      },
+    })
+
+    // Update inventory quantities
+    for (const item of cart.items) {
+      await prisma.productInventory.update({
+        where: { id: item.inventoryId },
+        data: {
+          quantity: {
+            decrement: item.quantity
+          }
+        }
+      })
+    }
+
+    // Create payment record if payment details are provided
+    if (data.payment) {
+      console.log("Creating payment record for guest order:", order.id, "with method:", data.payment.method);
+
+      try {
+        const payment = await prisma.payment.create({
+          data: {
+            orderId: order.id,
+            amount: new Decimal(data.total),
+            status: paymentStatusValue,
+            provider: data.payment.method || "unknown",
+            paymentId: data.payment.providerId || null,
+          }
+        });
+
+        console.log("Payment record created successfully for guest order:", {
+          id: payment.id,
+          orderId: payment.orderId,
+          provider: payment.provider,
+          status: payment.status,
+          amount: payment.amount.toString(),
+        });
+      } catch (error) {
+        console.error("Error creating payment record for guest order:", error);
+        // Don't throw here, just log the error to prevent order creation failure
+      }
+    } else {
+      console.error("No payment details provided for guest order:", order.id);
+    }
+
+    // NOTE: We're not deleting the cart here, which is the key difference from createOrder
+
+    // Convert Decimal objects to numbers for client component compatibility
+    const serializedOrder = {
+      ...order,
+      shipping: Number(order.shipping),
+      subtotal: Number(order.subtotal),
+      tax: Number(order.tax),
+      total: Number(order.total),
+    }
+
+    // Revalidate relevant paths
+    revalidatePath("/shipping")
+    revalidatePath("/cart")
+
+    return { success: true, data: serializedOrder }
+  } catch (error) {
+    console.error("Error creating guest order:", error)
+    return { success: false, error: "Failed to create guest order" }
+  }
+}
+

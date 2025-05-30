@@ -107,7 +107,8 @@ model Category {
 
 model Order {
   id              String      @id @default(cuid())
-  userId          String
+  userId          String?
+  guestEmail      String?
   status          OrderStatus @default(PENDING)
   subtotal        Decimal     @db.Decimal(10, 2)
   tax             Decimal     @db.Decimal(10, 2)
@@ -123,11 +124,12 @@ model Order {
   cartId          String?
   chargeId        String?
   address         Address?    @relation(fields: [addressId], references: [id])
-  user            User        @relation(fields: [userId], references: [id])
+  user            User?       @relation(fields: [userId], references: [id])
   items           OrderItem[]
   payment         Payment?
 
   @@index([userId])
+  @@index([guestEmail])
 }
 
 model OrderItem {

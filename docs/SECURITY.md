@@ -22,14 +22,24 @@ This document outlines the security measures and practices implemented in the Ti
 - Secure session management
 - OAuth provider integration
 - Password hashing with bcrypt
+- **Guest checkout security** with session-based isolation
 
-### 4. Data Protection
+### 4. Guest Checkout Security
+- **Session Isolation**: Guest carts are isolated by secure session IDs
+- **Data Minimization**: Only essential information stored for guest orders
+- **Email Validation**: Guest email addresses validated before order creation
+- **Payment Security**: Same payment security standards for guest and authenticated users
+- **Order Access Control**: Guest orders accessible only via secure order IDs
+- **Cart Security**: Session-based cart isolation prevents cross-contamination
+- **Rate Limiting**: Stricter rate limits for guest checkout endpoints (50 req/hour vs 100 for anonymous)
+
+### 5. Data Protection
 - HTTPS enforcement
 - SQL injection prevention via Prisma
 - XSS protection
 - CSRF tokens
 
-### 5. API Security
+### 6. API Security
 - Rate limiting
 - Input validation with Zod
 - Secure headers
