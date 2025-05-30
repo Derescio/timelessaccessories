@@ -94,26 +94,67 @@ export const config = {
                 if (trigger === 'signIn' || trigger === 'signUp') {
                     const cookiesObject = await cookies();
                     const sessionCartId = cookiesObject.get('sessionCartId')?.value;
-                   // console.log(sessionCartId)
 
-                    // if (sessionCartId) {
-                    //     const sessionCart = await prisma.cart.findFirst({
-                    //         where: { sessionCartId },
-                    //     });
-                    //     //console.log(sessionCart)
-                    //     if (sessionCart) {
-                    //         // Overwrite any existing user cart
-                    //         await prisma.cart.deleteMany({
-                    //             where: { userId: user.id },
-                    //         });
+                    if (sessionCartId) {
+                        try {
+                            const sessionCart = await prisma.cart.findFirst({
+                                where: { sessionId: sessionCartId },
+                                include: { items: true }
+                            });
 
-                    //         // Assign the guest cart to the logged-in user
-                    //         await prisma.cart.update({
-                    //             where: { id: sessionCart.id },
-                    //             data: { userId: user.id },
-                    //         });
-                    //     }
-                    // }
+                            if (sessionCart && sessionCart.items.length > 0) {
+                                // Check if user already has a cart
+                                const existingUserCart = await prisma.cart.findFirst({
+                                    where: { userId: user.id },
+                                    include: { items: true }
+                                });
+
+                                if (existingUserCart) {
+                                    // Merge carts: add session cart items to user cart
+                                    for (const sessionItem of sessionCart.items) {
+                                        const existingItem = existingUserCart.items.find(
+                                            item => item.inventoryId === sessionItem.inventoryId
+                                        );
+
+                                        if (existingItem) {
+                                            // Update quantity if item already exists
+                                            await prisma.cartItem.update({
+                                                where: { id: existingItem.id },
+                                                data: { quantity: existingItem.quantity + sessionItem.quantity }
+                                            });
+                                        } else {
+                                            // Add new item to user cart
+                                            await prisma.cartItem.create({
+                                                data: {
+                                                    cartId: existingUserCart.id,
+                                                    productId: sessionItem.productId,
+                                                    inventoryId: sessionItem.inventoryId,
+                                                    quantity: sessionItem.quantity,
+                                                    selectedAttributes: sessionItem.selectedAttributes as any
+                                                }
+                                            });
+                                        }
+                                    }
+
+                                    // Delete the session cart
+                                    await prisma.cart.delete({
+                                        where: { id: sessionCart.id }
+                                    });
+                                } else {
+                                    // No existing user cart, assign session cart to user
+                                    await prisma.cart.update({
+                                        where: { id: sessionCart.id },
+                                        data: { 
+                                            userId: user.id,
+                                            sessionId: null 
+                                        }
+                                    });
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error merging carts:', error);
+                        }
+                    }
                 }
             }
             // Handle Session Update
@@ -174,25 +215,37 @@ export const config = {
         authorized({ request, auth }: any) {
             // If the user is not authenticated, redirect to the sign-in page. Array of regex patterns to exclude from the redirect
             const excludedPaths = [
-                /\/shipping/,
                 /\/confirmation/,
                 /\/order-sucess/,
-                /\/order/,
+                /\/order\/.*\/stripe-payment-success/, // Allow guest access to payment success pages
+                /\/order\/.*\/paypal-payment-success/, // Allow guest access to PayPal success pages
                 /\/profile/,
                 /\/user\/(.*)/,
                 /\/order\/(.*)/,
                 /\/admin/,
             ]
+            
             // Check if the request path matches any of the excluded paths. Req URL OBject
             const pathname = request?.nextUrl?.pathname;
-            // console.log(pathname)
-            // const { pathname } = request?.nextUrl?.pathname;
+            const searchParams = request?.nextUrl?.searchParams;
+            
+            // Allow guest checkout for shipping and payment pages
+            const isGuestCheckout = searchParams?.get('guest') === 'true';
+            const isCheckoutPath = pathname === '/shipping' || pathname === '/payment-method' || pathname === '/place-order';
+            
             if (!auth && excludedPaths.some((p) => p.test(pathname))) {
-                // For checkout-related paths, add a clear message in the URL for the UI to display
-                if (pathname === '/shipping' || pathname === '/payment-method' || pathname === '/place-order') {
+                return false;
+            }
+            
+            // Handle checkout paths specifically
+            if (!auth && isCheckoutPath) {
+                if (isGuestCheckout) {
+                    // Allow guest checkout
+                    return true;
+                } else {
+                    // Redirect to sign-in for non-guest checkout
                     return NextResponse.redirect(new URL(`/sign-in?callbackUrl=${pathname}&message=Please sign in to continue with checkout`, request.nextUrl.origin));
                 }
-                return false;
             }
 
             // Check for session cart cookie
