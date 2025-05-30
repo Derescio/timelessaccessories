@@ -331,31 +331,45 @@ export default function ShippingPage() {
     // Handle form submission
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        console.log('📦 Shipping form - Starting submission');
+        console.log('📦 Shipping form - Form data:', {
+            ...formData,
+            email: formData.email || 'Not provided',
+            phone: formData.phone || 'Not provided'
+        });
+        console.log('📦 Shipping form - Is authenticated:', isAuthenticated);
+        console.log('📦 Shipping form - Market type:', IS_LASCO_MARKET ? 'LASCO' : 'GLOBAL');
+
         try {
             setIsCreatingOrder(true);
 
             // Validate the form
+            console.log('📦 Shipping form - Validating form');
             const formIsValid = validateForm();
             if (!formIsValid) {
-                // console.log("Form validation failed:", formErrors);
+                console.log("📦 Shipping form - Form validation failed:", formErrors);
                 setIsCreatingOrder(false);
                 return;
             }
+            console.log('📦 Shipping form - Form validation passed');
 
             // Check if cart still exists by getting a fresh copy
             try {
+                console.log('📦 Shipping form - Validating cart');
                 const freshCart = await getCart();
                 if (!freshCart || !freshCart.items || freshCart.items.length === 0) {
+                    console.error('📦 Shipping form - Cart is empty or not found');
                     toast.error("Your cart is empty or could not be found. Please add items to your cart first.");
                     router.push("/cart");
                     setIsCreatingOrder(false);
                     return;
                 }
 
+                console.log('📦 Shipping form - Cart validated successfully, items:', freshCart.items.length);
                 // Update cart with fresh data
                 setCart(freshCart);
             } catch (cartError) {
-                console.error("Error validating cart:", cartError);
+                console.error("📦 Shipping form - Error validating cart:", cartError);
                 toast.error("There was a problem with your cart. Please try again.");
                 setIsCreatingOrder(false);
                 return;
@@ -363,10 +377,11 @@ export default function ShippingPage() {
 
             // Calculate tax and order summary
             const orderSummary = calculateOrderSummary();
+            console.log('📦 Shipping form - Order summary calculated:', orderSummary);
 
             if (IS_LASCO_MARKET) {
                 // For LASCO market, create the order directly in the database
-                // console.log("LASCO market: Creating order directly in database");
+                console.log("📦 Shipping form - LASCO market: Creating order directly in database");
 
                 try {
                     // Save the user's address to their profile (only for authenticated users)

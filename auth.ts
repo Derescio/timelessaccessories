@@ -95,12 +95,17 @@ export const config = {
                     const cookiesObject = await cookies();
                     const sessionCartId = cookiesObject.get('sessionCartId')?.value;
 
+                    console.log('Cart merging - Session Cart ID:', sessionCartId);
+
                     if (sessionCartId) {
                         try {
+                            // Look for session cart
                             const sessionCart = await prisma.cart.findFirst({
                                 where: { sessionId: sessionCartId },
                                 include: { items: true }
                             });
+
+                            console.log('Cart merging - Session cart found:', !!sessionCart, 'Items:', sessionCart?.items.length || 0);
 
                             if (sessionCart && sessionCart.items.length > 0) {
                                 // Check if user already has a cart
@@ -108,6 +113,8 @@ export const config = {
                                     where: { userId: user.id },
                                     include: { items: true }
                                 });
+
+                                console.log('Cart merging - Existing user cart found:', !!existingUserCart, 'Items:', existingUserCart?.items.length || 0);
 
                                 if (existingUserCart) {
                                     // Merge carts: add session cart items to user cart
@@ -122,6 +129,7 @@ export const config = {
                                                 where: { id: existingItem.id },
                                                 data: { quantity: existingItem.quantity + sessionItem.quantity }
                                             });
+                                            console.log('Cart merging - Updated existing item quantity');
                                         } else {
                                             // Add new item to user cart
                                             await prisma.cartItem.create({
@@ -133,6 +141,7 @@ export const config = {
                                                     selectedAttributes: sessionItem.selectedAttributes as any
                                                 }
                                             });
+                                            console.log('Cart merging - Added new item to user cart');
                                         }
                                     }
 
@@ -140,6 +149,7 @@ export const config = {
                                     await prisma.cart.delete({
                                         where: { id: sessionCart.id }
                                     });
+                                    console.log('Cart merging - Deleted session cart');
                                 } else {
                                     // No existing user cart, assign session cart to user
                                     await prisma.cart.update({
@@ -149,11 +159,16 @@ export const config = {
                                             sessionId: null 
                                         }
                                     });
+                                    console.log('Cart merging - Assigned session cart to user');
                                 }
+                            } else {
+                                console.log('Cart merging - No session cart or empty cart found');
                             }
                         } catch (error) {
                             console.error('Error merging carts:', error);
                         }
+                    } else {
+                        console.log('Cart merging - No session cart ID found in cookies');
                     }
                 }
             }
@@ -217,11 +232,10 @@ export const config = {
             const excludedPaths = [
                 /\/confirmation/,
                 /\/order-sucess/,
-                /\/order\/.*\/stripe-payment-success/, // Allow guest access to payment success pages
-                /\/order\/.*\/paypal-payment-success/, // Allow guest access to PayPal success pages
+                /\/order\/[^\/]+\/stripe-payment-success/, // Allow guest access to payment success pages
+                /\/order\/[^\/]+\/paypal-payment-success/, // Allow guest access to PayPal success pages
                 /\/profile/,
                 /\/user\/(.*)/,
-                /\/order\/(.*)/,
                 /\/admin/,
             ]
             
