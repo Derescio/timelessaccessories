@@ -21,15 +21,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing Stripe signature' }, { status: 400 });
   }
 
-  const webhookSecret =
-    process.env.NODE_ENV === 'development'
-      ? 'whsec_test_12345678901234567890123456789012' // replace with your test secret
-      : process.env.STRIPE_WEBHOOK_SECRET;
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    console.error('❌ STRIPE_WEBHOOK_SECRET is not set');
+    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
+  }
 
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret!);
+    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
     console.log(`✅ Received Stripe event: ${event.type}`);
   } catch (err: any) {
     console.error(`❌ Webhook signature verification failed: ${err.message}`);
