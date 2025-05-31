@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { prisma } from "@/lib/prisma";
-import { updateOrderToPaid } from "@/lib/actions/order.actions";
+import { db } from "@/lib/db";
+//import { updateOrderToPaid } from "@/lib/actions/order.actions";
 import { sendOrderConfirmationEmail } from "@/email";
 
 // Initialize Stripe with the secret API key from environment variables
@@ -104,7 +104,7 @@ async function processOrderPayment(orderId: string, paymentIntentId: string, eve
     console.log(`🔔 Stripe webhook - Processing ${eventType} for order:`, orderId);
     
     // Get the order from the database
-    const order = await prisma.order.findUnique({
+    const order = await db.order.findUnique({
       where: { id: orderId },
       include: {
         user: { select: { email: true, name: true } },
@@ -141,7 +141,7 @@ async function processOrderPayment(orderId: string, paymentIntentId: string, eve
 
     // Update the order status to PROCESSING
     console.log('🔔 Stripe webhook - Updating order status to PROCESSING');
-    await prisma.order.update({
+    await db.order.update({
       where: { id: orderId },
       data: {
         status: 'PROCESSING',
@@ -155,13 +155,13 @@ async function processOrderPayment(orderId: string, paymentIntentId: string, eve
     console.log('🔔 Stripe webhook - Creating/updating payment record');
     
     // Check if payment record already exists
-    const existingPayment = await prisma.payment.findFirst({
+    const existingPayment = await db.payment.findFirst({
       where: { orderId: orderId }
     });
 
     if (existingPayment) {
       console.log('🔔 Stripe webhook - Updating existing payment record');
-      await prisma.payment.update({
+      await db.payment.update({
         where: { id: existingPayment.id },
         data: {
           paymentId: paymentIntentId,
@@ -171,7 +171,7 @@ async function processOrderPayment(orderId: string, paymentIntentId: string, eve
       });
     } else {
       console.log('🔔 Stripe webhook - Creating new payment record');
-      await prisma.payment.create({
+      await db.payment.create({
         data: {
           orderId: orderId,
           provider: 'stripe',
