@@ -4,7 +4,7 @@ import { updateOrderToPaid } from '@/lib/actions/order.actions';
 import { sendOrderConfirmationEmail } from '@/email';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: '2023-10-16',
+  apiVersion: '2025-02-24.acacia',
 });
 
 export async function POST(req: NextRequest) {
@@ -17,14 +17,14 @@ export async function POST(req: NextRequest) {
 
   const webhookSecret =
     process.env.NODE_ENV === 'development'
-      ? 'whsec_test_12345678901234567890123456789012'
-      : process.env.STRIPE_WEBHOOK_SECRET!;
+      ? 'whsec_test_12345678901234567890123456789012' // replace with your test secret
+      : process.env.STRIPE_WEBHOOK_SECRET;
 
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-    console.log(`✅ Stripe event received: ${event.type}`);
+    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret!);
+    console.log(`✅ Received Stripe event: ${event.type}`);
   } catch (err: any) {
     console.error('❌ Signature verification failed:', err.message);
     return NextResponse.json({ error: 'Invalid Stripe signature' }, { status: 400 });

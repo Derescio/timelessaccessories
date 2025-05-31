@@ -7,7 +7,7 @@ import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client"
 import { PaymentResult } from "@/types"
 import { paypal } from "../paypal/paypal"
 import { Decimal } from "@prisma/client/runtime/library"
-import { prisma } from "../prisma"
+import { db } from "@/lib/db"
 import { isRedirectError } from "next/dist/client/components/redirect-error"
 import { savePaymentResult } from "@/lib/actions/payment.actions"
 import { cleanupCartAfterSuccessfulPayment } from "@/lib/actions/cart.actions"
@@ -139,7 +139,7 @@ export async function formatError(error: unknown): Promise<string> {
 
 // Utility function to fetch order by ID
 const fetchOrderById = async (orderId: string) => {
-  const order = await prisma.order.findFirst({
+  const order = await db.order.findFirst({
     where: { id: orderId },
     include: {
       items: true,
@@ -168,7 +168,7 @@ const handleError = async (error: unknown): Promise<{ success: false, message: s
 export const createOrder = async (orderData: OrderData) => {
   try {
     // Get the cart to ensure it exists
-    const cart = await prisma.cart.findUnique({
+    const cart = await db.cart.findUnique({
       where: { id: orderData.cartId },
       include: {
         items: {
@@ -231,7 +231,7 @@ export const createOrder = async (orderData: OrderData) => {
     const notes = `Shipping Method: ${orderData.shipping.method}, Payment Method: ${orderData.payment?.method || 'Not specified'}`;
 
     // Create the order
-    const order = await prisma.order.create({
+    const order = await db.order.create({
       data: {
         userId,
         cartId: cart.id,
@@ -277,7 +277,7 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
     const userId = session.user.id as string
 
     // Get cart items
-    const cart = await prisma.cart.findUnique({
+    const cart = await db.cart.findUnique({
       where: { id: data.cartId },
       include: {
         items: {
@@ -358,12 +358,12 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
     // Create address record with explicit error handling
     let address;
     try {
-      address = await prisma.address.create({
+      address = await db.address.create({
         data: addressData
       });
 
       // Verify address was created correctly
-      const createdAddress = await prisma.address.findUnique({
+      const createdAddress = await db.address.findUnique({
         where: { id: address.id }
       });
 
@@ -395,7 +395,7 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
       : (data.status || OrderStatus.PENDING);
 
     // Create order
-    const order = await prisma.order.create({
+    const order = await db.order.create({
       data: {
         userId,
         addressId: address.id,
@@ -415,7 +415,7 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
 
     // Update inventory quantities
     for (const item of cart.items) {
-      await prisma.productInventory.update({
+      await db.productInventory.update({
         where: { id: item.inventoryId },
         data: {
           quantity: {
@@ -430,7 +430,7 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
       console.log("Creating payment record for order:", order.id, "with method:", data.payment.method);
 
       try {
-        const payment = await prisma.payment.create({
+        const payment = await db.payment.create({
           data: {
             orderId: order.id,
             amount: new Decimal(data.total),
@@ -526,7 +526,7 @@ export async function approvePayPalOrder(
     }
 
     // Check if the order has already been paid by fetching payment status
-    const payment = await prisma.payment.findFirst({
+    const payment = await db.payment.findFirst({
       where: { orderId: orderId }
     });
 
@@ -547,7 +547,7 @@ export async function approvePayPalOrder(
     }
 
     // Update order status and payment record in a transaction to ensure data consistency
-    await prisma.$transaction(async (tx) => {
+    await db.$transaction(async (tx) => {
       // First, update the order status to PROCESSING
       await tx.order.update({
         where: { id: orderId },
@@ -646,7 +646,7 @@ export async function updateOrderToPaid({
   }
 
   // Transaction to update the order and update the product quantities
-  await prisma.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     // Update all item quantities in the database
     for (const item of order.items) {
       await tx.product.update({
@@ -694,7 +694,7 @@ export async function updateOrderToPaid({
   await cleanupCartAfterSuccessfulPayment(orderId);
 
   // Get the updated order after the transaction
-  const updatedOrder = await prisma.order.findFirst({
+  const updatedOrder = await db.order.findFirst({
     where: {
       id: orderId,
     },
@@ -742,7 +742,7 @@ export async function getOrderWithItems(orderId: string) {
       return { success: false, error: "Order ID is required" }
     }
 
-    const order = await prisma.order.findUnique({
+    const order = await db.order.findUnique({
       where: { id: orderId },
       include: {
         items: {
@@ -945,10 +945,10 @@ export async function getOrders({
         };
 
         // Get total count
-        const total = await prisma.order.count({ where });
+        const total = await db.order.count({ where });
 
         // Get orders with related data
-        const orders = await prisma.order.findMany({
+        const orders = await db.order.findMany({
             where,
             include: {
                 user: {
@@ -1021,7 +1021,7 @@ interface GetOrderByIdResponse {
 
 export async function getOrderById(id: string): Promise<GetOrderByIdResponse> {
     try {
-        const order = await prisma.order.findUnique({
+        const order = await db.order.findUnique({
             where: { id },
             include: {
                 user: {
@@ -1106,7 +1106,7 @@ export async function updateOrderStatus({
     status,
 }: UpdateOrderStatusParams): Promise<UpdateOrderStatusResponse> {
     try {
-        const order = await prisma.order.update({
+        const order = await db.order.update({
             where: { id },
             data: { status },
             include: {
@@ -1173,7 +1173,7 @@ interface DeleteOrderResponse {
 
 export async function deleteOrder(id: string): Promise<DeleteOrderResponse> {
     try {
-        await prisma.order.delete({
+        await db.order.delete({
             where: { id },
         });
 
@@ -1207,7 +1207,7 @@ export const createGuestOrder = async (orderData: OrderData) => {
     });
 
     // Get the cart to ensure it exists
-    const cart = await prisma.cart.findUnique({
+    const cart = await db.cart.findUnique({
       where: { id: orderData.cartId },
       include: {
         items: {
@@ -1275,7 +1275,7 @@ export const createGuestOrder = async (orderData: OrderData) => {
     const notes = `Guest Order - Shipping Method: ${orderData.shipping.method}, Payment Method: ${orderData.payment?.method || 'Not specified'}`;
 
     // Create the order in a transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await db.$transaction(async (tx) => {
       console.log('🎯 createGuestOrder - Starting database transaction');
       
       // Create the order
@@ -1335,7 +1335,7 @@ export const createGuestOrder = async (orderData: OrderData) => {
 export async function createGuestOrderWithoutDeletingCart(data: OrderData) {
   try {
     // Get cart items
-    const cart = await prisma.cart.findUnique({
+    const cart = await db.cart.findUnique({
       where: { id: data.cartId },
       include: {
         items: {
@@ -1411,7 +1411,7 @@ export async function createGuestOrderWithoutDeletingCart(data: OrderData) {
       : (data.status || OrderStatus.PENDING);
 
     // Create order without userId (guest order)
-    const order = await prisma.order.create({
+    const order = await db.order.create({
       data: {
         // No userId for guest orders
         guestEmail: data.shippingAddress.email || undefined,
@@ -1432,7 +1432,7 @@ export async function createGuestOrderWithoutDeletingCart(data: OrderData) {
 
     // Update inventory quantities
     for (const item of cart.items) {
-      await prisma.productInventory.update({
+      await db.productInventory.update({
         where: { id: item.inventoryId },
         data: {
           quantity: {
@@ -1447,7 +1447,7 @@ export async function createGuestOrderWithoutDeletingCart(data: OrderData) {
       console.log("Creating payment record for guest order:", order.id, "with method:", data.payment.method);
 
       try {
-        const payment = await prisma.payment.create({
+        const payment = await db.payment.create({
           data: {
             orderId: order.id,
             amount: new Decimal(data.total),
