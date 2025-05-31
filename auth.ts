@@ -1,6 +1,5 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { prisma } from '@/lib/db/config';
 import { db } from '@/lib/db';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import type { NextAuthConfig } from 'next-auth';
@@ -104,7 +103,7 @@ export const config = {
                             console.log('🔄 Cart merging - Starting cart merge process');
                             
                             // Look for session cart
-                            const sessionCart = await prisma.cart.findFirst({
+                            const sessionCart = await db.cart.findFirst({
                                 where: { sessionId: sessionCartId },
                                 include: { items: true }
                             });
@@ -120,7 +119,7 @@ export const config = {
                                 console.log('🔄 Cart merging - Session cart has items, proceeding with merge');
                                 
                                 // Check if user already has a cart
-                                const existingUserCart = await prisma.cart.findFirst({
+                                const existingUserCart = await db.cart.findFirst({
                                     where: { userId: user.id },
                                     include: { items: true }
                                 });
@@ -151,7 +150,7 @@ export const config = {
                                         if (existingItem) {
                                             console.log('🔄 Cart merging - Item exists in user cart, updating quantity');
                                             // Update quantity if item already exists
-                                            await prisma.cartItem.update({
+                                            await db.cartItem.update({
                                                 where: { id: existingItem.id },
                                                 data: { quantity: existingItem.quantity + sessionItem.quantity }
                                             });
@@ -159,7 +158,7 @@ export const config = {
                                         } else {
                                             console.log('🔄 Cart merging - Item not in user cart, adding new item');
                                             // Add new item to user cart
-                                            await prisma.cartItem.create({
+                                            await db.cartItem.create({
                                                 data: {
                                                     cartId: existingUserCart.id,
                                                     productId: sessionItem.productId,
@@ -174,14 +173,14 @@ export const config = {
 
                                     // Delete the session cart
                                     console.log('🔄 Cart merging - Deleting session cart');
-                                    await prisma.cart.delete({
+                                    await db.cart.delete({
                                         where: { id: sessionCart.id }
                                     });
                                     console.log('🔄 Cart merging - Session cart deleted successfully');
                                 } else {
                                     console.log('🔄 Cart merging - No existing user cart, assigning session cart to user');
                                     // No existing user cart, assign session cart to user
-                                    await prisma.cart.update({
+                                    await db.cart.update({
                                         where: { id: sessionCart.id },
                                         data: { 
                                             userId: user.id,
@@ -265,57 +264,76 @@ export const config = {
         //     return token;
         // },
         authorized({ request, auth }: any) {
-            // If the user is not authenticated, redirect to the sign-in page. Array of regex patterns to exclude from the redirect
-            const excludedPaths = [
-                /\/confirmation/,
-                /\/order-success/,
-                /\/order\/[^\/]+\/stripe-payment-success/, // Allow guest access to Stripe payment success pages
-                /\/order\/[^\/]+\/paypal-payment-success/, // Allow guest access to PayPal payment success pages
-                /\/profile/,
-                /\/user\/(.*)/,
-                /\/admin/,
-            ]
-            
-            // Check if the request path matches any of the excluded paths. Req URL OBject
             const pathname = request?.nextUrl?.pathname;
             const searchParams = request?.nextUrl?.searchParams;
             
-            // Allow guest checkout for shipping and payment pages
+            console.log('🔒 Auth Middleware - Pathname:', pathname);
+            console.log('🔒 Auth Middleware - Is authenticated:', !!auth);
+            
+            // Define paths that require authentication
+            const protectedPaths = [
+                /\/user\/(.*)/,
+                /\/admin/,
+                /\/profile/,
+            ];
+            
+            // Define paths that explicitly allow guest access
+            const guestAllowedPaths = [
+                /\/confirmation/,
+                /\/order-success/,
+                /\/order\/[^\/]+\/stripe-payment-success/,
+                /\/order\/[^\/]+\/paypal-payment-success/,
+            ];
+            
+            // Check if path requires authentication
+            const isProtectedPath = protectedPaths.some(p => p.test(pathname));
+            const isGuestAllowedPath = guestAllowedPaths.some(p => p.test(pathname));
+            
+            console.log('🔒 Auth Middleware - Is protected path:', isProtectedPath);
+            console.log('🔒 Auth Middleware - Is guest allowed path:', isGuestAllowedPath);
+            
+            // Handle protected paths - require authentication
+            if (isProtectedPath && !auth) {
+                console.log('🔒 Auth Middleware - Protected path without auth, redirecting to sign-in');
+                return NextResponse.redirect(new URL(`/sign-in?callbackUrl=${pathname}`, request.nextUrl.origin));
+            }
+            
+            // Handle guest-allowed paths - allow access regardless of auth status
+            if (isGuestAllowedPath) {
+                console.log('🔒 Auth Middleware - Guest-allowed path, granting access');
+                return true;
+            }
+            
+            // Handle checkout paths with guest parameter
             const isGuestCheckout = searchParams?.get('guest') === 'true';
             const isCheckoutPath = pathname === '/shipping' || pathname === '/payment-method' || pathname === '/place-order';
             
-            if (!auth && excludedPaths.some((p) => p.test(pathname))) {
-                return true; // Allow access to excluded paths without authentication
-            }
-            
-            // Handle checkout paths specifically
-            if (!auth && isCheckoutPath) {
+            if (isCheckoutPath && !auth) {
                 if (isGuestCheckout) {
-                    // Allow guest checkout
+                    console.log('🔒 Auth Middleware - Guest checkout allowed');
                     return true;
                 } else {
-                    // Redirect to sign-in for non-guest checkout
+                    console.log('🔒 Auth Middleware - Checkout requires auth or guest flag');
                     return NextResponse.redirect(new URL(`/sign-in?callbackUrl=${pathname}&message=Please sign in to continue with checkout`, request.nextUrl.origin));
                 }
             }
 
-            // Check for session cart cookie
+            // For all other paths, ensure session cart cookie exists
             if (!request.cookies.get('sessionCartId')) {
-                //Generate a new session cart id cookie
+                console.log('🔒 Auth Middleware - Generating session cart ID for public access');
                 const sessionCartId = crypto.randomUUID();
-                // Clone the request headers and then create a NextResponse object and append the heders
                 const newRequestHeaders = new Headers(request.headers);
                 const response = NextResponse.next({
                     request: {
                         headers: newRequestHeaders
                     }
-                })
+                });
                 response.cookies.set('sessionCartId', sessionCartId);
-
-                // Return the response with the sessionCartId set
                 return response;
-            } else { return true }
-
+            }
+            
+            console.log('🔒 Auth Middleware - Default: allowing access');
+            return true;
         },
         async signIn({ user, account, profile }) {
             return true // Accept all sign-ins
