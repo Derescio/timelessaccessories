@@ -95,42 +95,69 @@ export const config = {
                     const cookiesObject = await cookies();
                     const sessionCartId = cookiesObject.get('sessionCartId')?.value;
 
-                    console.log('Cart merging - Session Cart ID:', sessionCartId);
+                    console.log('🔄 Cart merging - Session Cart ID:', sessionCartId);
+                    console.log('🔄 Cart merging - User ID:', user.id);
+                    console.log('🔄 Cart merging - Trigger:', trigger);
 
                     if (sessionCartId) {
                         try {
+                            console.log('🔄 Cart merging - Starting cart merge process');
+                            
                             // Look for session cart
                             const sessionCart = await prisma.cart.findFirst({
                                 where: { sessionId: sessionCartId },
                                 include: { items: true }
                             });
 
-                            console.log('Cart merging - Session cart found:', !!sessionCart, 'Items:', sessionCart?.items.length || 0);
+                            console.log('🔄 Cart merging - Session cart lookup result:', {
+                                found: !!sessionCart,
+                                cartId: sessionCart?.id,
+                                itemCount: sessionCart?.items.length || 0,
+                                sessionId: sessionCart?.sessionId
+                            });
 
                             if (sessionCart && sessionCart.items.length > 0) {
+                                console.log('🔄 Cart merging - Session cart has items, proceeding with merge');
+                                
                                 // Check if user already has a cart
                                 const existingUserCart = await prisma.cart.findFirst({
                                     where: { userId: user.id },
                                     include: { items: true }
                                 });
 
-                                console.log('Cart merging - Existing user cart found:', !!existingUserCart, 'Items:', existingUserCart?.items.length || 0);
+                                console.log('🔄 Cart merging - Existing user cart lookup result:', {
+                                    found: !!existingUserCart,
+                                    cartId: existingUserCart?.id,
+                                    itemCount: existingUserCart?.items.length || 0,
+                                    userId: existingUserCart?.userId
+                                });
 
                                 if (existingUserCart) {
+                                    console.log('🔄 Cart merging - Merging session cart items into existing user cart');
+                                    
                                     // Merge carts: add session cart items to user cart
                                     for (const sessionItem of sessionCart.items) {
+                                        console.log('🔄 Cart merging - Processing session item:', {
+                                            itemId: sessionItem.id,
+                                            productId: sessionItem.productId,
+                                            inventoryId: sessionItem.inventoryId,
+                                            quantity: sessionItem.quantity
+                                        });
+                                        
                                         const existingItem = existingUserCart.items.find(
                                             item => item.inventoryId === sessionItem.inventoryId
                                         );
 
                                         if (existingItem) {
+                                            console.log('🔄 Cart merging - Item exists in user cart, updating quantity');
                                             // Update quantity if item already exists
                                             await prisma.cartItem.update({
                                                 where: { id: existingItem.id },
                                                 data: { quantity: existingItem.quantity + sessionItem.quantity }
                                             });
-                                            console.log('Cart merging - Updated existing item quantity');
+                                            console.log('🔄 Cart merging - Updated existing item quantity from', existingItem.quantity, 'to', existingItem.quantity + sessionItem.quantity);
                                         } else {
+                                            console.log('🔄 Cart merging - Item not in user cart, adding new item');
                                             // Add new item to user cart
                                             await prisma.cartItem.create({
                                                 data: {
@@ -141,16 +168,18 @@ export const config = {
                                                     selectedAttributes: sessionItem.selectedAttributes as any
                                                 }
                                             });
-                                            console.log('Cart merging - Added new item to user cart');
+                                            console.log('🔄 Cart merging - Added new item to user cart');
                                         }
                                     }
 
                                     // Delete the session cart
+                                    console.log('🔄 Cart merging - Deleting session cart');
                                     await prisma.cart.delete({
                                         where: { id: sessionCart.id }
                                     });
-                                    console.log('Cart merging - Deleted session cart');
+                                    console.log('🔄 Cart merging - Session cart deleted successfully');
                                 } else {
+                                    console.log('🔄 Cart merging - No existing user cart, assigning session cart to user');
                                     // No existing user cart, assign session cart to user
                                     await prisma.cart.update({
                                         where: { id: sessionCart.id },
@@ -159,16 +188,24 @@ export const config = {
                                             sessionId: null 
                                         }
                                     });
-                                    console.log('Cart merging - Assigned session cart to user');
+                                    console.log('🔄 Cart merging - Session cart assigned to user successfully');
                                 }
+                                
+                                console.log('🔄 Cart merging - Cart merge completed successfully');
                             } else {
-                                console.log('Cart merging - No session cart or empty cart found');
+                                console.log('🔄 Cart merging - No session cart or empty cart found, nothing to merge');
                             }
                         } catch (error) {
-                            console.error('Error merging carts:', error);
+                            console.error('🔄 Cart merging - Error during cart merge:', error);
+                            console.error('🔄 Cart merging - Error details:', {
+                                message: error instanceof Error ? error.message : 'Unknown error',
+                                stack: error instanceof Error ? error.stack : undefined,
+                                sessionCartId,
+                                userId: user.id
+                            });
                         }
                     } else {
-                        console.log('Cart merging - No session cart ID found in cookies');
+                        console.log('🔄 Cart merging - No session cart ID found in cookies');
                     }
                 }
             }
@@ -231,9 +268,9 @@ export const config = {
             // If the user is not authenticated, redirect to the sign-in page. Array of regex patterns to exclude from the redirect
             const excludedPaths = [
                 /\/confirmation/,
-                /\/order-sucess/,
-                /\/order\/[^\/]+\/stripe-payment-success/, // Allow guest access to payment success pages
-                /\/order\/[^\/]+\/paypal-payment-success/, // Allow guest access to PayPal success pages
+                /\/order-success/,
+                /\/order\/[^\/]+\/stripe-payment-success/, // Allow guest access to Stripe payment success pages
+                /\/order\/[^\/]+\/paypal-payment-success/, // Allow guest access to PayPal payment success pages
                 /\/profile/,
                 /\/user\/(.*)/,
                 /\/admin/,
@@ -248,7 +285,7 @@ export const config = {
             const isCheckoutPath = pathname === '/shipping' || pathname === '/payment-method' || pathname === '/place-order';
             
             if (!auth && excludedPaths.some((p) => p.test(pathname))) {
-                return false;
+                return true; // Allow access to excluded paths without authentication
             }
             
             // Handle checkout paths specifically

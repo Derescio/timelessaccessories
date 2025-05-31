@@ -52,7 +52,8 @@ interface Order {
         id: string;
         name: string;
         email: string;
-    };
+    } | null;
+    guestEmail?: string;
     items: OrderItem[];
 }
 
@@ -240,7 +241,19 @@ export default function OrdersPage() {
                             orders.map((order) => (
                                 <TableRow key={order.id}>
                                     <TableCell className="font-medium">{order.id}</TableCell>
-                                    <TableCell>{order.user.name}</TableCell>
+                                    <TableCell>
+                                        {order.user ? (
+                                            <div>
+                                                <div className="font-medium">{order.user.name}</div>
+                                                <div className="text-sm text-muted-foreground">{order.user.email}</div>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <div className="font-medium">Guest</div>
+                                                <div className="text-sm text-muted-foreground">{order.guestEmail}</div>
+                                            </div>
+                                        )}
+                                    </TableCell>
                                     <TableCell>
                                         <Badge className={getStatusColor(order.status)}>
                                             {order.status}

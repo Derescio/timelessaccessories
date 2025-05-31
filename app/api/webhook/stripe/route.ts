@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
 
   console.log('🔔 Stripe webhook - Processing event type:', event.type);
 
+  // Handle checkout.session.completed events
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
     console.log('🔔 Stripe webhook - Checkout session completed');
@@ -58,86 +59,36 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      try {
-        console.log('🔔 Stripe webhook - Looking up order in database');
-        // Get the order from the database
-        const order = await prisma.order.findUnique({
-          where: { id: orderId },
-          include: {
-            user: { select: { email: true, name: true } },
-            items: true,
-          },
-        });
-
-        if (!order) {
-          console.error('🔔 Stripe webhook - Order not found:', orderId);
-          return NextResponse.json(
-            { error: "Order not found" },
-            { status: 404 }
-          );
-        }
-
-        console.log('🔔 Stripe webhook - Order found:', {
-          id: order.id,
-          userEmail: order.user?.email,
-          guestEmail: order.guestEmail,
-          total: order.total,
-          status: order.status
-        });
-
-        // Update the order status to PROCESSING (since payment is completed)
-        console.log('🔔 Stripe webhook - Updating order status');
-        await prisma.order.update({
-          where: { id: orderId },
-          data: {
-            status: 'PROCESSING',
-          },
-        });
-
-        console.log('🔔 Stripe webhook - Order status updated successfully');
-
-        // Create payment record
-        console.log('🔔 Stripe webhook - Creating payment record');
-        await prisma.payment.create({
-          data: {
-            orderId: orderId,
-            provider: 'stripe',
-            paymentId: session.payment_intent as string,
-            amount: Number(session.amount_total) / 100, // Convert from cents
-            status: 'COMPLETED',
-          },
-        });
-
-        console.log('🔔 Stripe webhook - Payment record created successfully');
-
-        // Send order confirmation email
-        try {
-          console.log('🔔 Stripe webhook - Sending order confirmation email');
-          await sendOrderConfirmationEmail(orderId);
-          console.log('🔔 Stripe webhook - Order confirmation email sent successfully');
-        } catch (emailError) {
-          console.error('🔔 Stripe webhook - Error sending confirmation email:', emailError);
-          // Don't fail the webhook for email errors
-        }
-
-        console.log('🔔 Stripe webhook - Order processing completed successfully');
-
-        return NextResponse.json({
-          message: "Order processed successfully",
-          orderId: orderId,
-          orderType: order.userId ? 'authenticated' : 'guest'
-        });
-      } catch (error) {
-        console.error('🔔 Stripe webhook - Error processing order:', error);
-        return NextResponse.json(
-          { error: "Error processing order" },
-          { status: 500 }
-        );
-      }
+      return await processOrderPayment(orderId, session.payment_intent as string, 'checkout_session');
     } else {
       console.log('🔔 Stripe webhook - Payment not completed, status:', session.payment_status);
     }
-  } else {
+  }
+  
+  // Handle charge.succeeded events (for Payment Elements)
+  else if (event.type === 'charge.succeeded') {
+    const charge = event.data.object as Stripe.Charge;
+    console.log('🔔 Stripe webhook - Charge succeeded');
+    console.log('🔔 Stripe webhook - Charge ID:', charge.id);
+    console.log('🔔 Stripe webhook - Payment Intent:', charge.payment_intent);
+    console.log('🔔 Stripe webhook - Amount:', charge.amount);
+    console.log('🔔 Stripe webhook - Status:', charge.status);
+
+    const orderId = charge.metadata?.orderId;
+    console.log('🔔 Stripe webhook - Order ID from charge metadata:', orderId);
+
+    if (!orderId) {
+      console.error('🔔 Stripe webhook - No order ID found in charge metadata');
+      return NextResponse.json(
+        { error: "No order ID found in charge metadata" },
+        { status: 400 }
+      );
+    }
+
+    return await processOrderPayment(orderId, charge.payment_intent as string, 'charge', charge.id);
+  }
+  
+  else {
     console.log('🔔 Stripe webhook - Unhandled event type:', event.type);
   }
 
@@ -145,4 +96,117 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     message: `Event ${event.type} received but not processed`,
   });
+}
+
+// Helper function to process order payment
+async function processOrderPayment(orderId: string, paymentIntentId: string, eventType: string, chargeId?: string) {
+  try {
+    console.log(`🔔 Stripe webhook - Processing ${eventType} for order:`, orderId);
+    
+    // Get the order from the database
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        user: { select: { email: true, name: true } },
+        items: true,
+      },
+    });
+
+    if (!order) {
+      console.error('🔔 Stripe webhook - Order not found:', orderId);
+      return NextResponse.json(
+        { error: "Order not found" },
+        { status: 404 }
+      );
+    }
+
+    console.log('🔔 Stripe webhook - Order found:', {
+      id: order.id,
+      userEmail: order.user?.email,
+      guestEmail: order.guestEmail,
+      total: order.total,
+      status: order.status,
+      isGuest: !order.userId
+    });
+
+    // Check if order is already processed
+    if (order.status === 'PROCESSING' || order.status === 'SHIPPED' || order.status === 'DELIVERED') {
+      console.log('🔔 Stripe webhook - Order already processed, status:', order.status);
+      return NextResponse.json({
+        message: "Order already processed",
+        orderId: orderId,
+        status: order.status
+      });
+    }
+
+    // Update the order status to PROCESSING
+    console.log('🔔 Stripe webhook - Updating order status to PROCESSING');
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: 'PROCESSING',
+        chargeId: chargeId || undefined,
+      },
+    });
+
+    console.log('🔔 Stripe webhook - Order status updated successfully');
+
+    // Create or update payment record
+    console.log('🔔 Stripe webhook - Creating/updating payment record');
+    
+    // Check if payment record already exists
+    const existingPayment = await prisma.payment.findFirst({
+      where: { orderId: orderId }
+    });
+
+    if (existingPayment) {
+      console.log('🔔 Stripe webhook - Updating existing payment record');
+      await prisma.payment.update({
+        where: { id: existingPayment.id },
+        data: {
+          paymentId: paymentIntentId,
+          status: 'COMPLETED',
+          lastUpdated: new Date(),
+        },
+      });
+    } else {
+      console.log('🔔 Stripe webhook - Creating new payment record');
+      await prisma.payment.create({
+        data: {
+          orderId: orderId,
+          provider: 'stripe',
+          paymentId: paymentIntentId,
+          amount: Number(order.total),
+          status: 'COMPLETED',
+        },
+      });
+    }
+
+    console.log('🔔 Stripe webhook - Payment record processed successfully');
+
+    // Send order confirmation email
+    try {
+      console.log('🔔 Stripe webhook - Sending order confirmation email');
+      await sendOrderConfirmationEmail(orderId);
+      console.log('🔔 Stripe webhook - Order confirmation email sent successfully');
+    } catch (emailError) {
+      console.error('🔔 Stripe webhook - Error sending confirmation email:', emailError);
+      // Don't fail the webhook for email errors
+    }
+
+    console.log('🔔 Stripe webhook - Order processing completed successfully');
+
+    return NextResponse.json({
+      message: "Order processed successfully",
+      orderId: orderId,
+      orderType: order.userId ? 'authenticated' : 'guest',
+      eventType: eventType
+    });
+  } catch (error) {
+    console.error('🔔 Stripe webhook - Error processing order payment:', error);
+    return NextResponse.json(
+      { error: "Error processing order payment" },
+      { status: 500 }
+    );
+  }
 }

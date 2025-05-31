@@ -6,10 +6,13 @@ import { CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 
 export default function OrderSuccessPage() {
     const searchParams = useSearchParams();
+    const { data: session, status } = useSession();
     const [orderId, setOrderId] = useState<string | null>(null);
+    const isAuthenticated = status === 'authenticated';
 
     useEffect(() => {
         // Get order ID from URL if available, otherwise from localStorage
@@ -49,13 +52,34 @@ export default function OrderSuccessPage() {
                         </div>
                     )}
 
-                    <div className="flex gap-4 mt-6">
-                        <Link href="/user/account/orders">
-                            <Button variant="outline">View Orders</Button>
-                        </Link>
-                        <Link href="/products">
-                            <Button>Continue Shopping</Button>
-                        </Link>
+                    <div className="flex flex-col gap-3 mt-6 w-full">
+                        {isAuthenticated ? (
+                            // Authenticated user options
+                            <div className="flex gap-4">
+                                <Link href="/user/account/orders" className="flex-1">
+                                    <Button variant="outline" className="w-full">View Orders</Button>
+                                </Link>
+                                <Link href="/products" className="flex-1">
+                                    <Button className="w-full">Continue Shopping</Button>
+                                </Link>
+                            </div>
+                        ) : (
+                            // Guest user options
+                            <>
+                                <div className="p-3 bg-blue-50 border border-blue-100 rounded-md">
+                                    <p className="text-sm text-blue-800 font-medium mb-1">Want to track your order?</p>
+                                    <p className="text-xs text-blue-700">Create an account to view order history and track shipments.</p>
+                                </div>
+
+                                <Link href="/sign-up">
+                                    <Button className="w-full">Create Account</Button>
+                                </Link>
+
+                                <Link href="/products">
+                                    <Button variant="outline" className="w-full">Continue Shopping</Button>
+                                </Link>
+                            </>
+                        )}
                     </div>
                 </div>
             </Card>
