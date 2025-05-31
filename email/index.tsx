@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db";
 import { Resend } from "resend";
 import { SENDER_EMAIL, APP_NAME } from "@/lib/constants";
 import PurchaseReceiptEmail from "@/email/purchase-receipts";
@@ -7,7 +7,7 @@ const resend = new Resend(process.env.RESEND_API_KEY as string);
 
 export async function sendOrderConfirmationEmail(orderId: string): Promise<void> {
     // Fetch the order details from the database
-    const order = await prisma.order.findUnique({
+    const order = await db.order.findUnique({
         where: { id: orderId },
         include: {
             user: { select: { name: true, email: true } },
