@@ -147,30 +147,15 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
     const handleApprovePayPalOrder = async (data: { orderID: string }) => {
         setIsProcessing(true);
         try {
-            //   console.log("Approving PayPal order:", data.orderID);
             const result = await approvePayPalOrder(orderId, data);
-
             if (result.success) {
-                // console.log("PayPal payment approved successfully");
                 setSuccess(true);
-
-                // Clean up the cart after successful payment
-                try {
-                    const result = await cleanupCartAfterSuccessfulPayment(orderId);
-                    //  console.log("Cart cleaned up successfully");
-                    if (result.success) {
-                        triggerCartUpdate()
-                    }
-                } catch (cleanupError) {
-                    console.error("Error cleaning up cart:", cleanupError);
-                    // Continue with success flow even if cart cleanup fails
-                }
-
                 toast.success("Payment completed successfully!");
 
                 // Allow some time for the success message to be seen
                 setTimeout(() => {
-                    router.push(`/order-success?orderId=${orderId}`);
+                    // Redirect to PayPal payment success page instead of generic order-success
+                    router.push(`/order/${orderId}/paypal-payment-success?payment_id=${data.orderID}`);
                 }, 1500);
             } else {
                 throw new Error(result.message || "Failed to approve PayPal payment");
@@ -195,6 +180,7 @@ export default function PaymentSection({ orderId, totalAmount, paymentMethod = "
                 console.error("Error cleaning up cart for COD order:", error);
             })
             .finally(() => {
+                // Redirect to a COD-specific success page or generic order success
                 router.push(`/order-success?orderId=${orderId}`);
             });
     };

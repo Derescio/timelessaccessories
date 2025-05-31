@@ -45,7 +45,8 @@ interface Order {
         id: string;
         name: string;
         email: string;
-    };
+    } | null;
+    guestEmail?: string;
     items: OrderItem[];
     payment?: {
         id: string;
@@ -210,11 +211,23 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Customer</span>
-                            <span>{order.user.name}</span>
+                            <div className="text-right">
+                                {order.user ? (
+                                    <div>
+                                        <div className="font-medium">{order.user.name}</div>
+                                        <div className="text-sm text-muted-foreground">Registered User</div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <div className="font-medium">Guest</div>
+                                        <div className="text-sm text-muted-foreground">Guest Order</div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Email</span>
-                            <span>{order.user.email}</span>
+                            <span>{order.user?.email || order.guestEmail}</span>
                         </div>
                     </CardContent>
                 </Card>

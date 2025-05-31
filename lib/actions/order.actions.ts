@@ -1310,7 +1310,16 @@ export const createGuestOrder = async (orderData: OrderData) => {
     console.log('🎯 createGuestOrder - Transaction completed successfully');
     console.log('🎯 createGuestOrder - Final order ID:', result.id);
 
-    return { success: true, order: result };
+    // Convert Decimal objects to numbers for client component compatibility
+    const serializedOrder = {
+      ...result,
+      shipping: Number(result.shipping),
+      subtotal: Number(result.subtotal),
+      tax: Number(result.tax),
+      total: Number(result.total),
+    };
+
+    return { success: true, order: serializedOrder };
   } catch (error) {
     console.error('🎯 createGuestOrder - Error creating guest order:', error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to create order" };
