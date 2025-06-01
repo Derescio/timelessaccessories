@@ -58,6 +58,26 @@ export default function PurchaseReceiptEmail({ order }: { order: any }) {
                             <Text>{order.shippingAddress.city}, {order.shippingAddress.state}</Text>
                             <Text>{order.shippingAddress.country}</Text>
                         </Section>
+
+                        {/* Customer Support Section */}
+                        <Section className="mt-8 p-4 bg-gray-50 rounded-lg">
+                            <Heading className="text-lg mb-4">Need Help?</Heading>
+                            <Text className="mb-2">
+                                <strong>Questions about your order?</strong> Our support team is here to help!
+                            </Text>
+                            <Text className="mb-1">
+                                📧 Email: <a href="mailto:info@shopdw.com" className="text-blue-600">info@shopdw.com</a>
+                            </Text>
+                            <Text className="mb-1">
+                                🌐 Visit: <a href="https://www.shop-dw.com/contact" className="text-blue-600">yourdomain.com/contact</a>
+                            </Text>
+                            <Text className="mb-1">
+                                📞 Phone: (555) 123-4567
+                            </Text>
+                            <Text className="text-sm text-gray-600 mt-4">
+                                Please do not reply to this email - we won't receive your message. Use the contact methods above instead.
+                            </Text>
+                        </Section>
                     </Container>
                 </Body>
             </Tailwind>
