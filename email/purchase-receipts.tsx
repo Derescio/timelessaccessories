@@ -7,16 +7,13 @@ import {
     Heading,
     Html,
     Img,
+    Link,
     Preview,
     Row,
     Section,
     Tailwind,
     Text,
 } from '@react-email/components';
-import Link from 'next/link';
-
-
-
 
 export default function PurchaseReceiptEmail({ order }: { order: any }) {
     const dateFormatter = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
@@ -68,7 +65,7 @@ export default function PurchaseReceiptEmail({ order }: { order: any }) {
                                 <strong>Questions about your order?</strong> Our support team is here to help!
                             </Text>
                             <Text className="mb-1">
-                                📧 Email: <Link href="mLinkilto:info@shopdw.com" className="text-blue-600">info@shopdw.com</Link>
+                                📧 Email: <Link href="mailto:info@shopdw.com" className="text-blue-600">info@shopdw.com</Link>
                             </Text>
                             <Text className="mb-1">
                                 🌐 Visit: <Link href="https://www.shop-dw.com/contact" className="text-blue-600">shop-dw.com/contact</Link>
