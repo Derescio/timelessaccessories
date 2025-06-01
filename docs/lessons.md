@@ -142,6 +142,98 @@ export async function GET(
 </Tabs>
 ```
 
+## Email & Webhooks
+
+### 1. React Import Issues in Email Templates
+
+**Challenge:** Webhook endpoints returning 500 errors with "React is not defined" when sending order confirmation emails.
+
+**Symptoms:**
+- Webhooks receive events successfully but fail during email template rendering
+- Error occurs in both server-side email functions and React Email components
+- Payment processing completes but confirmation emails fail silently
+
+**Root Cause:** Missing React imports in email template files when using React Email components.
+
+**Lesson:** When using React Email with server-side rendering:
+- **Always import React** in files that use JSX syntax, even if not explicitly referenced
+- React imports are required for both the email service function and template components
+- Server-side email rendering requires explicit React imports unlike client components
+- Use `React.createElement()` for programmatic component creation in server contexts
+
+**Solution:**
+
+1. **Fix email service function (`email/index.tsx`):**
+```typescript
+import React from "react";
+import { Resend } from "resend";
+import PurchaseReceiptEmail from "@/email/purchase-receipts";
+
+// Use React.createElement for server-side rendering
+const emailResult = await resend.emails.send({
+    from: `${APP_NAME} <${SENDER_EMAIL}>`,
+    to: userEmail,
+    subject: `Order Confirmation - ${formattedOrder.id}`,
+    react: React.createElement(PurchaseReceiptEmail, { order: formattedOrder }),
+});
+```
+
+2. **Fix email template component (`email/purchase-receipts.tsx`):**
+```typescript
+import React from 'react';
+import { Body, Container, Heading, Html, /* other components */ } from '@react-email/components';
+
+export default function PurchaseReceiptEmail({ order }: { order: any }) {
+    return (
+        <Html>
+            {/* Email template JSX */}
+        </Html>
+    );
+}
+```
+
+**Testing Strategy:**
+Create a reusable test script to debug email issues:
+
+```typescript
+// scripts/test-order-email.ts
+import { sendOrderConfirmationEmail } from '../email/index';
+
+async function testOrderEmail() {
+  console.log('🔍 Checking environment variables...');
+  
+  const resendKey = process.env.RESEND_API_KEY;
+  const senderEmail = process.env.SENDER_EMAIL;
+  
+  console.log(`RESEND_API_KEY: ${resendKey ? '✅ Set' : '❌ Missing'}`);
+  console.log(`SENDER_EMAIL: ${senderEmail || 'onboarding@resend.dev'}`);
+  
+  if (!resendKey) {
+    console.error('❌ RESEND_API_KEY is not set');
+    return;
+  }
+  
+  const orderId = 'your-order-id-here';
+  
+  try {
+    await sendOrderConfirmationEmail(orderId);
+    console.log('✅ Email sent successfully!');
+  } catch (error) {
+    console.error('❌ Email failed:', error);
+  }
+}
+
+testOrderEmail();
+```
+
+**Run with:** `npx tsx scripts/test-order-email.ts`
+
+**Prevention:**
+- Add React imports to your email template scaffolding
+- Include email testing in your CI/CD pipeline
+- Use TypeScript strict mode to catch missing imports
+- Test email templates in isolation before webhook integration
+
 ## Database
 
 ### 1. Connection Issues
