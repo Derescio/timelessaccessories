@@ -180,9 +180,9 @@ function ProductsPageContent() {
     return (
         <main className="flex flex-col gap-6 max-w-6xl mx-auto px-4 py-10">
             <div className="flex flex-col gap-4">
-                <h1 className="text-3xl font-bold text-black">
+                <h1 className="text-3xl md:text-4xl font-semibold text-black font-poppins">
                     {categoryId && currentProducts.length > 0
-                        ? `${currentProducts[0]?.category.name || 'Category'} Products`
+                        ? `${currentProducts[0]?.category.name || 'Category'}`
                         : 'All Products'
                     }
                 </h1>

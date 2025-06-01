@@ -3,11 +3,12 @@ import { Facebook, Instagram, Twitter } from "lucide-react";
 
 const footerLinks = {
     shop: [
-        { title: "Jewelry", href: "/categories/jewelry" },
-        { title: "Clothing", href: "/categories/clothing" },
-        { title: "Shoes", href: "/categories/shoes" },
-        { title: "New Arrivals", href: "/new-arrivals" },
-        { title: "Sale", href: "/sale" },
+
+        { title: "Rings", href: "/products?category=cm8g42vkg000420us58yc4vhc" },
+        { title: "Bracelets", href: "/products?category=cm8g42vld000620usw2uzntme" },
+        { title: "Necklaces", href: "/products?category=cm8g42vis000220uspq6fi4uv" },
+        { title: "Jewelry", href: "/products?category=cm8wftyg4000r20yg3d4ph4v0" },
+        { title: "Electronics", href: "/products?category=cm8p9azze00172050qfw19hgj" },
     ],
     support: [
         { title: "Contact Us", href: "/contact" },
