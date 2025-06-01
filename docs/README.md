@@ -6,6 +6,7 @@ Documentation for developers and technical users.
 ### System Architecture
 - [Database Configuration](./DATABASE.md)
 - [Authentication System](./AUTH.md)
+- [Email Setup Guide](./EMAIL_SETUP.md)
 - [Development Lessons](./lessons.md)
 
 ### API Documentation
