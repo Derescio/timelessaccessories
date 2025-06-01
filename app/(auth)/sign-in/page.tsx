@@ -25,8 +25,9 @@ const SignInPage = async (props: { searchParams: Promise<{ callbackUrl: string; 
         <div className="w-full max-w-md mx-auto">
             <Card>
                 <CardHeader className="space-y-4">
+
                     <Link href="/" className="flex-center">
-                        <Image src="/images/Logo.png" alt="SHOPDDW" width={100} height={100} priority={true} className="rounded-full" />
+                        <Image src="/images/logo/SHOPDDWLogo.png" alt="SHOPDDW" width={100} height={100} priority={true} className="rounded-full" />
                     </Link>
                     <CardTitle className="text-center">Sign In</CardTitle>
                     <CardDescription className="text-center">Sign in to your account</CardDescription>

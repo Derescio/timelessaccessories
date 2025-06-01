@@ -71,17 +71,19 @@ export function Header() {
     return (
         <header className="sticky top-0 z-50 w-full bg-zinc-800  ">
             <div className="container flex h-16 items-center justify-between gap-4 px-4">
-                {/* Logo */}
-                <Link href="/" className="flex items-center space-x-2">
-                    <Image
-                        src={Logo}
-                        alt="Logo"
-                        width={180}
-                        height={90}
-                        className="h-12 w-auto object-contain max-h-12 rounded-2xl"
-                    />
-                </Link>
-
+                <div className="flex items-center space-x-2">
+                    {/* Logo */}
+                    <Link href="/" className="flex items-center space-x-2">
+                        <Image
+                            src={Logo}
+                            alt="Logo"
+                            width={180}
+                            height={90}
+                            className="h-12 w-auto object-contain max-h-12 rounded-2xl"
+                        />
+                    </Link>
+                    <h1 className="text-white  text-sm md:text-xl font-medium">SHOPDW</h1>
+                </div>
                 {/* Desktop Navigation */}
                 <div className="hidden md:flex md:flex-1 md:justify-center">
                     <NavigationMenu>

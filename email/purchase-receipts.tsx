@@ -12,6 +12,7 @@ import {
     Tailwind,
     Text,
 } from '@react-email/components';
+import Link from 'next/link';
 
 
 
@@ -66,10 +67,10 @@ export default function PurchaseReceiptEmail({ order }: { order: any }) {
                                 <strong>Questions about your order?</strong> Our support team is here to help!
                             </Text>
                             <Text className="mb-1">
-                                📧 Email: <a href="mailto:info@shopdw.com" className="text-blue-600">info@shopdw.com</a>
+                                📧 Email: <Link href="mLinkilto:info@shopdw.com" className="text-blue-600">info@shopdw.com</Link>
                             </Text>
                             <Text className="mb-1">
-                                🌐 Visit: <a href="https://www.shop-dw.com/contact" className="text-blue-600">yourdomain.com/contact</a>
+                                🌐 Visit: <Link href="https://www.shop-dw.com/contact" className="text-blue-600">shop-dw.com/contact</Link>
                             </Text>
                             <Text className="mb-1">
                                 📞 Phone: (555) 123-4567
