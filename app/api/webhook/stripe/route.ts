@@ -233,7 +233,85 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Return success for unhandled events (including charge.succeeded) to prevent webhook failures
+  // Handle charge.succeeded event (your actual webhook configuration)
+  if (event.type === 'charge.succeeded') {
+    const charge = event.data.object as Stripe.Charge;
+    const orderId = charge.metadata?.orderId;
+
+    console.log(`🔄 WEBHOOK [${timestamp}]: Processing charge.succeeded for order: ${orderId}`);
+    console.log(`🔄 WEBHOOK [${timestamp}]: Charge details:`, {
+      id: charge.id,
+      amount: charge.amount,
+      status: charge.status,
+      paid: charge.paid,
+      customerEmail: charge.billing_details?.email
+    });
+
+    if (!orderId || !charge.paid) {
+      console.log(`⚠️ WEBHOOK [${timestamp}]: Incomplete charge or missing order ID - Order: ${orderId}, Paid: ${charge.paid}`);
+      return NextResponse.json({ message: 'Charge incomplete or missing order ID' });
+    }
+
+    try {
+      console.log(`📦 WEBHOOK [${timestamp}]: Updating order to paid: ${orderId}`);
+      await updateOrderToPaid({
+        orderId,
+        paymentResult: {
+          id: charge.id,
+          status: 'COMPLETED',
+          email_address: charge.billing_details?.email || 'unknown@example.com',
+          pricePaid: (charge.amount / 100).toFixed(2),
+        },
+      });
+      console.log(`✅ WEBHOOK [${timestamp}]: Order updated successfully: ${orderId}`);
+
+      // Reduce actual stock after payment confirmation
+      console.log(`📦 WEBHOOK [${timestamp}]: About to reduce stock for confirmed order: ${orderId}`);
+      const stockResult = await reduceOrderStock(orderId);
+      
+      console.log(`📊 WEBHOOK [${timestamp}]: Stock reduction result for order ${orderId}:`, {
+        success: stockResult.success,
+        error: stockResult.error,
+        reducedItems: stockResult.reducedItems || 0
+      });
+      
+      if (!stockResult.success) {
+        console.error(`❌ WEBHOOK [${timestamp}]: Stock reduction failed for order ${orderId}:`, stockResult.error);
+        // Log the error but don't fail the webhook - payment was successful
+      } else {
+        console.log(`✅ WEBHOOK [${timestamp}]: Stock reduced successfully for order: ${orderId}`);
+      }
+
+      console.log(`📧 WEBHOOK [${timestamp}]: Sending order confirmation email for: ${orderId}`);
+      try {
+        await sendOrderConfirmationEmail(orderId);
+        console.log(`✅ WEBHOOK [${timestamp}]: Email sent successfully for order: ${orderId}`);
+      } catch (emailError) {
+        console.error(`❌ WEBHOOK [${timestamp}]: Error sending email for order ${orderId}:`, emailError);
+        // Don't fail the webhook for email errors
+      }
+
+      console.log(`✅ WEBHOOK [${timestamp}]: Successfully completed processing for order: ${orderId}`);
+      return NextResponse.json({ 
+        message: 'Order updated via charge.succeeded',
+        stockReduction: stockResult.success ? 'completed' : 'failed',
+        orderId: orderId,
+        timestamp: timestamp
+      });
+    } catch (error) {
+      console.error(`❌ WEBHOOK [${timestamp}]: Error processing charge.succeeded for order ${orderId}:`, error);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return NextResponse.json({ 
+        error: 'Failed to process charge.succeeded', 
+        details: errorMessage,
+        orderId,
+        timestamp
+      }, { status: 500 });
+    }
+  }
+
+  // Return success for unhandled events to prevent webhook failures
   console.log(`ℹ️ WEBHOOK [${timestamp}]: Received unhandled event type: ${event.type} - returning success to prevent webhook failure`);
   return NextResponse.json({ 
     message: `Event ${event.type} received but not processed`,
