@@ -113,6 +113,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid Stripe signature' }, { status: 400 });
   }
 
+  // Handle charge.succeeded event
   if (event.type === 'charge.succeeded') {
     const charge = event.data.object as Stripe.Charge;
     const orderId = charge.metadata?.orderId;
@@ -125,6 +126,26 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      // Check if order has already been processed to prevent duplicate processing
+      const existingOrder = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { 
+          paymentIntent: true,
+          payment: {
+            select: { status: true }
+          }
+        }
+      });
+
+      if (existingOrder?.paymentIntent || existingOrder?.payment?.status === 'COMPLETED') {
+        console.log(`⚠️ Order ${orderId} already processed via charge.succeeded (paymentIntent: ${existingOrder.paymentIntent}, payment status: ${existingOrder.payment?.status}), skipping duplicate processing`);
+        return NextResponse.json({ 
+          message: 'Order already processed via charge.succeeded',
+          orderId,
+          alreadyProcessed: true
+        });
+      }
+
       console.log(`📦 Updating order to paid: ${orderId}`);
       await updateOrderToPaid({
         orderId,
@@ -168,6 +189,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Handle checkout.session.completed event
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
     const orderId = session.metadata?.orderId;
@@ -180,6 +202,26 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      // Check if order has already been processed to prevent duplicate processing
+      const existingOrder = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { 
+          paymentIntent: true,
+          payment: {
+            select: { status: true }
+          }
+        }
+      });
+
+      if (existingOrder?.paymentIntent || existingOrder?.payment?.status === 'COMPLETED') {
+        console.log(`⚠️ Order ${orderId} already processed via checkout.session.completed (paymentIntent: ${existingOrder.paymentIntent}, payment status: ${existingOrder.payment?.status}), skipping duplicate processing`);
+        return NextResponse.json({ 
+          message: 'Order already processed via checkout.session.completed',
+          orderId,
+          alreadyProcessed: true
+        });
+      }
+
       console.log(`📦 Updating order to paid: ${orderId}`);
       await updateOrderToPaid({
         orderId,
@@ -222,5 +264,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  console.log(`ℹ️ Received unhandled event type: ${event.type}`);
   return NextResponse.json({ message: `Unhandled event: ${event.type}` });
 }
