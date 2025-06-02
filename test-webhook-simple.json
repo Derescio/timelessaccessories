@@ -1,0 +1,32 @@
+{
+  "id": "evt_test_manual",
+  "object": "event",
+  "api_version": "2025-02-24.acacia",
+  "created": 1748875942,
+  "data": {
+    "object": {
+      "id": "ch_test_manual",
+      "object": "charge",
+      "amount": 32099,
+      "amount_captured": 32099,
+      "amount_refunded": 0,
+      "billing_details": {
+        "email": "test@example.com",
+        "name": "Test User"
+      },
+      "captured": true,
+      "currency": "usd",
+      "metadata": {
+        "orderId": "cmbf7hfnv000720cwh9ilismg"
+      },
+      "paid": true,
+      "status": "succeeded"
+    }
+  },
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": {
+    "id": "req_test_manual"
+  },
+  "type": "charge.succeeded"
+} 

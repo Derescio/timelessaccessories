@@ -69,6 +69,7 @@ model ProductInventory {
   discountPercentage Int?
   hasDiscount        Boolean                   @default(false)
   quantity           Int                       @default(0)
+  reservedStock      Int                       @default(0)
   lowStock           Int                       @default(5)
   images             String[]
   attributes         Json?

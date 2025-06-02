@@ -197,6 +197,7 @@ export async function getProductBySlug(slug: string): Promise<ClientProduct | nu
         hasDiscount: Boolean(inv.discountPercentage),
         images: inv.images,
         quantity: inv.quantity,
+        reservedStock: inv.reservedStock || 0,
         sku: inv.sku,
         attributes: inv.attributes as Record<string, string> || {},
       })),

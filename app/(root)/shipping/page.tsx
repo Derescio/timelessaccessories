@@ -292,7 +292,7 @@ export default function ShippingPage() {
     };
 
     // Check if this order qualifies for free shipping
-    const qualifiesForFreeShipping = calculateOrderSummary().subtotal >= 100
+    const qualifiesForFreeShipping = calculateOrderSummary().subtotal >= 600
 
     // Handle input changes
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -331,41 +331,41 @@ export default function ShippingPage() {
     // Handle form submission
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        console.log('📦 Shipping form - Starting submission');
-        console.log('📦 Shipping form - Form data:', {
-            ...formData,
-            email: formData.email || 'Not provided',
-            phone: formData.phone || 'Not provided'
-        });
-        console.log('📦 Shipping form - Is authenticated:', isAuthenticated);
-        console.log('📦 Shipping form - Market type:', IS_LASCO_MARKET ? 'LASCO' : 'GLOBAL');
+        // console.log('📦 Shipping form - Starting submission');
+        // console.log('📦 Shipping form - Form data:', {
+        //     ...formData,
+        //     email: formData.email || 'Not provided',
+        //     phone: formData.phone || 'Not provided'
+        // });
+        // console.log('📦 Shipping form - Is authenticated:', isAuthenticated);
+        // console.log('📦 Shipping form - Market type:', IS_LASCO_MARKET ? 'LASCO' : 'GLOBAL');
 
         try {
             setIsCreatingOrder(true);
 
             // Validate the form
-            console.log('📦 Shipping form - Validating form');
+            // console.log('📦 Shipping form - Validating form');
             const formIsValid = validateForm();
             if (!formIsValid) {
-                console.log("📦 Shipping form - Form validation failed:", formErrors);
+                // console.log("📦 Shipping form - Form validation failed:", formErrors);
                 setIsCreatingOrder(false);
                 return;
             }
-            console.log('📦 Shipping form - Form validation passed');
+            // console.log('📦 Shipping form - Form validation passed');
 
             // Check if cart still exists by getting a fresh copy
             try {
-                console.log('📦 Shipping form - Validating cart');
+                // console.log('📦 Shipping form - Validating cart');
                 const freshCart = await getCart();
                 if (!freshCart || !freshCart.items || freshCart.items.length === 0) {
-                    console.error('📦 Shipping form - Cart is empty or not found');
+                    // console.error('📦 Shipping form - Cart is empty or not found');
                     toast.error("Your cart is empty or could not be found. Please add items to your cart first.");
                     router.push("/cart");
                     setIsCreatingOrder(false);
                     return;
                 }
 
-                console.log('📦 Shipping form - Cart validated successfully, items:', freshCart.items.length);
+                // console.log('📦 Shipping form - Cart validated successfully, items:', freshCart.items.length);
                 // Update cart with fresh data
                 setCart(freshCart);
             } catch (cartError) {
@@ -377,11 +377,11 @@ export default function ShippingPage() {
 
             // Calculate tax and order summary
             const orderSummary = calculateOrderSummary();
-            console.log('📦 Shipping form - Order summary calculated:', orderSummary);
+            // console.log('📦 Shipping form - Order summary calculated:', orderSummary);
 
             if (IS_LASCO_MARKET) {
                 // For LASCO market, create the order directly in the database
-                console.log("📦 Shipping form - LASCO market: Creating order directly in database");
+                // console.log("📦 Shipping form - LASCO market: Creating order directly in database");
 
                 try {
                     // Save the user's address to their profile (only for authenticated users)
@@ -621,7 +621,7 @@ export default function ShippingPage() {
                             <div className="flex items-center gap-3">
                                 <h2 className="text-xl font-medium">Shipping Address</h2>
                                 {!isAuthenticated && (
-                                    <span className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full border border-blue-200">
+                                    <span className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-md border border-blue-200">
                                         Guest Checkout
                                     </span>
                                 )}

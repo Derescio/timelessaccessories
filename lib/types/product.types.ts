@@ -173,6 +173,7 @@ export interface ClientProduct {
         hasDiscount: boolean;
         images: string[];
         quantity: number;
+        reservedStock?: number;
         sku: string;
         attributes?: Record<string, string> | null;
     }[];

@@ -2,11 +2,87 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { updateOrderToPaid } from '@/lib/actions/order.actions';
 import { sendOrderConfirmationEmail } from '@/email';
+import { reduceActualStock } from '@/lib/actions/inventory.actions';
+import { prisma } from '@/lib/prisma';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-02-24.acacia',
 });
- 
+
+/**
+ * Reduce stock for all items in an order after payment confirmation
+ */
+async function reduceOrderStock(orderId: string) {
+  try {
+    console.log(`🔄 Reducing stock for order: ${orderId}`);
+    
+    // Get order items
+    const orderItems = await prisma.orderItem.findMany({
+      where: { orderId },
+      select: {
+        inventoryId: true,
+        quantity: true,
+        name: true,
+        inventory: {
+          select: { sku: true }
+        }
+      }
+    });
+
+    if (orderItems.length === 0) {
+      console.warn(`⚠️ No order items found for order: ${orderId}`);
+      return { success: false, error: "No order items found" };
+    }
+
+    // Reduce stock for each item
+    const stockResults = [];
+    for (const item of orderItems) {
+      console.log(`🔄 About to reduce stock for:`, {
+        inventoryId: item.inventoryId,
+        sku: item.inventory.sku,
+        productName: item.name,
+        quantity: item.quantity
+      });
+
+      const result = await reduceActualStock(item.inventoryId, item.quantity);
+      stockResults.push({
+        sku: item.inventory.sku,
+        productName: item.name,
+        quantity: item.quantity,
+        success: result.success,
+        error: result.error
+      });
+      
+      if (result.success) {
+        console.log(`✅ Successfully reduced ${item.quantity} stock for ${item.inventory.sku}`);
+      } else {
+        console.error(`❌ Failed to reduce stock for ${item.inventory.sku}:`, result.error);
+      }
+    }
+
+    const failedReductions = stockResults.filter(r => !r.success);
+    
+    if (failedReductions.length > 0) {
+      console.error(`❌ ${failedReductions.length} stock reductions failed:`, failedReductions);
+      return { 
+        success: false, 
+        error: "Some stock reductions failed",
+        failedItems: failedReductions
+      };
+    }
+
+    console.log(`✅ Successfully reduced stock for all ${orderItems.length} items in order ${orderId}`);
+    return { success: true, reducedItems: stockResults.length };
+
+  } catch (error) {
+    console.error(`❌ Error reducing stock for order ${orderId}:`, error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown error" 
+    };
+  }
+}
+
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   const signature = req.headers.get('stripe-signature');
@@ -23,8 +99,15 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret!);
-    console.log(`✅ Received Stripe event: ${event.type}`);
+    // In development, allow test signatures for manual webhook testing
+    if (process.env.NODE_ENV === 'development' && signature.includes('test_signature_for_local_development')) {
+      console.log('🧪 Using test signature for local development');
+      event = JSON.parse(rawBody);
+      console.log(`✅ Received test Stripe event: ${event.type}`);
+    } else {
+      event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret!);
+      console.log(`✅ Received Stripe event: ${event.type}`);
+    }
   } catch (err: any) {
     console.error('❌ Signature verification failed:', err.message);
     return NextResponse.json({ error: 'Invalid Stripe signature' }, { status: 400 });
@@ -54,11 +137,24 @@ export async function POST(req: NextRequest) {
       });
       console.log(`✅ Order updated successfully: ${orderId}`);
 
+      // Reduce actual stock after payment confirmation
+      console.log(`📦 Reducing stock for confirmed order: ${orderId}`);
+      const stockResult = await reduceOrderStock(orderId);
+      if (!stockResult.success) {
+        console.error(`❌ Stock reduction failed for order ${orderId}:`, stockResult.error);
+        // Log the error but don't fail the webhook - payment was successful
+      } else {
+        console.log(`✅ Stock reduced successfully for order: ${orderId}`);
+      }
+
       console.log(`📧 Sending order confirmation email for: ${orderId}`);
       await sendOrderConfirmationEmail(orderId);
       console.log(`✅ Email sent successfully for order: ${orderId}`);
 
-      return NextResponse.json({ message: 'Order updated and confirmed via charge.succeeded' });
+      return NextResponse.json({ 
+        message: 'Order updated and confirmed via charge.succeeded',
+        stockReduction: stockResult.success ? 'completed' : 'failed'
+      });
     } catch (error) {
       console.error(`❌ Error processing charge.succeeded for order ${orderId}:`, error);
       
@@ -96,15 +192,27 @@ export async function POST(req: NextRequest) {
       });
       console.log(`✅ Order updated successfully: ${orderId}`);
 
+      // Reduce actual stock after payment confirmation
+      console.log(`📦 Reducing stock for confirmed order: ${orderId}`);
+      const stockResult = await reduceOrderStock(orderId);
+      if (!stockResult.success) {
+        console.error(`❌ Stock reduction failed for order ${orderId}:`, stockResult.error);
+        // Log the error but don't fail the webhook - payment was successful
+      } else {
+        console.log(`✅ Stock reduced successfully for order: ${orderId}`);
+      }
+
       console.log(`📧 Sending order confirmation email for: ${orderId}`);
       await sendOrderConfirmationEmail(orderId);
       console.log(`✅ Email sent successfully for order: ${orderId}`);
 
-      return NextResponse.json({ message: 'Order updated via checkout.session.completed' });
+      return NextResponse.json({ 
+        message: 'Order updated via checkout.session.completed',
+        stockReduction: stockResult.success ? 'completed' : 'failed'
+      });
     } catch (error) {
       console.error(`❌ Error processing checkout.session.completed for order ${orderId}:`, error);
       
-      // Return detailed error information
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return NextResponse.json({ 
         error: 'Failed to process checkout.session.completed', 
