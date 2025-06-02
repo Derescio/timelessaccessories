@@ -113,83 +113,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid Stripe signature' }, { status: 400 });
   }
 
-  // Handle charge.succeeded event
-  if (event.type === 'charge.succeeded') {
-    const charge = event.data.object as Stripe.Charge;
-    const orderId = charge.metadata?.orderId;
-
-    console.log(`🔄 Processing charge.succeeded for order: ${orderId}`);
-
-    if (!orderId) {
-      console.error('❌ Missing orderId in charge metadata');
-      return NextResponse.json({ error: 'Missing orderId in charge metadata' }, { status: 400 });
-    }
-
-    try {
-      // Check if order has already been processed to prevent duplicate processing
-      const existingOrder = await prisma.order.findUnique({
-        where: { id: orderId },
-        select: { 
-          paymentIntent: true,
-          payment: {
-            select: { status: true }
-          }
-        }
-      });
-
-      if (existingOrder?.paymentIntent || existingOrder?.payment?.status === 'COMPLETED') {
-        console.log(`⚠️ Order ${orderId} already processed via charge.succeeded (paymentIntent: ${existingOrder.paymentIntent}, payment status: ${existingOrder.payment?.status}), skipping duplicate processing`);
-        return NextResponse.json({ 
-          message: 'Order already processed via charge.succeeded',
-          orderId,
-          alreadyProcessed: true
-        });
-      }
-
-      console.log(`📦 Updating order to paid: ${orderId}`);
-      await updateOrderToPaid({
-        orderId,
-        paymentResult: {
-          id: charge.id,
-          status: 'COMPLETED',
-          email_address: charge.billing_details.email || 'unknown@example.com',
-          pricePaid: (charge.amount / 100).toFixed(2),
-        },
-      });
-      console.log(`✅ Order updated successfully: ${orderId}`);
-
-      // Reduce actual stock after payment confirmation
-      console.log(`📦 Reducing stock for confirmed order: ${orderId}`);
-      const stockResult = await reduceOrderStock(orderId);
-      if (!stockResult.success) {
-        console.error(`❌ Stock reduction failed for order ${orderId}:`, stockResult.error);
-        // Log the error but don't fail the webhook - payment was successful
-      } else {
-        console.log(`✅ Stock reduced successfully for order: ${orderId}`);
-      }
-
-      console.log(`📧 Sending order confirmation email for: ${orderId}`);
-      await sendOrderConfirmationEmail(orderId);
-      console.log(`✅ Email sent successfully for order: ${orderId}`);
-
-      return NextResponse.json({ 
-        message: 'Order updated and confirmed via charge.succeeded',
-        stockReduction: stockResult.success ? 'completed' : 'failed'
-      });
-    } catch (error) {
-      console.error(`❌ Error processing charge.succeeded for order ${orderId}:`, error);
-      
-      // Return detailed error information
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      return NextResponse.json({ 
-        error: 'Failed to process charge.succeeded', 
-        details: errorMessage,
-        orderId 
-      }, { status: 500 });
-    }
-  }
-
-  // Handle checkout.session.completed event
+  // Handle checkout.session.completed event (standard for Stripe Checkout)
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
     const orderId = session.metadata?.orderId;
@@ -202,26 +126,6 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      // Check if order has already been processed to prevent duplicate processing
-      const existingOrder = await prisma.order.findUnique({
-        where: { id: orderId },
-        select: { 
-          paymentIntent: true,
-          payment: {
-            select: { status: true }
-          }
-        }
-      });
-
-      if (existingOrder?.paymentIntent || existingOrder?.payment?.status === 'COMPLETED') {
-        console.log(`⚠️ Order ${orderId} already processed via checkout.session.completed (paymentIntent: ${existingOrder.paymentIntent}, payment status: ${existingOrder.payment?.status}), skipping duplicate processing`);
-        return NextResponse.json({ 
-          message: 'Order already processed via checkout.session.completed',
-          orderId,
-          alreadyProcessed: true
-        });
-      }
-
       console.log(`📦 Updating order to paid: ${orderId}`);
       await updateOrderToPaid({
         orderId,
@@ -264,6 +168,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  console.log(`ℹ️ Received unhandled event type: ${event.type}`);
-  return NextResponse.json({ message: `Unhandled event: ${event.type}` });
+  // Return success for unhandled events (including charge.succeeded) to prevent webhook failures
+  console.log(`ℹ️ Received unhandled event type: ${event.type} - returning success to prevent webhook failure`);
+  return NextResponse.json({ message: `Event ${event.type} received but not processed` });
 }
