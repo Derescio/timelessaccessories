@@ -647,21 +647,9 @@ export async function updateOrderToPaid({
 
   // Transaction to update the order and update the product quantities
   await db.$transaction(async (tx) => {
-    // Update all item quantities in the database
-    for (const item of order.items) {
-      await tx.product.update({
-        where: { id: item.productId },
-        data: {
-          inventories: {
-            update: {
-              where: { id: item.inventoryId },
-              data: { quantity: { decrement: item.quantity } }
-            }
-          }
-        },
-      });
-    }
-
+    // Note: Stock reduction is now handled by webhook via reduceOrderStock()
+    // This function only updates payment status and order status
+    
     // Set the order to paid
     await tx.order.update({
       where: { id: orderId },
