@@ -53,6 +53,7 @@ interface ClientProduct {
     averageRating?: number | null;
     reviewCount?: number;
     inventories: {
+        id: string;
         retailPrice: number;
         costPrice: number;
         compareAtPrice: number | null;
@@ -95,7 +96,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     const [quantity, setQuantity] = useState(1);
     const [isUpdatingQuantity, setIsUpdatingQuantity] = useState(false);
     const maxStock = product.inventories[0]?.quantity || 1;
-    const inventoryId = product.inventories[0]?.sku;
+    const inventoryId = product.inventories[0]?.id;
 
     // Get the active inventory
     const activeInventory = useMemo(() => {

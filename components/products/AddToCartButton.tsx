@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { addToCart } from '@/lib/actions/cart.actions';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, Check, Loader } from 'lucide-react';
@@ -59,23 +59,39 @@ export default function AddToCartButton({
 }: AddToCartButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+    const requestInProgress = useRef(false);
+    const lastRequestTime = useRef(0);
 
     const handleAddToCart = async () => {
-        // Add detailed logging
+        // Prevent multiple simultaneous requests with debounce
+        const now = Date.now();
+        if (requestInProgress.current || isLoading || (now - lastRequestTime.current < 1000)) {
+            console.log('AddToCartButton - Request blocked (duplicate/too frequent)');
+            return;
+        }
+
+        // Validate inputs before making request
+        if (!productId || !inventoryId) {
+            console.error('AddToCartButton - Missing required data:', { productId, inventoryId });
+            toast.error('Invalid product configuration');
+            return;
+        }
+
+        // Add detailed logging with type information
         console.log('AddToCartButton - handleAddToCart called with:', {
-            productId,
-            inventoryId,
+            productId: productId,
+            inventoryId: inventoryId,
+            inventoryIdType: typeof inventoryId,
+            inventoryIdLength: inventoryId?.length,
+            inventoryIdIsUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inventoryId),
             quantity,
             selectedAttributes
         });
 
-        if (!inventoryId) {
-            console.error('Invalid inventory ID:', inventoryId);
-            toast.error('Invalid inventory configuration');
-            return;
-        }
-
+        requestInProgress.current = true;
+        lastRequestTime.current = now;
         setIsLoading(true);
+
         try {
             // Get session ID from cookie if not logged in
             const sessionId = document.cookie
@@ -83,13 +99,7 @@ export default function AddToCartButton({
                 .find(row => row.startsWith('sessionCartId='))
                 ?.split('=')[1];
 
-            console.log('AddToCartButton - Calling addToCart with:', {
-                productId,
-                inventoryId,
-                quantity,
-                sessionId,
-                selectedAttributes
-            });
+            console.log('AddToCartButton - Making addToCart request...');
 
             const result = await addToCart({
                 productId,
@@ -101,7 +111,7 @@ export default function AddToCartButton({
 
             console.log('AddToCartButton - addToCart result:', result);
 
-            if (result.success) {
+            if (result?.success) {
                 setIsSuccess(true);
                 toast.success(result.message || 'Item added to cart', {
                     action: {
@@ -112,22 +122,32 @@ export default function AddToCartButton({
                 });
                 triggerCartUpdate();
 
-                if (onSuccess) {
+                if (onSuccess && result.item) {
                     onSuccess(result as unknown as CartActionResult);
+                } else if (!result.item) {
+                    console.warn('AddToCartButton - Success but no item details returned');
+                    // Still trigger success behavior even if item details missing
+                    setTimeout(() => {
+                        setIsSuccess(false);
+                    }, 500);
                 } else {
                     setTimeout(() => {
                         setIsSuccess(false);
-                    }, 2000);
+                    }, 500);
                 }
             } else {
-                toast.error(result.message || 'Failed to add item to cart');
-                console.error('Add to cart failed:', result.message);
+                toast.error('Oops, something went wrong, It seems another customer has purchased the last of this item. ' + result?.message + ' Please Contact our support team' || 'Failed to add item to cart');
+                // console.error('Add to cart failed:', result?.message);
             }
         } catch (error) {
             console.error('Error adding to cart:', error);
             toast.error('Failed to add item to cart');
         } finally {
             setIsLoading(false);
+            // Add delay before allowing next request
+            setTimeout(() => {
+                requestInProgress.current = false;
+            }, 500);
         }
     };
 

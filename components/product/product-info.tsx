@@ -38,7 +38,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
 
     // Check if this product's category should display attributes as read-only
     const isReadOnlyAttributes = READ_ONLY_ATTRIBUTE_CATEGORIES.includes(product.categoryId);
-
+    console.log('Inventory', selectedInventory);
     // Auto-select first attribute values on mount
     useEffect(() => {
         // Group inventories by their attributes
@@ -263,8 +263,8 @@ export function ProductInfo({ product }: ProductInfoProps) {
                 triggerCartUpdate();
                 toast.success(result.message || "Cart updated successfully");
             } else {
-                console.error('Failed to update cart:', result.message);
-                toast.error(result.message || "Failed to update cart");
+                //console.error('Failed to update cart:', result.message);
+                toast.error('We are sorry but there are ' + result.message + '.' + ' Feel free to contact us if more clarity is needed' || "Failed to update cart");
             }
         } catch (error) {
             console.error('Error updating cart:', error);
@@ -326,7 +326,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
         setCartItemId(result.item.id);
         setQuantity(result.item.quantity);
         triggerCartUpdate();
-        toast.success(result.message || "Added to cart successfully");
+        //toast.success(result.message || "Added to cart successfully");
     };
 
     // In the component, log the initial inventory data
@@ -433,9 +433,14 @@ export function ProductInfo({ product }: ProductInfoProps) {
 
             {/* Stock Status */}
             <div className="flex items-center gap-2">
-                <Badge variant={selectedInventory.quantity > 0 ? "secondary" : "destructive"}>
-                    {selectedInventory.quantity > 0 ? `In Stock (${selectedInventory.quantity} available)` : "Out of Stock"}
-                </Badge>
+                {(() => {
+                    const availableStock = selectedInventory.quantity - (selectedInventory.reservedStock || 0);
+                    return (
+                        <Badge variant={availableStock > 0 ? "secondary" : "destructive"}>
+                            {availableStock > 0 ? `In Stock (${availableStock} available)` : "Out of Stock"}
+                        </Badge>
+                    );
+                })()}
             </div>
 
             {/* Add to Cart Button */}
@@ -443,9 +448,9 @@ export function ProductInfo({ product }: ProductInfoProps) {
                 {!inCart ? (
                     <AddToCartButton
                         productId={product.id}
-                        inventoryId={selectedInventory.sku}
+                        inventoryId={selectedInventory.id}
                         quantity={1}
-                        disabled={selectedInventory.quantity === 0}
+                        disabled={selectedInventory.quantity - (selectedInventory.reservedStock || 0) === 0}
                         onSuccess={handleAddToCartSuccess}
                         selectedAttributes={selectedAttributes}
                     />
@@ -465,7 +470,7 @@ export function ProductInfo({ product }: ProductInfoProps) {
                                 variant="outline"
                                 size="icon"
                                 onClick={handleIncrement}
-                                disabled={isUpdatingQuantity || quantity >= selectedInventory.quantity}
+                                disabled={isUpdatingQuantity || selectedInventory.quantity - (selectedInventory.reservedStock || 0) === 0}
                             >
                                 <Plus className="h-4 w-4" />
                             </Button>
@@ -487,6 +492,12 @@ export function ProductInfo({ product }: ProductInfoProps) {
                     {product.category.name}
                 </Link>
             </div>
+            {/* Go to Cart Button. Show only when item added to cart */}
+            {inCart && (
+                <Button variant="outline" asChild className="bg-orange-300 text-black hover:bg-orange-400 hover:text-white">
+                    <Link href="/cart">Go to Cart</Link>
+                </Button>
+            )}
         </div>
     );
 } 
