@@ -8,8 +8,7 @@ const crypto = require("crypto");
 
 // Use the webhook secret that matches your Vercel environment
 const WEBHOOK_SECRET = "whsec_jp79fYEOe4OtZEqjzAtZbwCr85Vh0l2G";
-const PRODUCTION_WEBHOOK_URL =
-  "https://timelessaccessories.vercel.app/api/webhook/stripe";
+const PRODUCTION_WEBHOOK_URL = "https://www.shop-dw.com/api/webhook/stripe";
 
 // Test order from our previous testing
 const TEST_ORDER_ID = "cmbfmwuz200002054v83j1j0u";
