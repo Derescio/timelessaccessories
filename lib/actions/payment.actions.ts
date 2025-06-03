@@ -164,13 +164,22 @@ export const updateOrderPaymentStatus = async ({
       }
     });
     
-    // Update payment record
-    await db.payment.update({
+    // Update or create payment record
+    await db.payment.upsert({
       where: { orderId },
-      data: {
+      update: {
         status,
         paymentId: paymentId || undefined,
         provider: paymentMethod,
+        updatedAt: new Date(),
+      },
+      create: {
+        orderId,
+        status,
+        paymentId: paymentId || undefined,
+        provider: paymentMethod,
+        amount: new Decimal(0), // We'll get the actual amount from the order
+        createdAt: new Date(),
         updatedAt: new Date(),
       }
     });
