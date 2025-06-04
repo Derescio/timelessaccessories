@@ -8,6 +8,7 @@
 
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
+const { Decimal } = require("decimal.js");
 
 async function createTestOrder() {
   try {
@@ -35,23 +36,22 @@ async function createTestOrder() {
       `   Current stock: ${inventory.quantity}, Reserved: ${inventory.reservedStock}`
     );
 
-    // Create the order
+    // Create the order with guest email
     const order = await prisma.order.create({
       data: {
+        total: new Decimal(inventory.retailPrice * 2 * 1.1 + 9.99),
+        subtotal: new Decimal(inventory.retailPrice * 2),
+        tax: new Decimal(inventory.retailPrice * 2 * 0.1),
+        shipping: new Decimal(9.99),
         status: "PENDING",
-        subtotal: inventory.retailPrice * 2, // 2 items
-        tax: inventory.retailPrice * 2 * 0.1, // 10% tax
-        shipping: 9.99,
-        total: inventory.retailPrice * 2 * 1.1 + 9.99,
-        guestEmail: "webhook-test@example.com",
-        shippingAddress: {
-          fullName: "Test User",
-          address: "123 Test St",
+        guestEmail: "ddw.web.dev.services@gmail.com", // Use real email for testing
+        shippingAddress: JSON.stringify({
+          street: "123 Test Street",
           city: "Test City",
           state: "TS",
-          postalCode: "12345",
+          zipCode: "12345",
           country: "US",
-        },
+        }),
       },
     });
 
