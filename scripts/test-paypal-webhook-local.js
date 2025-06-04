@@ -9,7 +9,7 @@
 const LOCAL_WEBHOOK_URL = "http://localhost:3000/api/webhook/paypal";
 
 // Use an existing test order from our previous testing
-const TEST_ORDER_ID = "cmbh1bdqk00002010g6kehdp5";
+const TEST_ORDER_ID = "cmbhchhv500002038gr3g51ti";
 
 // Mock PayPal PAYMENT.CAPTURE.COMPLETED event
 const mockPayPalEvent = {
