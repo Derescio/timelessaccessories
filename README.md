@@ -1,6 +1,23 @@
 # Timeless Accessories E-commerce Platform
 
-A modern e-commerce platform built with Next.js 15, TypeScript, and a robust tech stack for selling accessories online.
+A modern e-commerce platform built with Next.js 15, TypeScript, and a robust tech stack for selling accessories online. Features full **Print-on-Demand (POD)** integration with Printify and a comprehensive **Design Management System** for creating professional product listings.
+
+## 🌟 Key Features
+
+### Core E-commerce
+- **Complete Shopping Experience** - Product catalog, cart, checkout, order management
+- **Multi-Payment Support** - Stripe, PayPal, LascoPay integration
+- **Guest & User Checkout** - Flexible purchasing options
+- **Admin Dashboard** - Comprehensive management interface
+- **Inventory Management** - Stock tracking and reservation system
+
+### 🎨 Print-on-Demand & Design Management **NEW**
+- **Printify Integration** - Import templates from Printify catalog
+- **Design Management System** - Upload and manage custom artwork
+- **Product Designer** - Apply designs to blank templates with positioning controls
+- **Mockup Generation** - Create professional product images with designs applied
+- **Lazy POD Creation** - Products created in Printify only when orders are placed
+- **Transform Your Store** - From "blank template catalog" to "designed product store"
 
 ## Tech Stack
 
@@ -22,6 +39,7 @@ A modern e-commerce platform built with Next.js 15, TypeScript, and a robust tec
   - LascoPay (Regional Payment)
   - Resend (Email)
   - Uploadthing (File uploads)
+  - **Printify API** (Print-on-Demand) 🆕
 
 - **Validation & Testing:**
   - Zod (Schema Validation)
@@ -37,6 +55,7 @@ A modern e-commerce platform built with Next.js 15, TypeScript, and a robust tec
 - npm or yarn
 - Stripe account (for payment processing)
 - PayPal developer account (for payment processing)
+- **Printify account** (for POD functionality) 🆕
 
 ### Installation
 
@@ -61,7 +80,15 @@ A modern e-commerce platform built with Next.js 15, TypeScript, and a robust tec
    cp .env.example .env
    ```
 
-   Fill in the required environment variables in `.env`
+   Fill in the required environment variables in `.env`, including:
+
+   ```env
+   # Existing variables...
+   
+   # Printify Integration (NEW)
+   PRINTIFY_ACCESS_TOKEN=your_printify_access_token
+   PRINTIFY_SHOP_ID=your_printify_shop_id
+   ```
 
 4. Set up the database:
 
@@ -76,6 +103,57 @@ A modern e-commerce platform built with Next.js 15, TypeScript, and a robust tec
    # or
    yarn dev
    ```
+
+## 🎨 Design Management Workflow
+
+Transform blank Printify templates into professional, designed products:
+
+### 1. Import Product Templates
+```bash
+# Navigate to: /admin/printify/catalog
+# Browse Printify blueprints → Import desired templates
+```
+
+### 2. Upload Custom Designs
+```bash
+# Navigate to: /admin/printify/designer
+# Upload your artwork (logos, graphics, etc.)
+```
+
+### 3. Apply Designs to Products
+```bash
+# Select imported product → Choose design from library
+# Configure positioning (front/back, size, rotation)
+# Apply design → Generate mockups
+```
+
+### 4. Professional Product Listings
+- Customers see designed products, not blank templates
+- Mockup images show actual designs applied
+- Increased customer appeal and conversion rates
+
+### 5. Automated Fulfillment
+- Orders trigger Printify product creation with design data
+- Printify prints with custom design and ships
+- No inventory management needed
+
+For detailed documentation, see [docs/DESIGN_MANAGEMENT.md](docs/DESIGN_MANAGEMENT.md)
+
+## 📋 Admin Interface
+
+Access the admin dashboard at `/admin` with admin credentials:
+
+### Main E-commerce Management
+- **Dashboard** - Sales analytics and overview
+- **Products** - Product catalog management
+- **Orders** - Order processing and tracking
+- **Categories** - Category hierarchy management
+
+### 🆕 Printify & Design Management
+- **Printify Catalog** - Browse and import Printify templates
+- **Design Library** - Upload and manage custom artwork  
+- **Product Designer** - Apply designs to imported templates
+- **POD Orders** - Monitor print-on-demand fulfillment
 
 ## Payment Integrations
 

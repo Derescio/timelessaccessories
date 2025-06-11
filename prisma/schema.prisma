@@ -2,6 +2,7 @@ generator client {
   provider        = "prisma-client-js"
   output          = "../node_modules/.prisma/client"
   previewFeatures = ["driverAdapters"]
+  binaryTargets   = ["native", "rhel-openssl-1.0.x"]
 }
 
 datasource db {
@@ -29,31 +30,36 @@ model User {
   reviews         Review[]
   Session         Session[]
   wishlist        Wishlist?
+  designs         Design[]          @relation("UserDesigns")
 }
 
 model Product {
-  id              String                  @id @default(cuid())
-  name            String
-  description     String
-  slug            String                  @unique
-  categoryId      String
-  isActive        Boolean                 @default(true)
-  metadata        Json?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  isFeatured      Boolean                 @default(false)
-  productTypeId   String?
-  numReviews      Int?
-  rating          Float?
-  cartItems       CartItem[]
-  orderItems      OrderItem[]
-  category        Category                @relation(fields: [categoryId], references: [id])
-  productType     ProductType?            @relation(fields: [productTypeId], references: [id])
-  attributeValues ProductAttributeValue[]
-  inventories     ProductInventory[]
-  productWishlist ProductWishlist[]       @relation("ProductWishlist")
-  reviews         Review[]
-  WishlistItem    WishlistItem[]
+  id                String                  @id @default(cuid())
+  name              String
+  description       String
+  slug              String                  @unique
+  categoryId        String
+  isActive          Boolean                 @default(true)
+  metadata          Json?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  isFeatured        Boolean                 @default(false)
+  productTypeId     String?
+  numReviews        Int?
+  rating            Float?
+  fulfillmentType   FulfillmentType         @default(LOCAL_INVENTORY)
+  printifyProductId String?
+  printifyShopId    Int?
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
+  category          Category                @relation(fields: [categoryId], references: [id])
+  productType       ProductType?            @relation(fields: [productTypeId], references: [id])
+  attributeValues   ProductAttributeValue[]
+  inventories       ProductInventory[]
+  productWishlist   ProductWishlist[]       @relation("ProductWishlist")
+  reviews           Review[]
+  WishlistItem      WishlistItem[]
+  productDesigns    ProductDesign[]         @relation("ProductDesigns")
 
   @@index([categoryId])
   @@index([isActive])
@@ -74,6 +80,7 @@ model ProductInventory {
   images             String[]
   attributes         Json?
   isDefault          Boolean                   @default(false)
+  printifyVariantId  String?
   createdAt          DateTime                  @default(now())
   updatedAt          DateTime                  @updatedAt
   cartItems          CartItem[]
@@ -107,27 +114,31 @@ model Category {
 }
 
 model Order {
-  id              String      @id @default(cuid())
-  userId          String?
-  guestEmail      String?
-  status          OrderStatus @default(PENDING)
-  subtotal        Decimal     @db.Decimal(10, 2)
-  tax             Decimal     @db.Decimal(10, 2)
-  shipping        Decimal     @db.Decimal(10, 2)
-  total           Decimal     @db.Decimal(10, 2)
-  addressId       String?
-  billingAddress  Json?
-  shippingAddress Json
-  paymentIntent   String?
-  notes           String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  cartId          String?
-  chargeId        String?
-  address         Address?    @relation(fields: [addressId], references: [id])
-  user            User?       @relation(fields: [userId], references: [id])
-  items           OrderItem[]
-  payment         Payment?
+  id                String            @id @default(cuid())
+  userId            String?
+  guestEmail        String?
+  status            OrderStatus       @default(PENDING)
+  fulfillmentStatus FulfillmentStatus @default(PENDING)
+  subtotal          Decimal           @db.Decimal(10, 2)
+  tax               Decimal           @db.Decimal(10, 2)
+  shipping          Decimal           @db.Decimal(10, 2)
+  total             Decimal           @db.Decimal(10, 2)
+  addressId         String?
+  billingAddress    Json?
+  shippingAddress   Json
+  paymentIntent     String?
+  notes             String?
+  printifyOrderId   String?
+  trackingNumber    String?
+  trackingUrl       String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  cartId            String?
+  chargeId          String?
+  address           Address?          @relation(fields: [addressId], references: [id])
+  user              User?             @relation(fields: [userId], references: [id])
+  items             OrderItem[]
+  payment           Payment?
 
   @@index([userId])
   @@index([guestEmail])
@@ -359,6 +370,59 @@ model ProductWishlist {
   @@index([productId])
 }
 
+model PrintifyConfig {
+  id            String   @id @default(cuid())
+  shopId        Int      @unique
+  accessToken   String
+  webhookSecret String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Design {
+  id             String          @id @default(cuid())
+  name           String
+  description    String?
+  imageUrl       String
+  thumbnailUrl   String?
+  width          Int
+  height         Int
+  fileSize       Int?
+  fileType       String?
+  tags           String[]        @default([])
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  userId         String?
+  user           User?           @relation("UserDesigns", fields: [userId], references: [id])
+  productDesigns ProductDesign[]
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+model ProductDesign {
+  id        String   @id @default(cuid())
+  productId String
+  designId  String
+  position  String // 'front', 'back', 'left', 'right', etc.
+  x         Float    @default(50) // Percentage from left
+  y         Float    @default(50) // Percentage from top
+  scale     Float    @default(100) // Scale percentage
+  angle     Float    @default(0) // Rotation in degrees
+  layer     Int      @default(1) // Layer order
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  design    Design   @relation(fields: [designId], references: [id], onDelete: Cascade)
+  product   Product  @relation("ProductDesigns", fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, designId, position])
+  @@index([productId])
+  @@index([designId])
+}
+
 enum AttributeType {
   STRING
   NUMBER
@@ -388,4 +452,18 @@ enum PaymentStatus {
   COMPLETED
   FAILED
   REFUNDED
+}
+
+enum FulfillmentType {
+  LOCAL_INVENTORY
+  PRINTIFY_POD
+  HYBRID
+}
+
+enum FulfillmentStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  FAILED
 }
