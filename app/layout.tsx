@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import '@/app/assets/styles/globals.css'
 import { Toaster } from "sonner";
-import { ThemeProvider } from "@/components/shared/theme-provider";
+import { Analytics } from "@vercel/analytics/next"
 import { SessionProvider } from "next-auth/react"
 // const geistSans = Geist({
 //   variable: "--font-geist-sans",
@@ -47,7 +47,7 @@ export default function RootLayout({
 
           {children}
           <Toaster richColors position="top-center" />
-          {/* </ThemeProvider> */}
+          <Analytics />
         </SessionProvider>
       </body>
     </html>
