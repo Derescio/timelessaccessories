@@ -11,7 +11,8 @@ import {
     ShoppingCart,
     Home,
     LayersIcon,
-    PlusCircleIcon
+    PlusCircleIcon,
+    Printer
 } from "lucide-react";
 
 interface SidebarProps {
@@ -34,6 +35,11 @@ const navItems = [
         title: "Products",
         href: "/admin/products",
         icon: ShoppingBag
+    },
+    {
+        title: "Printify",
+        href: "/admin/printify",
+        icon: Printer
     },
     {
         title: "Users",
