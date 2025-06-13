@@ -2,7 +2,7 @@
 
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
@@ -18,10 +18,14 @@ export function Header({ className, onMenuClick }: HeaderProps) {
                     <SheetTrigger asChild>
                         <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenuClick}>
                             <Menu className="h-5 w-5" />
+                            <span className="sr-only">Open navigation menu</span>
                         </Button>
                     </SheetTrigger>
                     <SheetContent side="left" className="w-[240px] sm:w-[280px]">
-                        <nav className="flex flex-col gap-4">
+                        <SheetHeader>
+                            <SheetTitle>Navigation Menu</SheetTitle>
+                        </SheetHeader>
+                        <nav className="flex flex-col gap-4 mt-4">
                             {/* Add your mobile navigation items here */}
                         </nav>
                     </SheetContent>

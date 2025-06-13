@@ -4,6 +4,7 @@ import { updateOrderToPaid } from '@/lib/actions/order.actions';
 import { sendOrderConfirmationEmail } from '@/email';
 import { reduceActualStock } from '@/lib/actions/inventory.actions';
 import { prisma } from '@/lib/prisma';
+import { recordPromotionUsage } from '@/lib/actions/promotions-actions';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-02-24.acacia',
@@ -213,6 +214,8 @@ export async function POST(req: NextRequest) {
         // Don't fail the webhook for email errors
       }
 
+      await recordPromotionUsage(orderId);
+
       console.log(`✅ WEBHOOK [${timestamp}]: Successfully completed processing for order: ${orderId}`);
       return NextResponse.json({ 
         message: 'Order updated via checkout.session.completed',
@@ -290,6 +293,8 @@ export async function POST(req: NextRequest) {
         console.error(`❌ WEBHOOK [${timestamp}]: Error sending email for order ${orderId}:`, emailError);
         // Don't fail the webhook for email errors
       }
+
+      await recordPromotionUsage(orderId);
 
       console.log(`✅ WEBHOOK [${timestamp}]: Successfully completed processing for order: ${orderId}`);
       return NextResponse.json({ 

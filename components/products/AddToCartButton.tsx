@@ -99,7 +99,7 @@ export default function AddToCartButton({
                 .find(row => row.startsWith('sessionCartId='))
                 ?.split('=')[1];
 
-            console.log('AddToCartButton - Making addToCart request...');
+            // console.log('AddToCartButton - Making addToCart request...');
 
             const result = await addToCart({
                 productId,

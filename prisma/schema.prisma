@@ -31,35 +31,38 @@ model User {
   Session         Session[]
   wishlist        Wishlist?
   designs         Design[]          @relation("UserDesigns")
+  promotionUsage  PromotionUsage[]
 }
 
 model Product {
-  id                String                  @id @default(cuid())
-  name              String
-  description       String
-  slug              String                  @unique
-  categoryId        String
-  isActive          Boolean                 @default(true)
-  metadata          Json?
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
-  isFeatured        Boolean                 @default(false)
-  productTypeId     String?
-  numReviews        Int?
-  rating            Float?
-  fulfillmentType   FulfillmentType         @default(LOCAL_INVENTORY)
-  printifyProductId String?
-  printifyShopId    Int?
-  cartItems         CartItem[]
-  orderItems        OrderItem[]
-  category          Category                @relation(fields: [categoryId], references: [id])
-  productType       ProductType?            @relation(fields: [productTypeId], references: [id])
-  attributeValues   ProductAttributeValue[]
-  inventories       ProductInventory[]
-  productWishlist   ProductWishlist[]       @relation("ProductWishlist")
-  reviews           Review[]
-  WishlistItem      WishlistItem[]
-  productDesigns    ProductDesign[]         @relation("ProductDesigns")
+  id                 String                  @id @default(cuid())
+  name               String
+  description        String
+  slug               String                  @unique
+  categoryId         String
+  isActive           Boolean                 @default(true)
+  metadata           Json?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  isFeatured         Boolean                 @default(false)
+  productTypeId      String?
+  numReviews         Int?
+  rating             Float?
+  fulfillmentType    FulfillmentType         @default(LOCAL_INVENTORY)
+  printifyProductId  String?
+  printifyShopId     Int?
+  cartItems          CartItem[]
+  orderItems         OrderItem[]
+  category           Category                @relation(fields: [categoryId], references: [id])
+  productType        ProductType?            @relation(fields: [productTypeId], references: [id])
+  attributeValues    ProductAttributeValue[]
+  inventories        ProductInventory[]
+  productWishlist    ProductWishlist[]       @relation("ProductWishlist")
+  reviews            Review[]
+  WishlistItem       WishlistItem[]
+  productDesigns     ProductDesign[]         @relation("ProductDesigns")
+  promotions         Promotion[]             @relation("ProductPromotions")
+  freeItemPromotions Promotion[]             @relation("FreeItemPromotion")
 
   @@index([categoryId])
   @@index([isActive])
@@ -108,37 +111,42 @@ model Category {
   children             Category[]   @relation("SubCategories")
   user                 User?        @relation(fields: [userId], references: [id])
   products             Product[]
+  promotions           Promotion[]  @relation("CategoryPromotions")
 
   @@index([parentId])
   @@index([userId])
 }
 
 model Order {
-  id                String            @id @default(cuid())
-  userId            String?
-  guestEmail        String?
-  status            OrderStatus       @default(PENDING)
-  fulfillmentStatus FulfillmentStatus @default(PENDING)
-  subtotal          Decimal           @db.Decimal(10, 2)
-  tax               Decimal           @db.Decimal(10, 2)
-  shipping          Decimal           @db.Decimal(10, 2)
-  total             Decimal           @db.Decimal(10, 2)
-  addressId         String?
-  billingAddress    Json?
-  shippingAddress   Json
-  paymentIntent     String?
-  notes             String?
-  printifyOrderId   String?
-  trackingNumber    String?
-  trackingUrl       String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  cartId            String?
-  chargeId          String?
-  address           Address?          @relation(fields: [addressId], references: [id])
-  user              User?             @relation(fields: [userId], references: [id])
-  items             OrderItem[]
-  payment           Payment?
+  id                 String            @id @default(cuid())
+  userId             String?
+  guestEmail         String?
+  status             OrderStatus       @default(PENDING)
+  fulfillmentStatus  FulfillmentStatus @default(PENDING)
+  subtotal           Decimal           @db.Decimal(10, 2)
+  tax                Decimal           @db.Decimal(10, 2)
+  shipping           Decimal           @db.Decimal(10, 2)
+  total              Decimal           @db.Decimal(10, 2)
+  addressId          String?
+  billingAddress     Json?
+  shippingAddress    Json
+  paymentIntent      String?
+  notes              String?
+  printifyOrderId    String?
+  trackingNumber     String?
+  trackingUrl        String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  cartId             String?
+  chargeId           String?
+  appliedPromotionId String?
+  discountAmount     Decimal?          @db.Decimal(10, 2)
+  address            Address?          @relation(fields: [addressId], references: [id])
+  user               User?             @relation(fields: [userId], references: [id])
+  appliedPromotion   Promotion?        @relation("OrderPromotions", fields: [appliedPromotionId], references: [id])
+  items              OrderItem[]
+  payment            Payment?
+  promotionUsage     PromotionUsage[]
 
   @@index([userId])
   @@index([guestEmail])
@@ -466,4 +474,84 @@ enum FulfillmentStatus {
   SHIPPED
   DELIVERED
   FAILED
+}
+
+enum PromotionType {
+  PERCENTAGE_DISCOUNT
+  FIXED_AMOUNT_DISCOUNT
+  FREE_ITEM
+  BUY_ONE_GET_ONE
+}
+
+model Promotion {
+  id                String        @id @default(cuid())
+  name              String
+  description       String?
+  promotionType     PromotionType
+  value             Decimal // Percentage or fixed amount
+  minimumOrderValue Decimal? // For minimum purchase requirements
+  startDate         DateTime
+  endDate           DateTime
+  isActive          Boolean       @default(true)
+
+  // For FREE_ITEM promotions
+  freeItemId String?
+  freeItem   Product? @relation("FreeItemPromotion", fields: [freeItemId], references: [id])
+
+  // For coupon codes
+  couponCode             String? @unique
+  usageLimit             Int? // Max number of uses
+  usageCount             Int     @default(0)
+  isOneTimeUse           Boolean @default(false) // For codes like WELCOME10 that can only be used once per user
+  requiresAuthentication Boolean @default(false) // Restrict to signed-in users only
+
+  // For specific products or categories
+  applyToAllItems Boolean    @default(false)
+  products        Product[]  @relation("ProductPromotions")
+  categories      Category[] @relation("CategoryPromotions")
+
+  // For tracking
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  appliedOrders Order[]          @relation("OrderPromotions")
+  usageRecords  PromotionUsage[]
+
+  perUserLimit Int? // Max number of uses per user/email (null = unlimited)
+}
+
+model PromotionUsage {
+  id          String    @id @default(cuid())
+  promotionId String
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  // Customer and order information
+  userId  String
+  user    User    @relation(fields: [userId], references: [id])
+  orderId String?
+  order   Order?  @relation(fields: [orderId], references: [id])
+
+  // Usage details
+  discountAmount Decimal @db.Decimal(10, 2) // Actual discount applied
+  originalAmount Decimal @db.Decimal(10, 2) // Order total before discount
+  finalAmount    Decimal @db.Decimal(10, 2) // Order total after discount
+
+  // Metadata
+  couponCode      String? // The code used (if any)
+  customerSegment String? // new, returning, vip, etc.
+  deviceType      String? // mobile, desktop, tablet
+  referralSource  String? // social, email, organic, etc.
+
+  // Additional tracking
+  isFirstTimeUse   Boolean @default(false) // First time this user used any promotion
+  timeToConversion Int? // Minutes from promotion start to use
+  cartItemCount    Int? // Number of items in cart
+
+  createdAt DateTime @default(now())
+
+  @@index([promotionId])
+  @@index([userId])
+  @@index([orderId])
+  @@index([createdAt])
 }

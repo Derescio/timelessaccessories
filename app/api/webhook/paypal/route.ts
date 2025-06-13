@@ -5,6 +5,7 @@ import { sendOrderConfirmationEmail } from "@/email";
 import { reduceActualStock } from "@/lib/actions/inventory.actions";
 import { PaymentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { recordPromotionUsage } from '@/lib/actions/promotions-actions';
 
 /**
  * Reduce stock for all items in an order after PayPal payment confirmation
@@ -197,6 +198,9 @@ export async function POST(request: Request) {
             console.error(`❌ PAYPAL WEBHOOK [${timestamp}]: Error sending email for order ${customId}:`, emailError);
             // Don't fail the webhook for email errors
           }
+
+          // Record promotion usage
+          await recordPromotionUsage(customId);
 
           console.log(`✅ PAYPAL WEBHOOK [${timestamp}]: Successfully completed processing for order: ${customId}`);
           return NextResponse.json({ 

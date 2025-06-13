@@ -58,6 +58,7 @@ import { OrderStatus, PaymentStatus } from "@prisma/client"
 import { ArrowLeft } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { createOrUpdateUserAddress } from "@/lib/actions/user.actions"
+import { useCartPromotions } from "@/hooks/use-cart-promotions"
 // import PaymentMethodSelector from "./PaymentMethodSelector"
 // import { useForm } from "react-hook-form"
 // import { zodResolver } from "@hookform/resolvers/zod"
@@ -129,6 +130,9 @@ export default function ShippingPage() {
     const router = useRouter()
     const { data: session, status } = useSession()
     const isAuthenticated = status === 'authenticated'
+
+    // Get applied promotions from cart
+    const { appliedPromotions, getTotalDiscount, isLoaded: promotionsLoaded } = useCartPromotions()
 
     // State for cart data
     const [cart, setCart] = useState<Cart | null>(null)
@@ -278,17 +282,19 @@ export default function ShippingPage() {
 
     // Calculate order summary - Updated to include tax
     const calculateOrderSummary = () => {
-        if (!cart) return { subtotal: 0, tax: 0, shipping: 0, total: 0 };
+        if (!cart) return { subtotal: 0, discount: 0, tax: 0, shipping: 0, total: 0 };
 
         const subtotal = cart.items.reduce((total, item) =>
             total + (item.price * item.quantity), 0);
+        const discount = getTotalDiscount();
+        const discountedSubtotal = Math.max(0, subtotal - discount);
         const shipping = formData.shippingPrice;
-        // Calculate tax based on the region (parish or country)
-        const tax = calculateTax(formData.parish || formData.country || 'DEFAULT', subtotal);
+        // Calculate tax based on the discounted subtotal
+        const tax = calculateTax(formData.parish || formData.country || 'DEFAULT', discountedSubtotal);
         // Include tax in the total calculation
-        const total = subtotal + shipping + tax;
+        const total = discountedSubtotal + shipping + tax;
 
-        return { subtotal, tax, shipping, total };
+        return { subtotal, discount, discountedSubtotal, tax, shipping, total };
     };
 
     // Check if this order qualifies for free shipping
@@ -422,6 +428,7 @@ export default function ShippingPage() {
                             providerId: "", // Will be filled after payment
                         },
                         subtotal: orderSummary.subtotal,
+                        discount: orderSummary.discount,
                         tax: orderSummary.tax,
                         total: orderSummary.total,
                         status: OrderStatus.PENDING,
@@ -446,6 +453,8 @@ export default function ShippingPage() {
                         ...formData,
                         orderId: orderId,
                         subtotal: orderSummary.subtotal,
+                        discount: orderSummary.discount,
+                        appliedPromotions: appliedPromotions,
                         tax: orderSummary.tax,
                         shipping: orderSummary.shipping,
                         total: orderSummary.total,
@@ -459,6 +468,35 @@ export default function ShippingPage() {
                     localStorage.setItem("checkoutData", JSON.stringify(checkoutDataToSave));
                     localStorage.setItem("cartId", cart?.id || "");
                     localStorage.setItem("lascoPayOrderId", orderId);
+
+                    // Track promotion usage for analytics
+                    if (appliedPromotions.length > 0) {
+                        try {
+                            for (const promotion of appliedPromotions) {
+                                await fetch('/api/promotions/track-usage', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        promotionId: promotion.id,
+                                        userId: isAuthenticated ? session?.user?.id : 'guest',
+                                        orderId: orderId,
+                                        discountAmount: promotion.discount,
+                                        originalAmount: orderSummary.subtotal,
+                                        finalAmount: orderSummary.total,
+                                        couponCode: promotion.couponCode,
+                                        cartItemCount: cart?.items?.length || 0,
+                                        customerSegment: isAuthenticated ? 'returning' : 'new',
+                                        deviceType: typeof window !== 'undefined' && window.innerWidth < 768 ? 'mobile' : 'desktop',
+                                        isFirstTimeUse: !isAuthenticated,
+                                        userEmail: isAuthenticated ? session?.user?.email : formData.email
+                                    })
+                                });
+                            }
+                        } catch (trackingError) {
+                            console.error('Error tracking promotion usage:', trackingError);
+                            // Don't fail the order creation if tracking fails
+                        }
+                    }
 
                     // Redirect to confirmation page with order ID
                     //console.log("Redirecting to confirmation page for LASCO payment");
@@ -498,6 +536,8 @@ export default function ShippingPage() {
                     ...formData,
                     cartId: cart?.id,
                     subtotal: orderSummary.subtotal,
+                    discount: orderSummary.discount,
+                    appliedPromotions: appliedPromotions,
                     tax: orderSummary.tax,
                     shipping: orderSummary.shipping,
                     total: orderSummary.total,
@@ -987,6 +1027,32 @@ export default function ShippingPage() {
                                             <span>Subtotal</span>
                                             <span>${calculateOrderSummary().subtotal.toFixed(2)}</span>
                                         </div>
+
+                                        {/* Applied Promotions */}
+                                        {appliedPromotions.map((promo) => (
+                                            <div key={promo.id} className="flex justify-between text-green-600">
+                                                <span className="text-sm">
+                                                    {promo.couponCode} - {promo.name}
+                                                </span>
+                                                <span>-${promo.discount.toFixed(2)}</span>
+                                            </div>
+                                        ))}
+
+                                        {calculateOrderSummary().discount > 0 && (
+                                            <div className="flex justify-between text-green-600 font-medium">
+                                                <span>Total Savings</span>
+                                                <span>-${calculateOrderSummary().discount.toFixed(2)}</span>
+                                            </div>
+                                        )}
+
+                                        {appliedPromotions.length > 0 && (
+                                            <div className="text-xs text-gray-500 text-center">
+                                                <Link href="/cart" className="text-blue-600 hover:underline">
+                                                    ← Back to cart to modify promotions
+                                                </Link>
+                                            </div>
+                                        )}
+
                                         <div className="flex justify-between">
                                             <span>Shipping</span>
                                             <span>${calculateOrderSummary().shipping.toFixed(2)}</span>
