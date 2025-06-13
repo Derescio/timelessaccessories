@@ -6,7 +6,7 @@ import ContactForm from '@/components/contact/contact-form'
 import { Mail, Phone, MapPin, Clock, Instagram, Facebook, Twitter } from 'lucide-react'
 
 export const metadata: Metadata = {
-    title: 'Contact Us | Timeless Accessories',
+    title: 'Contact Us | Shop-DW Accessories',
     description: 'Get in touch with us. We\'d love to hear from you and answer any questions you may have.',
 }
 

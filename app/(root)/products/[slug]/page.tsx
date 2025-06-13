@@ -29,7 +29,7 @@ export async function generateMetadata({
     }
 
     return {
-        title: `${product.name} | Timeless Accessories`,
+        title: `${product.name} | Shop-DW Accessories`,
         description: product.description || "View product details",
     };
 }

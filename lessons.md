@@ -16,6 +16,49 @@ const products = productsData.map(product => ({
 }));
 ```
 
+### Server-to-Client Component Serialization
+**Issue**: "Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported."
+
+**Root Cause**: Prisma's `Decimal` type cannot be serialized when passing data from Server Components to Client Components in Next.js.
+
+**Solution**: Convert all Decimal fields to numbers or strings in server actions before returning data:
+
+```typescript
+// ❌ This will cause serialization error
+const order = await db.order.findUnique({
+  where: { id },
+  // ... includes
+});
+return order; // Contains Decimal fields
+
+// ✅ Proper serialization
+const order = await db.order.findUnique({
+  where: { id },
+  // ... includes
+});
+
+const serializedOrder = {
+  ...order,
+  subtotal: Number(order.subtotal),
+  tax: Number(order.tax),
+  shipping: Number(order.shipping),
+  total: Number(order.total),
+  discountAmount: order.discountAmount ? Number(order.discountAmount) : null,
+  items: order.items.map(item => ({
+    ...item,
+    price: Number(item.price),
+  })),
+};
+return serializedOrder;
+```
+
+**Key Lessons**:
+1. **Always convert Decimal fields** in server actions that return data to client components
+2. **Update TypeScript interfaces** to reflect serialized types (number instead of Decimal)
+3. **Be systematic** - check all functions that return order data (getOrders, getOrderById, updateOrderStatus, etc.)
+4. **Handle null values** properly when converting Decimals
+5. **Test admin pages** specifically as they often display raw database data
+
 ### Type Safety with Optional vs. Required Properties
 We learned the importance of properly defining which properties are required vs. optional in TypeScript interfaces and Zod schemas. When we initially defined `productId` as optional in the inventory schema, we encountered type errors because Prisma expected it to be a required string.
 
@@ -378,3 +421,102 @@ We learned to create more maintainable components by:
    - Present attribute information in a structured, easy-to-read format
    - Maintain a clear visual hierarchy for order details
    - Implement proper data transformation pipeline from database to UI 
+
+## Promotion Usage Best Practices
+
+- Always set a per-user limit (`perUserLimit`) for promotions to prevent abuse.
+- Require guests to enter an email to use promo codes. Track usage by email.
+- After an order is placed or the cart is emptied, clear all applied promotions from the cart and local storage.
+- Never auto-apply promo codes to new carts. Users must manually enter codes for each new cart/session.
+- Filter out promo codes in the cart UI if the user/email has reached their usage limit. 
+
+# Lessons Learned
+
+## Database & ORM Issues
+
+### Foreign Key Constraints with Guest Users
+**Issue**: Using string literals like `'guest'` as foreign key values causes constraint violations.
+**Lesson**: Always create proper database records for guest users rather than using placeholder strings.
+**Solution**: Create/find user records for guest emails and use actual user IDs.
+
+### Interface Completeness
+**Issue**: Missing fields in TypeScript interfaces can cause silent failures where data isn't saved.
+**Lesson**: Always ensure interfaces match the complete database schema, especially for optional fields.
+**Solution**: Regular audits of interfaces against Prisma schema to catch missing fields.
+
+## Order Processing & Promotion Tracking
+
+### Order Creation Data Flow
+**Issue**: Promotion data not being passed through the entire order creation pipeline.
+**Lesson**: Complex data flows require validation at each step to ensure data integrity.
+**Solution**: Add comprehensive logging and validation at each stage of the process.
+
+### Webhook Reliability
+**Issue**: Webhooks failing silently when promotion tracking encounters errors.
+**Lesson**: Webhook handlers should be resilient and not fail the entire process for non-critical operations.
+**Solution**: Wrap promotion tracking in try-catch blocks and log errors without failing the webhook.
+
+## Debugging & Logging
+
+### Comprehensive Logging Strategy
+**Issue**: Difficult to trace where promotion tracking was failing without proper logging.
+**Lesson**: Add logging at key decision points, not just success/failure states.
+**Solution**: Implement structured logging with consistent emoji prefixes for easy filtering:
+- 🎯 Starting operations
+- 🔍 Data inspection
+- 🔄 Processing steps  
+- ✅ Success states
+- ⚠️ Warning conditions
+- ❌ Error states
+
+### Guest vs Authenticated User Handling
+**Issue**: Different code paths for guest and authenticated users can lead to inconsistent behavior.
+**Lesson**: Unify user handling logic where possible, or ensure both paths are thoroughly tested.
+**Solution**: Create helper functions that normalize user data regardless of authentication state.
+
+## React Component Performance & Infinite Loops
+
+### Maximum Update Depth Exceeded
+**Issue**: "Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render."
+
+**Root Causes**:
+1. **Functions in dependency arrays** that are recreated on every render
+2. **Complex state updates** within useEffect that trigger re-renders
+3. **Object/array references** that change on every render
+4. **Async operations** in useEffect that update state continuously
+
+**Solutions**:
+```typescript
+// ❌ Problematic patterns
+useEffect(() => {
+  someFunction(); // Function recreated every render
+}, [someFunction, complexObject, array?.length]);
+
+// ❌ State updates causing loops
+useEffect(() => {
+  if (condition) {
+    setState(newValue); // Can trigger infinite loop
+  }
+}, [condition, state]);
+
+// ✅ Fixed patterns
+useEffect(() => {
+  // Use stable references only
+}, [cart?.id, primitiveValue]);
+
+// ✅ Remove function dependencies
+const stableFunction = useCallback(() => {
+  // logic
+}, [stableDependencies]);
+
+// ✅ Use refs for validation flags
+const validationInProgress = useRef(false);
+```
+
+**Key Lessons**:
+1. **Minimize useEffect dependencies** - only include primitive values and stable references
+2. **Remove function dependencies** unless absolutely necessary
+3. **Use useRef for flags** that shouldn't trigger re-renders
+4. **Simplify complex logic** - break down complex useEffects into smaller, focused ones
+5. **Debug with console.log** to identify which dependency is changing
+6. **Test thoroughly** after removing dependencies to ensure functionality still works 
