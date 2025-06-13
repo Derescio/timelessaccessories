@@ -10,6 +10,7 @@ A modern e-commerce platform built with Next.js 15, TypeScript, and a robust tec
 - **Guest & User Checkout** - Flexible purchasing options
 - **Admin Dashboard** - Comprehensive management interface
 - **Inventory Management** - Stock tracking and reservation system
+- **Promotions System** - Comprehensive discount and coupon management 🆕
 
 ### 🎨 Print-on-Demand & Design Management **NEW**
 - **Printify Integration** - Import templates from Printify catalog
@@ -148,6 +149,7 @@ Access the admin dashboard at `/admin` with admin credentials:
 - **Products** - Product catalog management
 - **Orders** - Order processing and tracking
 - **Categories** - Category hierarchy management
+- **Promotions** - Discount and coupon management system 🆕
 
 ### 🆕 Printify & Design Management
 - **Printify Catalog** - Browse and import Printify templates
@@ -339,3 +341,49 @@ The category management system allows admins to create, edit, and organize produ
 2. **Editing a category**: Select any category from the list and click Edit
 3. **Creating a subcategory**: Either select a parent when creating a new category, or use the "Add Subcategory" option
 4. **Deleting a category**: Categories can only be deleted if they have no subcategories or products
+
+## Promotions System
+
+The promotions system provides comprehensive discount and coupon management capabilities for the e-commerce platform.
+
+### Key Features
+
+- **Multiple Promotion Types**: Percentage discounts, fixed amount discounts, free items, and BOGO offers
+- **Flexible Targeting**: Apply to all products, specific categories, or individual products
+- **Usage Tracking**: Monitor promotion performance with usage statistics and limits
+- **Scheduling**: Set start and end dates for automatic activation/deactivation
+- **Coupon Codes**: Create custom coupon codes or automatic discounts
+- **Admin Interface**: User-friendly management dashboard with filtering and search
+
+### Promotion Types
+
+1. **Percentage Discount** - Save X% off order total (e.g., "20% off")
+2. **Fixed Amount Discount** - Save specific dollar amount (e.g., "$10 off")
+3. **Free Item** - Add specific product at no charge
+4. **Buy One Get One Free** - Customer pays for most expensive, gets cheapest free
+
+### Quick Start
+
+1. Navigate to **Admin > Promotions**
+2. Click **"Create Promotion"**
+3. Fill in basic information (name, dates, coupon code)
+4. Set promotion type and value
+5. Configure targeting (all items or specific categories/products)
+6. Save and activate
+
+### Documentation
+
+- **Technical Documentation**: [docs/PROMOTIONS_SYSTEM.md](docs/PROMOTIONS_SYSTEM.md)
+- **User Guide**: [docs/PROMOTIONS_USER_GUIDE.md](docs/PROMOTIONS_USER_GUIDE.md)
+- **Frontend Integration**: [docs/PROMOTIONS_FRONTEND_INTEGRATION.md](docs/PROMOTIONS_FRONTEND_INTEGRATION.md)
+
+### Recent Implementation
+
+- ✅ Complete CRUD operations for promotions
+- ✅ Form validation and error handling
+- ✅ Decimal serialization fixes for client-server communication
+- ✅ API endpoint integration with categories and products
+- ✅ Responsive UI with tabbed interface
+- ✅ Status filtering and search functionality
+- ✅ Usage tracking and statistics
+- ✅ Comprehensive testing and documentation

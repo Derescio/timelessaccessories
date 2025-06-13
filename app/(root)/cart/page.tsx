@@ -5,7 +5,7 @@ import { Metadata } from 'next';
 import ProgressSteps from '@/components/cart/cart-progress-steps';
 
 export const metadata: Metadata = {
-    title: 'Your Cart - Timeless Accessories',
+    title: 'Your Cart - Shop-DW',
     description: 'View and manage your shopping cart',
 }
 

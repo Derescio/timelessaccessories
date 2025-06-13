@@ -12,7 +12,8 @@ import {
     Home,
     LayersIcon,
     PlusCircleIcon,
-    Printer
+    Printer,
+    Ticket
 } from "lucide-react";
 
 interface SidebarProps {
@@ -40,6 +41,11 @@ const navItems = [
         title: "Printify",
         href: "/admin/printify",
         icon: Printer
+    },
+    {
+        title: "Promotions",
+        href: "/admin/promotions",
+        icon: Ticket
     },
     {
         title: "Users",

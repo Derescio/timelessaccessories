@@ -8,9 +8,12 @@ import { Minus, Plus } from 'lucide-react';
 import { getCart, updateCartItem, removeFromCart } from '@/lib/actions/cart.actions';
 import { triggerCartUpdate } from '@/lib/utils';
 import { toast } from 'sonner';
+import SplitText from '../ui/reactbits/hellotext';
 import { useSession } from 'next-auth/react';
 import { Card } from '@/components/ui/card';
 import { useDebounce } from '@/hooks/use-debounce';
+import { CouponInput } from '@/components/checkout/CouponInput';
+import { useCartPromotions, type AppliedPromotion } from '@/hooks/use-cart-promotions';
 
 interface CartItem {
     id: string;
@@ -19,6 +22,8 @@ interface CartItem {
     price: number;
     quantity: number;
     image?: string;
+    productId?: string;
+    categoryId?: string;
 }
 
 interface Cart {
@@ -26,16 +31,55 @@ interface Cart {
     items: CartItem[];
 }
 
+
+
 export default function CartPageContent() {
-    const { status } = useSession();
+    const { data: session, status } = useSession();
     const isAuthenticated = status === 'authenticated';
     const [isLoading, setIsLoading] = useState(true);
     const [cart, setCart] = useState<Cart | null>(null);
     const [isUpdating, setIsUpdating] = useState<string | null>(null);
     const [pendingQuantities, setPendingQuantities] = useState<Record<string, number>>({});
+    const {
+        appliedPromotions,
+        addPromotion,
+        removePromotion,
+        getTotalDiscount
+    } = useCartPromotions();
 
     // Debounce pending quantity updates
     const debouncedQuantities = useDebounce(pendingQuantities, 500);
+
+    const [guestEmail, setGuestEmail] = useState("");
+    const [filteredPromotions, setFilteredPromotions] = useState<AppliedPromotion[]>(appliedPromotions);
+
+    // Filter appliedPromotions for guests with perUserLimit=1 and PROCESSING order
+    useEffect(() => {
+        async function filterPromos() {
+            if (isAuthenticated || !guestEmail) {
+                setFilteredPromotions(appliedPromotions);
+                return;
+            }
+            const results = await Promise.all(appliedPromotions.map(async (promo) => {
+                if ((promo as any).perUserLimit === 1) {
+                    const res = await fetch('/api/promotions/guest-usage', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: guestEmail, promotionId: promo.id })
+                    });
+                    const data = await res.json();
+                    if (data.used) return null;
+                }
+                return promo;
+            }));
+            setFilteredPromotions(results.filter(Boolean) as AppliedPromotion[]);
+        }
+        filterPromos();
+    }, [appliedPromotions, guestEmail, isAuthenticated]);
+
+    const handleAnimationComplete = () => {
+        console.log('All letters have animated!');
+    };
 
     // Load cart with caching
     const loadCart = useCallback(async () => {
@@ -130,18 +174,30 @@ export default function CartPageContent() {
         }
     };
 
+    // Handle promotion application
+    const handleApplyPromotion = useCallback((promotion: AppliedPromotion) => {
+        addPromotion(promotion);
+    }, [addPromotion]);
+
+    // Handle promotion removal
+    const handleRemovePromotion = useCallback((promotionId: string) => {
+        removePromotion(promotionId);
+    }, [removePromotion]);
+
     // Calculate cart totals with memoization
     const cartTotals = useMemo(() => {
         const subtotal = cart?.items.reduce((total: number, item: CartItem) =>
             total + (item.price * item.quantity), 0) || 0;
-        const estimatedTax = subtotal * 0.07; // 7% tax rate
+        const totalDiscount = getTotalDiscount();
+        const discountedSubtotal = Math.max(0, subtotal - totalDiscount);
+        const estimatedTax = discountedSubtotal * 0.07; // 7% tax rate
         const shipping = subtotal > 50 ? 0 : 5.99; // Free shipping over $50
-        const total = subtotal + estimatedTax + shipping;
+        const total = discountedSubtotal + estimatedTax + shipping;
 
-        return { subtotal, estimatedTax, shipping, total };
-    }, [cart?.items]);
+        return { subtotal, totalDiscount, discountedSubtotal, estimatedTax, shipping, total };
+    }, [cart?.items, appliedPromotions]);
 
-    const { subtotal, estimatedTax, shipping, total } = cartTotals;
+    const { subtotal, totalDiscount, discountedSubtotal, estimatedTax, shipping, total } = cartTotals;
 
     return (
         <div className="container mx-auto px-4 py-8">
@@ -234,9 +290,27 @@ export default function CartPageContent() {
                                             <span>Subtotal</span>
                                             <span>${subtotal.toFixed(2)}</span>
                                         </div>
+
+                                        {/* Applied Promotions */}
+                                        {filteredPromotions.map((promo) => (
+                                            <div key={promo.id} className="flex justify-between text-green-600">
+                                                <span className="text-sm">
+                                                    {promo.couponCode} - {promo.name}
+                                                </span>
+                                                <span>-${promo.discount.toFixed(2)}</span>
+                                            </div>
+                                        ))}
+
+                                        {totalDiscount > 0 && (
+                                            <div className="flex justify-between text-green-600 font-medium">
+                                                <span>Total Savings</span>
+                                                <span>-${totalDiscount.toFixed(2)}</span>
+                                            </div>
+                                        )}
+
                                         <div className="flex justify-between">
                                             <span>Shipping</span>
-                                            <span>${shipping.toFixed(2)}</span>
+                                            <span>{shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span>Estimated Tax</span>
@@ -251,59 +325,113 @@ export default function CartPageContent() {
                                         </div>
                                     </div>
 
-                                    {isAuthenticated ? (
-                                        <Button
-                                            className="w-full"
-                                            asChild
-                                        >
-                                            <Link href="/shipping">
-                                                Proceed to Checkout
-                                            </Link>
-                                        </Button>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {/* Primary CTA - Guest Checkout */}
-                                            <Button
-                                                className="w-full"
-                                                asChild
-                                            >
-                                                <Link href="/shipping?guest=true">
-                                                    Continue as Guest
-                                                </Link>
-                                            </Button>
+                                    {/* Coupon Input Section */}
+                                    <div className="border-t pt-4 mt-4">
+                                        <h3 className="font-medium mb-3">Have a Promo Code?</h3>
+                                        <CouponInput
+                                            onApply={handleApplyPromotion}
+                                            onRemove={handleRemovePromotion}
+                                            cartItems={cart.items.map(item => ({
+                                                id: item.id,
+                                                productId: item.productId || item.id,
+                                                quantity: item.quantity,
+                                                price: item.price,
+                                                name: item.name,
+                                                categoryId: item.categoryId
+                                            }))}
+                                            cartTotal={subtotal}
+                                            appliedPromotions={filteredPromotions}
+                                            maxPromotions={3}
+                                            userEmail={isAuthenticated ? (session?.user?.email ?? undefined) : (guestEmail || undefined)}
+                                        />
+                                    </div>
 
-                                            {/* Secondary CTA - Sign In */}
-                                            <Button
-                                                variant="outline"
-                                                className="w-full"
-                                                asChild
-                                            >
-                                                <Link href="/sign-in?callbackUrl=/cart">
-                                                    Sign In for Faster Checkout
-                                                </Link>
-                                            </Button>
-
-                                            {/* Benefits of signing in */}
-                                            <div className="p-3 bg-blue-50 border border-blue-100 rounded-md">
-                                                <p className="text-xs text-blue-800 font-medium mb-1">Benefits of signing in:</p>
-                                                <ul className="text-xs text-blue-700 space-y-1">
-                                                    <li>• Save addresses for faster checkout</li>
-                                                    <li>• Track your order history</li>
-                                                    <li>• Faster returns and support</li>
-                                                </ul>
-                                            </div>
+                                    {!isAuthenticated && (
+                                        <div className="mb-4">
+                                            <label htmlFor="guest-email" className="block text-sm font-medium mb-1">
+                                                Enter your email to use promo codes:
+                                            </label>
+                                            <input
+                                                id="guest-email"
+                                                type="email"
+                                                value={guestEmail}
+                                                onChange={e => setGuestEmail(e.target.value)}
+                                                className="w-full border rounded px-3 py-2"
+                                                placeholder="you@example.com"
+                                                autoComplete="email"
+                                                required
+                                            />
                                         </div>
                                     )}
 
-                                    {!isAuthenticated ? (
-                                        <p className="text-xs text-center text-muted-foreground mt-4">
-                                            Your cart items will be saved to your account when you sign in
-                                        </p>
-                                    ) : (
-                                        <p className="text-xs text-center text-muted-foreground mt-4">
-                                            Taxes and shipping calculated at checkout
-                                        </p>
-                                    )}
+                                    <div className="mt-6">
+                                        {isAuthenticated ? (
+                                            <Button
+                                                className="w-full"
+                                                asChild
+                                            >
+                                                <Link href="/shipping">
+                                                    Proceed to Checkout
+                                                </Link>
+                                            </Button>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {/* Primary CTA - Guest Checkout */}
+                                                <Button
+                                                    className="w-full"
+                                                    asChild
+                                                >
+                                                    <Link href="/shipping?guest=true">
+                                                        Continue as Guest
+                                                    </Link>
+                                                </Button>
+
+                                                {/* Secondary CTA - Sign In */}
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full"
+                                                    asChild
+                                                >
+                                                    <Link href="/sign-in?callbackUrl=/cart">
+                                                        Sign In for Faster Checkout
+                                                    </Link>
+                                                </Button>
+
+                                                {/* Benefits of signing in */}
+                                                <div className="p-3 bg-blue-50 border border-blue-100 rounded-md">
+                                                    {/* <p className="text-xs text-blue-800 font-medium mb-1">Benefits of signing in:</p> */}
+                                                    <SplitText text="Benefits of signing in:" className="md:text-2xl text-lg font-semibold text-center" delay={100}
+                                                        duration={0.6}
+                                                        ease="power3.out"
+                                                        splitType="chars"
+                                                        from={{ opacity: 0, y: 40 }}
+                                                        to={{ opacity: 1, y: 0 }}
+                                                        threshold={0.1}
+                                                        rootMargin="-100px"
+                                                        textAlign="center" onLetterAnimationComplete={handleAnimationComplete} />
+                                                    <ul className="text-xs text-blue-700 space-y-1">
+                                                        <li>• Instant Welcome Bonus</li>
+                                                        <li>• Promo Code WELCOME10</li>
+                                                        <li>• Get Emailed Future Promo Codes</li>
+                                                        <li>• Track Order History</li>
+                                                        <li>• Faster checkout</li>
+
+
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {!isAuthenticated ? (
+                                            <p className="text-xs text-center text-muted-foreground mt-4">
+                                                Your cart items will be saved to your account when you sign in
+                                            </p>
+                                        ) : (
+                                            <p className="text-xs text-center text-muted-foreground mt-4">
+                                                Taxes and shipping calculated at checkout
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             </Card>
                         </div>

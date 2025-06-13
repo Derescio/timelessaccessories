@@ -15,6 +15,7 @@ import { shippingAddressSchema } from "@/lib/validators";
 import Image from "next/image";
 import PaymentSection from "./PaymentSection";
 import { PaymentStatus, OrderStatus } from "@prisma/client";
+import { useCartPromotions } from "@/hooks/use-cart-promotions";
 
 
 // Define CartItemDetails interface
@@ -96,6 +97,14 @@ interface CheckoutData {
     orderId?: string;
     pendingCreation?: boolean;
     timestamp?: string;
+    discount?: number;
+    appliedPromotions?: Array<{
+        id: string;
+        name: string;
+        couponCode?: string;
+        discount: number;
+        discountType: string;
+    }>;
 }
 
 // Add fetch function
@@ -119,6 +128,9 @@ export default function ConfirmationPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const session = useSession();
+
+    // Get applied promotions from cart
+    const { appliedPromotions, getTotalDiscount, clearPromotionsAfterOrder, isLoaded: promotionsLoaded } = useCartPromotions();
 
     // State for cart data
     const [cart, setCart] = useState<Cart | null>(null);
@@ -367,9 +379,11 @@ export default function ConfirmationPage() {
         loadData();
     }, [searchParams, router, IS_LASCO_MARKET]);
 
-    // Calculate order summary
+    // Calculate order summary with promotions
     const subtotal = cartItems?.reduce((total, item) => total + (item.price * item.quantity), 0) || 0;
-    const estimatedTax = subtotal * 0.07; // 7% tax rate
+    const promotionDiscount = checkoutData?.discount || getTotalDiscount();
+    const discountedSubtotal = Math.max(0, subtotal - promotionDiscount);
+    const estimatedTax = discountedSubtotal * 0.07; // 7% tax rate on discounted amount
 
     // Fix shipping cost calculation with better logging
     const rawShippingCost = checkoutData?.shippingPrice || checkoutData?.shipping || 0;
@@ -394,8 +408,8 @@ export default function ConfirmationPage() {
     //     checkoutData: checkoutData
     // });
 
-    // Calculate total with the correct shipping cost
-    const total = subtotal + estimatedTax + normalizedShippingCost;
+    // Calculate total with the correct shipping cost and promotions
+    const total = discountedSubtotal + estimatedTax + normalizedShippingCost;
 
     // Format price helper
     const formatPrice = (price: number) => {
@@ -471,6 +485,7 @@ export default function ConfirmationPage() {
                     providerId: "", // Will be filled after payment
                 },
                 subtotal: checkoutData.subtotal || 0,
+                discount: checkoutData.discount || promotionDiscount,
                 tax: checkoutData.tax || 0,
                 total: checkoutData.total || 0,
                 status: OrderStatus.PENDING,
@@ -533,6 +548,35 @@ export default function ConfirmationPage() {
                 localStorage.setItem("lascoPayOrderId", orderId);
                 // Also set a flag to skip payment update since we just created the payment
                 localStorage.setItem("skipPaymentUpdate", "true");
+            }
+
+            // Track promotion usage for analytics
+            if (appliedPromotions.length > 0) {
+                try {
+                    for (const promotion of appliedPromotions) {
+                        await fetch('/api/promotions/track-usage', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                promotionId: promotion.id,
+                                userId: isAuthenticated ? session.data?.user?.id : 'guest',
+                                orderId: orderId,
+                                discountAmount: promotion.discount,
+                                originalAmount: subtotal,
+                                finalAmount: total,
+                                couponCode: promotion.couponCode,
+                                cartItemCount: cart?.items?.length || 0,
+                                customerSegment: isAuthenticated ? 'returning' : 'new',
+                                deviceType: typeof window !== 'undefined' && window.innerWidth < 768 ? 'mobile' : 'desktop',
+                                isFirstTimeUse: !isAuthenticated,
+                                userEmail: isAuthenticated ? session.data?.user?.email : checkoutData.email
+                            })
+                        });
+                    }
+                } catch (trackingError) {
+                    console.error('Error tracking promotion usage:', trackingError);
+                    // Don't fail the order creation if tracking fails
+                }
             }
 
             // Show success toast
@@ -743,6 +787,35 @@ export default function ConfirmationPage() {
                                     <span>Subtotal</span>
                                     <span>${subtotal.toFixed(2)}</span>
                                 </div>
+
+                                {/* Applied Promotions */}
+                                {(checkoutData?.appliedPromotions || appliedPromotions || []).map((promo) => (
+                                    <div key={promo.id} className="flex justify-between text-green-600">
+                                        <span className="text-sm">
+                                            {promo.couponCode} - {promo.name}
+                                        </span>
+                                        <span>-${promo.discount.toFixed(2)}</span>
+                                    </div>
+                                ))}
+
+                                {promotionDiscount > 0 && (
+                                    <div className="flex justify-between text-green-600 font-medium">
+                                        <span>Total Savings</span>
+                                        <span>-${promotionDiscount.toFixed(2)}</span>
+                                    </div>
+                                )}
+
+                                {((checkoutData?.appliedPromotions?.length || 0) > 0 || appliedPromotions.length > 0) && (
+                                    <div className="text-xs text-gray-500 text-center">
+                                        <button
+                                            onClick={() => router.push("/cart")}
+                                            className="text-blue-600 hover:underline"
+                                        >
+                                            ← Back to cart to modify promotions
+                                        </button>
+                                    </div>
+                                )}
+
                                 <div className="flex justify-between">
                                     <span>Shipping</span>
                                     <span>${normalizedShippingCost.toFixed(2)}</span>

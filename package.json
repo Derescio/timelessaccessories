@@ -81,6 +81,7 @@
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.5.0",
+    "gsap": "^3.13.0",
     "keen-slider": "^6.8.6",
     "lodash.debounce": "^4.0.8",
     "lru-cache": "^7.18.3",
