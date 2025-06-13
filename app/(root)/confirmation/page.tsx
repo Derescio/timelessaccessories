@@ -461,6 +461,16 @@ export default function ConfirmationPage() {
                 : (checkoutData.email || checkoutData.shippingAddress?.email || "");
             const userPhone = checkoutData.phone || checkoutData.shippingAddress?.phone || "";
 
+            // Get the first applied promotion for the order (currently we only support one promotion per order)
+            const firstAppliedPromotion = appliedPromotions.length > 0 ? appliedPromotions[0] : null;
+
+            console.log('🎯 handleCreateOrder - Applied promotions data:', {
+                appliedPromotionsCount: appliedPromotions.length,
+                appliedPromotions: appliedPromotions,
+                firstAppliedPromotion: firstAppliedPromotion,
+                promotionDiscount: promotionDiscount
+            });
+
             const orderData = {
                 cartId: cart.id,
                 shippingAddress: {
@@ -489,12 +499,20 @@ export default function ConfirmationPage() {
                 tax: checkoutData.tax || 0,
                 total: checkoutData.total || 0,
                 status: OrderStatus.PENDING,
+                appliedPromotion: firstAppliedPromotion ? {
+                    id: firstAppliedPromotion.id,
+                    discount: firstAppliedPromotion.discount
+                } : undefined,
             };
 
-            //console.log("Creating order with payment method:", paymentMethod);
-
-            // Check if user is authenticated (moved after orderData construction)
-            // const isAuthenticated = session.status === 'authenticated';
+            console.log('🎯 handleCreateOrder - Final orderData being sent:', {
+                cartId: orderData.cartId,
+                appliedPromotion: orderData.appliedPromotion,
+                isAuthenticated: isAuthenticated,
+                orderCreationFunction: isAuthenticated
+                    ? (IS_LASCO_MARKET ? 'createOrderWithoutDeletingCart' : 'createOrder')
+                    : (IS_LASCO_MARKET ? 'createGuestOrderWithoutDeletingCart' : 'createGuestOrder')
+            });
 
             // Use the appropriate order creation function based on market and authentication
             let response;

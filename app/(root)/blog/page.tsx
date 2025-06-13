@@ -50,7 +50,7 @@ export default function BlogPage() {
             <div className="relative bg-cover bg-center py-16 md:py-24" style={{ backgroundImage: "url('/images/Ringimage.jpg')" }}>
                 <div className="absolute inset-0 bg-black opacity-50"></div>
                 <div className="relative container mx-auto px-4 text-center text-white">
-                    <h1 className="text-4xl md:text-5xl font-light mb-8">TIMELESS BLOG</h1>
+                    <h1 className="text-4xl md:text-5xl font-light mb-8">SHOP-DW BLOG</h1>
                     <nav className="flex flex-wrap justify-center gap-6">
                         {categories.map((category) => (
                             <button

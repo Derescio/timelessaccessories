@@ -19,6 +19,7 @@ interface CreatePromotionData {
     isActive: boolean;
     couponCode?: string | null;
     usageLimit?: number | null;
+    perUserLimit?: number | null;
     freeItemId?: string | null;
     applyToAllItems: boolean;
     categoryIds?: string[];
@@ -224,6 +225,7 @@ export async function createPromotion(data: CreatePromotionData): Promise<Action
                 isActive: data.isActive,
                 couponCode: data.couponCode,
                 usageLimit: data.usageLimit,
+                perUserLimit: data.perUserLimit,
                 freeItemId: data.freeItemId,
                 applyToAllItems: data.applyToAllItems,
                 requiresAuthentication: data.requiresAuthentication || false,
@@ -315,6 +317,7 @@ export async function updatePromotion(id: string, data: UpdatePromotionData): Pr
                 isActive: data.isActive,
                 couponCode: data.couponCode,
                 usageLimit: data.usageLimit,
+                perUserLimit: data.perUserLimit,
                 freeItemId: data.freeItemId,
                 applyToAllItems: data.applyToAllItems,
                 requiresAuthentication: data.requiresAuthentication || false,
@@ -448,6 +451,8 @@ export async function togglePromotionStatus(id: string): Promise<ActionResult> {
  * @param orderId The ID of the order that used a promotion
  */
 export async function recordPromotionUsage(orderId: string) {
+  console.log('🎯 recordPromotionUsage - Starting for order:', orderId);
+  
   // Fetch the order with its applied promotion and user
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -457,7 +462,20 @@ export async function recordPromotionUsage(orderId: string) {
     },
   });
 
-  if (!order || !order.appliedPromotionId || !order.appliedPromotion) return;
+  console.log('🔍 recordPromotionUsage - Order found:', {
+    orderId: order?.id,
+    hasAppliedPromotion: !!order?.appliedPromotionId,
+    appliedPromotionId: order?.appliedPromotionId,
+    isGuestOrder: !order?.userId,
+    guestEmail: order?.guestEmail,
+    userId: order?.userId,
+    discountAmount: order?.discountAmount?.toString()
+  });
+
+  if (!order || !order.appliedPromotionId || !order.appliedPromotion) {
+    console.log('⚠️ recordPromotionUsage - Early exit: missing order, appliedPromotionId, or appliedPromotion');
+    return;
+  }
 
   // Check if usage already exists for this order and promotion (idempotency)
   const existing = await prisma.promotionUsage.findFirst({
@@ -466,24 +484,78 @@ export async function recordPromotionUsage(orderId: string) {
       promotionId: order.appliedPromotionId,
     },
   });
-  if (existing) return;
+  
+  if (existing) {
+    console.log('⚠️ recordPromotionUsage - Usage record already exists:', existing.id);
+    return;
+  }
+
+  console.log('🔄 recordPromotionUsage - Handling user creation/lookup for promotion usage');
+  
+  // Handle user lookup/creation for guest orders
+  let targetUserId: string;
+  
+  if (order.userId) {
+    // Authenticated user order
+    targetUserId = order.userId;
+    console.log('✅ recordPromotionUsage - Using authenticated user:', targetUserId);
+  } else if (order.guestEmail) {
+    // Guest order - find or create user for this email
+    let guestUser = await prisma.user.findUnique({
+      where: { email: order.guestEmail }
+    });
+    
+    if (!guestUser) {
+      // Create a user record for the guest
+      guestUser = await prisma.user.create({
+        data: {
+          email: order.guestEmail,
+          name: `Guest User`,
+          role: 'USER'
+        }
+      });
+      console.log('✅ recordPromotionUsage - Created guest user:', guestUser.id);
+    } else {
+      console.log('✅ recordPromotionUsage - Found existing user for guest email:', guestUser.id);
+    }
+    
+    targetUserId = guestUser.id;
+  } else {
+    console.error('❌ recordPromotionUsage - No userId or guestEmail found in order');
+    return;
+  }
+
+  console.log('🔄 recordPromotionUsage - Creating usage record with:', {
+    promotionId: order.appliedPromotionId,
+    orderId: order.id,
+    userId: targetUserId,
+    discountAmount: order.discountAmount?.toString()
+  });
 
   await prisma.promotionUsage.create({
     data: {
       promotionId: order.appliedPromotionId,
-      userId: order.userId ?? order.guestEmail ?? "guest",
       orderId: order.id,
-      discountAmount: order.discountAmount ?? 0,
+      userId: targetUserId,
+      discountAmount: order.discountAmount || 0,
       originalAmount: order.subtotal,
       finalAmount: order.total,
-      couponCode: order.appliedPromotion.couponCode ?? undefined,
-      // Optionally add more tracking fields here
+      couponCode: order.appliedPromotion.couponCode,
     },
   });
 
-  // Optionally increment usageCount on the Promotion
+  console.log('✅ recordPromotionUsage - Successfully created usage record');
+  console.log('🔄 recordPromotionUsage - Incrementing promotion usage count');
+
+  // Increment the promotion's usage count
   await prisma.promotion.update({
     where: { id: order.appliedPromotionId },
-    data: { usageCount: { increment: 1 } },
+    data: {
+      usageCount: {
+        increment: 1
+      }
+    }
   });
+
+  console.log('✅ recordPromotionUsage - Successfully incremented promotion usage count');
 } 

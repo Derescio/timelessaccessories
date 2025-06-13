@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -31,8 +31,6 @@ interface Cart {
     items: CartItem[];
 }
 
-
-
 export default function CartPageContent() {
     const { data: session, status } = useSession();
     const isAuthenticated = status === 'authenticated';
@@ -46,41 +44,38 @@ export default function CartPageContent() {
         removePromotion,
         getTotalDiscount,
         clearPromotions
-    } = useCartPromotions();
+    } = useCartPromotions(cart?.id);
 
     // Debounce pending quantity updates
     const debouncedQuantities = useDebounce(pendingQuantities, 500);
 
     const [guestEmail, setGuestEmail] = useState("");
-    const [filteredPromotions, setFilteredPromotions] = useState<AppliedPromotion[]>(appliedPromotions);
 
-    // Filter appliedPromotions for guests with perUserLimit=1 and PROCESSING order
-    useEffect(() => {
-        async function filterPromos() {
-            if (isAuthenticated || !guestEmail) {
-                setFilteredPromotions(appliedPromotions);
-                return;
-            }
-            const results = await Promise.all(appliedPromotions.map(async (promo) => {
-                if ((promo as any).perUserLimit === 1) {
-                    const res = await fetch('/api/promotions/guest-usage', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email: guestEmail, promotionId: promo.id })
-                    });
-                    const data = await res.json();
-                    if (data.used) return null;
-                }
-                return promo;
-            }));
-            setFilteredPromotions(results.filter(Boolean) as AppliedPromotion[]);
-        }
-        filterPromos();
-    }, [appliedPromotions, guestEmail, isAuthenticated]);
+    // Track cart content changes to clear stale promotions
+    const [previousCartHash, setPreviousCartHash] = useState<string>('');
+
+    // Create stable references to prevent infinite loops
+    const cartItemsLength = cart?.items?.length || 0;
+    const cartId = cart?.id;
 
     const handleAnimationComplete = () => {
-        console.log('All letters have animated!');
+        // Animation completed
     };
+
+    // Simple cart change detection - just clear promotions when cart ID changes
+    useEffect(() => {
+        if (cart?.id && previousCartHash && cart.id !== previousCartHash) {
+            // Clear promotions when cart ID changes
+            const currentPromotions = JSON.parse(localStorage.getItem(`cart-promotions-${cart.id}`) || '[]');
+            if (currentPromotions.length > 0) {
+                localStorage.removeItem(`cart-promotions-${cart.id}`);
+                window.dispatchEvent(new CustomEvent('promotions-cleared'));
+            }
+        }
+        if (cart?.id) {
+            setPreviousCartHash(cart.id);
+        }
+    }, [cart?.id]); // Only depend on cart ID
 
     // Load cart with caching
     const loadCart = useCallback(async () => {
@@ -99,13 +94,6 @@ export default function CartPageContent() {
     useEffect(() => {
         loadCart();
     }, [loadCart]);
-
-    // In useEffect after loading cart, clear promotions if cart is empty or new
-    useEffect(() => {
-        if (cart && cart.items.length === 0) {
-            clearPromotions();
-        }
-    }, [cart, clearPromotions]);
 
     // Handle debounced quantity updates
     useEffect(() => {
@@ -207,6 +195,8 @@ export default function CartPageContent() {
 
     const { subtotal, totalDiscount, discountedSubtotal, estimatedTax, shipping, total } = cartTotals;
 
+    // Removed complex validation logic to prevent infinite loops
+
     return (
         <div className="container mx-auto px-4 py-8">
             <h1 className="text-3xl font-light mb-8">SHOPPING CART</h1>
@@ -300,7 +290,7 @@ export default function CartPageContent() {
                                         </div>
 
                                         {/* Applied Promotions */}
-                                        {filteredPromotions.map((promo) => (
+                                        {appliedPromotions.map((promo) => (
                                             <div key={promo.id} className="flex justify-between text-green-600">
                                                 <span className="text-sm">
                                                     {promo.couponCode} - {promo.name}
@@ -348,7 +338,7 @@ export default function CartPageContent() {
                                                 categoryId: item.categoryId
                                             }))}
                                             cartTotal={subtotal}
-                                            appliedPromotions={filteredPromotions}
+                                            appliedPromotions={appliedPromotions}
                                             maxPromotions={3}
                                             userEmail={isAuthenticated ? (session?.user?.email ?? undefined) : (guestEmail || undefined)}
                                         />

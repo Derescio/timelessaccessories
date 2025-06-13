@@ -41,6 +41,67 @@ export async function POST(req: NextRequest) {
       userEmail
     } = validatedData;
 
+    console.log('🎯 track-usage - Received request:', {
+      promotionId,
+      orderId,
+      userId,
+      userEmail,
+      isGuestUser: userId === 'guest',
+      discountAmount
+    });
+
+    // Handle guest users - create/find user record for guest email
+    let actualUserId: string;
+    
+    if (userId === 'guest' || !userId) {
+      if (!userEmail) {
+        console.error('❌ track-usage - Guest user without email');
+        return NextResponse.json(
+          { error: "Email is required for guest users" },
+          { status: 400 }
+        );
+      }
+
+      console.log('🔄 track-usage - Handling guest user with email:', userEmail);
+      
+      // Try to find existing user with this email
+      let guestUser = await db.user.findUnique({
+        where: { email: userEmail }
+      });
+      
+      if (!guestUser) {
+        // Create a guest user record
+        guestUser = await db.user.create({
+          data: {
+            email: userEmail,
+            name: `Guest User`,
+            role: 'USER'
+          }
+        });
+        console.log('✅ track-usage - Created guest user:', guestUser.id);
+      } else {
+        console.log('✅ track-usage - Found existing user for email:', guestUser.id);
+      }
+      
+      actualUserId = guestUser.id;
+    } else {
+      // Verify that the provided userId exists
+      const existingUser = await db.user.findUnique({
+        where: { id: userId }
+      });
+      
+      if (!existingUser) {
+        console.error('❌ track-usage - Invalid userId provided:', userId);
+        return NextResponse.json(
+          { error: "Invalid user ID" },
+          { status: 400 }
+        );
+      }
+      
+      actualUserId = userId;
+      console.log('✅ track-usage - Using authenticated user ID:', actualUserId);
+    }
+
     // Verify the promotion exists and is still active
     const promotion = await db.promotion.findUnique({
       where: { id: promotionId },
@@ -48,6 +109,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!promotion) {
+      console.error('❌ track-usage - Promotion not found:', promotionId);
       return NextResponse.json(
         { error: "Promotion not found" },
         { status: 404 }
@@ -56,6 +118,7 @@ export async function POST(req: NextRequest) {
 
     // Check if usage limit would be exceeded
     if (promotion.usageLimit && promotion._count.usageRecords >= promotion.usageLimit) {
+      console.error('❌ track-usage - Usage limit exceeded for promotion:', promotionId);
       return NextResponse.json(
         { error: "Promotion usage limit exceeded" },
         { status: 400 }
@@ -64,7 +127,7 @@ export async function POST(req: NextRequest) {
 
     // Check if this is a first-time use for this user (for analytics)
     const existingUsage = await db.promotionUsage.findFirst({
-      where: { userId }
+      where: { userId: actualUserId }
     });
     const isActuallyFirstTime = !existingUsage;
 
@@ -75,7 +138,7 @@ export async function POST(req: NextRequest) {
       const previousUsage = await db.promotionUsage.findFirst({
         where: {
           OR: [
-            { userId },
+            { userId: actualUserId },
             ...(userEmail ? [{ 
               AND: [
                 { couponCode },
@@ -94,18 +157,26 @@ export async function POST(req: NextRequest) {
     }
 
     if (hasUsedBefore) {
+      console.log('⚠️ track-usage - User has already used this promotion code');
       return NextResponse.json(
         { error: "This promotion code has already been used by this user" },
         { status: 400 }
       );
     }
 
+    console.log('🔄 track-usage - Creating usage record for:', {
+      promotionId,
+      userId: actualUserId,
+      orderId,
+      discountAmount
+    });
+
     // Create usage record
     const usageRecord = await db.promotionUsage.create({
       data: {
         promotionId,
         orderId,
-        userId,
+        userId: actualUserId, // Use the actual user ID
         discountAmount,
         originalAmount,
         finalAmount,
@@ -119,6 +190,8 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    console.log('✅ track-usage - Successfully created usage record:', usageRecord.id);
+
     return NextResponse.json({
       success: true,
       usageRecord: {
@@ -130,7 +203,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error("Error tracking promotion usage:", error);
+    console.error("❌ track-usage - Error tracking promotion usage:", error);
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(

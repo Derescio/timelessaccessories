@@ -403,6 +403,9 @@ export default function ShippingPage() {
                         //  console.log("Address save response:", addressResult);
                     }
 
+                    // Get the first applied promotion for the order (currently we only support one promotion per order)
+                    const firstAppliedPromotion = appliedPromotions.length > 0 ? appliedPromotions[0] : null;
+
                     // Prepare order data for LASCO market
                     const orderData = {
                         cartId: cart?.id || "",
@@ -432,6 +435,10 @@ export default function ShippingPage() {
                         tax: orderSummary.tax,
                         total: orderSummary.total,
                         status: OrderStatus.PENDING,
+                        appliedPromotion: firstAppliedPromotion ? {
+                            id: firstAppliedPromotion.id,
+                            discount: firstAppliedPromotion.discount
+                        } : undefined,
                     };
 
                     // console.log("Creating LASCO order with data:", orderData);

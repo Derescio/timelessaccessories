@@ -19,7 +19,7 @@ export async function POST() {
     const headers = {
       'Authorization': `Bearer ${process.env.PRINTIFY_ACCESS_TOKEN}`,
       'Content-Type': 'application/json',
-      'User-Agent': 'TimelessAccessories/1.0',
+      'User-Agent': 'shop-dw/1.0',
     };
 
     // Test API connection by fetching shops

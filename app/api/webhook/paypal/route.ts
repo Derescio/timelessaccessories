@@ -199,8 +199,15 @@ export async function POST(request: Request) {
             // Don't fail the webhook for email errors
           }
 
-          // Record promotion usage
-          await recordPromotionUsage(customId);
+          // Record promotion usage if applicable
+          console.log(`🎯 PAYPAL WEBHOOK [${timestamp}]: About to call recordPromotionUsage for order: ${customId}`);
+          try {
+            await recordPromotionUsage(customId);
+            console.log(`✅ PAYPAL WEBHOOK [${timestamp}]: recordPromotionUsage completed for order: ${customId}`);
+          } catch (promotionError) {
+            console.error(`❌ PAYPAL WEBHOOK [${timestamp}]: Error in recordPromotionUsage for order ${customId}:`, promotionError);
+            // Don't fail the webhook for promotion tracking errors
+          }
 
           console.log(`✅ PAYPAL WEBHOOK [${timestamp}]: Successfully completed processing for order: ${customId}`);
           return NextResponse.json({ 

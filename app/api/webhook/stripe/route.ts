@@ -214,7 +214,15 @@ export async function POST(req: NextRequest) {
         // Don't fail the webhook for email errors
       }
 
-      await recordPromotionUsage(orderId);
+      // Record promotion usage if applicable
+      console.log(`🎯 WEBHOOK [${timestamp}]: About to call recordPromotionUsage for order: ${orderId}`);
+      try {
+        await recordPromotionUsage(orderId);
+        console.log(`✅ WEBHOOK [${timestamp}]: recordPromotionUsage completed for order: ${orderId}`);
+      } catch (promotionError) {
+        console.error(`❌ WEBHOOK [${timestamp}]: Error in recordPromotionUsage for order ${orderId}:`, promotionError);
+        // Don't fail the webhook for promotion tracking errors
+      }
 
       console.log(`✅ WEBHOOK [${timestamp}]: Successfully completed processing for order: ${orderId}`);
       return NextResponse.json({ 
@@ -294,7 +302,15 @@ export async function POST(req: NextRequest) {
         // Don't fail the webhook for email errors
       }
 
-      await recordPromotionUsage(orderId);
+      // Record promotion usage if applicable
+      console.log(`🎯 WEBHOOK [${timestamp}]: About to call recordPromotionUsage for order: ${orderId}`);
+      try {
+        await recordPromotionUsage(orderId);
+        console.log(`✅ WEBHOOK [${timestamp}]: recordPromotionUsage completed for order: ${orderId}`);
+      } catch (promotionError) {
+        console.error(`❌ WEBHOOK [${timestamp}]: Error in recordPromotionUsage for order ${orderId}:`, promotionError);
+        // Don't fail the webhook for promotion tracking errors
+      }
 
       console.log(`✅ WEBHOOK [${timestamp}]: Successfully completed processing for order: ${orderId}`);
       return NextResponse.json({ 

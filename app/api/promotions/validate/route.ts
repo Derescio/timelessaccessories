@@ -22,20 +22,16 @@ interface ValidationRequest {
 
 // Validation schema for the request
 const validatePromotionSchema = z.object({
-  code: z.string().min(1, "Coupon code is required"),
+  promotionId: z.string(),
   cartItems: z.array(z.object({
-    id: z.string().optional(),
-    productId: z.string().optional(),
-    menuItemId: z.string().optional(), // For compatibility with existing code
-    quantity: z.number().min(1),
-    price: z.number().min(0),
-    name: z.string().optional(),
-    categoryId: z.string().optional(),
-    specialInstructions: z.string().optional()
+    id: z.string(),
+    productId: z.string(),
+    quantity: z.number(),
+    price: z.number(),
+    categoryId: z.string().optional()
   })),
-  cartTotal: z.number().min(0),
-  userId: z.string().optional(),
-  userEmail: z.string().optional() // For guest-to-user tracking
+  cartTotal: z.number(),
+  userEmail: z.string().optional()
 });
 
 export async function POST(req: NextRequest) {
@@ -43,136 +39,129 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validatedData = validatePromotionSchema.parse(body);
     
-    const { code, cartItems, cartTotal, userId, userEmail } = validatedData;
-
-    // Find the promotion by coupon code
-    const promotion = await db.promotion.findFirst({
-      where: {
-        couponCode: code.toUpperCase(),
-        isActive: true,
-        startDate: { lte: new Date() },
-        endDate: { gte: new Date() }
-      },
+    const { promotionId, cartItems, cartTotal, userEmail } = validatedData;
+    
+    console.log('🔍 Validating promotion:', promotionId, 'for cart total:', cartTotal);
+    
+    // Get the promotion details
+    const promotion = await db.promotion.findUnique({
+      where: { id: promotionId },
       include: {
-        categories: { select: { id: true } },
-        products: { select: { id: true } },
-        freeItem: { select: { id: true, name: true } },
-        _count: { select: { usageRecords: true } }
+        categories: true,
+        products: true,
+        usageRecords: {
+          include: {
+            user: true
+          }
+        }
       }
     });
-
+    
     if (!promotion) {
-      return NextResponse.json(
-        { error: "Invalid or expired coupon code" },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        valid: false,
+        reason: "Promotion not found"
+      });
     }
-
-    // Check if promotion requires authentication and user is not signed in
-    if (promotion.requiresAuthentication && !userId) {
-      return NextResponse.json(
-        { error: "This coupon code is only available for signed-in users. Please sign in to use this code." },
-        { status: 401 }
-      );
+    
+    // Check if promotion is active
+    if (!promotion.isActive) {
+      return NextResponse.json({
+        valid: false,
+        reason: "Promotion is no longer active"
+      });
     }
-
-    // Check usage limit
-    if (promotion.usageLimit && promotion._count.usageRecords >= promotion.usageLimit) {
-      return NextResponse.json(
-        { error: "This coupon has reached its usage limit" },
-        { status: 400 }
-      );
+    
+    // Check if promotion has expired
+    const now = new Date();
+    if (promotion.endDate && new Date(promotion.endDate) < now) {
+      return NextResponse.json({
+        valid: false,
+        reason: "Promotion has expired"
+      });
     }
-
-    // Check if user (by userId, user.email, or order.guestEmail) has used this code before
-    const previousUsage = await db.promotionUsage.findFirst({
-      where: {
-        couponCode: code.toUpperCase(),
-        OR: [
-          ...(userId ? [{ userId }] : []),
-          ...(userEmail ? [
-            { user: { email: userEmail } },
-            { order: { guestEmail: userEmail } }
-          ] : [])
-        ]
-      }
-    });
-    if (previousUsage) {
-      return NextResponse.json(
-        { error: "This promotion code has already been used by this user" },
-        { status: 400 }
-      );
+    
+    // Check if promotion hasn't started yet
+    if (promotion.startDate && new Date(promotion.startDate) > now) {
+      return NextResponse.json({
+        valid: false,
+        reason: "Promotion hasn't started yet"
+      });
     }
-
+    
+    // Check usage limits
+    if (promotion.usageLimit && promotion.usageRecords.length >= promotion.usageLimit) {
+      return NextResponse.json({
+        valid: false,
+        reason: "Promotion usage limit exceeded"
+      });
+    }
+    
     // Check minimum order value
     if (promotion.minimumOrderValue && cartTotal < promotion.minimumOrderValue.toNumber()) {
-      return NextResponse.json(
-        { 
-          error: `Minimum order value of $${promotion.minimumOrderValue.toNumber().toFixed(2)} required for this coupon` 
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        valid: false,
+        reason: `Minimum order value of $${promotion.minimumOrderValue} not met`
+      });
     }
-
-    // Count previous uses for this user/email
-    const userUsageCount = await db.promotionUsage.count({
-      where: {
-        couponCode: code.toUpperCase(),
-        OR: [
-          ...(userId ? [{ userId }] : []),
-          ...(userEmail ? [
-            { user: { email: userEmail } },
-            { order: { guestEmail: userEmail } }
-          ] : [])
-        ]
+    
+    // Check per-user limit if user email is provided
+    if (promotion.perUserLimit && userEmail) {
+      const userUsageCount = promotion.usageRecords.filter(record => 
+        record.user?.email === userEmail
+      ).length;
+      
+      if (userUsageCount >= promotion.perUserLimit) {
+        return NextResponse.json({
+          valid: false,
+          reason: "Per-user usage limit exceeded"
+        });
       }
-    });
-    if (promotion.perUserLimit && userUsageCount >= promotion.perUserLimit) {
-      return NextResponse.json(
-        { error: `This promotion code can only be used ${promotion.perUserLimit} time(s) per user.` },
-        { status: 400 }
-      );
     }
-
-    // Calculate discount based on promotion type and targeting
-    const discountResult = await calculateDiscount(promotion, cartItems, cartTotal);
-
-    if (discountResult.discount === 0) {
-      return NextResponse.json(
-        { error: "This coupon is not applicable to items in your cart" },
-        { status: 400 }
+    
+    // Check product/category restrictions
+    if (!promotion.applyToAllItems) {
+      const promotionProductIds = promotion.products.map(p => p.id);
+      const promotionCategoryIds = promotion.categories.map(c => c.id);
+      
+      const hasEligibleItems = cartItems.some(item => 
+        promotionProductIds.includes(item.productId) ||
+        (item.categoryId && promotionCategoryIds.includes(item.categoryId))
       );
+      
+      if (!hasEligibleItems) {
+        return NextResponse.json({
+          valid: false,
+          reason: "No eligible items in cart for this promotion"
+        });
+      }
     }
-
-    // Return success response
+    
+    console.log('✅ Promotion validation passed for:', promotionId);
+    
     return NextResponse.json({
-      success: true,
+      valid: true,
       promotion: {
         id: promotion.id,
         name: promotion.name,
-        description: promotion.description,
-        type: promotion.promotionType,
-        couponCode: promotion.couponCode
-      },
-      discount: discountResult.discount,
-      discountType: promotion.promotionType,
-      freeItem: discountResult.freeItem,
-      message: getSuccessMessage(promotion, discountResult.discount),
-      appliedTo: discountResult.appliedItems
+        couponCode: promotion.couponCode,
+        promotionType: promotion.promotionType,
+        value: promotion.value.toNumber()
+      }
     });
-
+    
   } catch (error) {
-    console.error("Error validating promotion:", error);
+    console.error("❌ Error validating promotion:", error);
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Invalid request data", details: error.errors },
+        { valid: false, reason: "Invalid request data", details: error.errors },
         { status: 400 }
       );
     }
-
+    
     return NextResponse.json(
-      { error: "Failed to validate coupon code" },
+      { valid: false, reason: "Failed to validate promotion" },
       { status: 500 }
     );
   }

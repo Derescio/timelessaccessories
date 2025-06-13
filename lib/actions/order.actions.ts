@@ -42,6 +42,10 @@ interface OrderData {
   tax: number
   total: number
   status?: keyof typeof OrderStatus | string
+  appliedPromotion?: {
+    id: string
+    discount: number
+  }
 }
 
 // Define serialized order type
@@ -54,6 +58,7 @@ interface SerializedOrder {
     tax: number;
     shipping: number;
     total: number;
+    discountAmount?: number | null;
     user: {
         id: string;
         name: string;
@@ -167,6 +172,13 @@ const handleError = async (error: unknown): Promise<{ success: false, message: s
  */
 export const createOrder = async (orderData: OrderData) => {
   try {
+    console.log('🎯 createOrder - Starting order creation with data:', {
+      cartId: orderData.cartId,
+      appliedPromotion: orderData.appliedPromotion,
+      total: orderData.total,
+      subtotal: orderData.subtotal
+    });
+
     // Get the cart to ensure it exists
     const cart = await db.cart.findUnique({
       where: { id: orderData.cartId },
@@ -209,6 +221,8 @@ export const createOrder = async (orderData: OrderData) => {
       throw new Error("User not authenticated");
     }
 
+    console.log('🎯 createOrder - User authenticated:', userId);
+
     // Prepare order items with attributes
     const orderItems = cart.items.map(item => {
       // Use only the selected attributes without fallback
@@ -230,6 +244,12 @@ export const createOrder = async (orderData: OrderData) => {
     // Add order notes with shipping and payment method
     const notes = `Shipping Method: ${orderData.shipping.method}, Payment Method: ${orderData.payment?.method || 'Not specified'}`;
 
+    console.log('🎯 createOrder - About to create order with promotion data:', {
+      appliedPromotionId: orderData.appliedPromotion?.id || null,
+      discountAmount: orderData.appliedPromotion?.discount || null,
+      hasAppliedPromotion: !!orderData.appliedPromotion
+    });
+
     // Create the order
     const order = await db.order.create({
       data: {
@@ -240,6 +260,8 @@ export const createOrder = async (orderData: OrderData) => {
         shipping: orderData.shipping.cost,
         total: orderData.total,
         status: orderData.status ? OrderStatus[orderData.status as keyof typeof OrderStatus] || OrderStatus.PENDING : OrderStatus.PENDING,
+        appliedPromotionId: orderData.appliedPromotion?.id || null,
+        discountAmount: orderData.appliedPromotion?.discount || null,
         items: {
           create: orderItems
         },
@@ -249,6 +271,13 @@ export const createOrder = async (orderData: OrderData) => {
       include: {
         items: true,
       },
+    });
+
+    console.log('✅ createOrder - Order created successfully:', {
+      orderId: order.id,
+      appliedPromotionId: order.appliedPromotionId,
+      discountAmount: order.discountAmount?.toString(),
+      total: order.total.toString()
     });
 
     // We do NOT delete the cart here - it will be deleted after payment confirmation
@@ -261,7 +290,7 @@ export const createOrder = async (orderData: OrderData) => {
       }
     };
   } catch (error) {
-    console.error("Error creating order:", error);
+    console.error("❌ createOrder - Error creating order:", error);
     return { success: false, error: error };
   }
 }
@@ -405,6 +434,8 @@ export async function createOrderWithoutDeletingCart(data: OrderData) {
         subtotal: new Decimal(data.subtotal),
         tax: new Decimal(data.tax),
         total: new Decimal(data.total),
+        appliedPromotionId: data.appliedPromotion?.id || null,
+        discountAmount: data.appliedPromotion?.discount ? new Decimal(data.appliedPromotion.discount) : null,
         paymentIntent: data.payment?.providerId || null,
         notes: notes,
         items: {
@@ -767,6 +798,7 @@ export async function getOrderWithItems(orderId: string) {
       subtotal: Number(order.subtotal),
       tax: Number(order.tax),
       total: Number(order.total),
+      discountAmount: order.discountAmount ? Number(order.discountAmount) : null,
       // Serialize order items, converting Decimal price to number
       items: order.items.map(item => {
         // Format attributes for display
@@ -977,6 +1009,7 @@ export async function getOrders({
             tax: Number(order.tax),
             shipping: Number(order.shipping),
             total: Number(order.total),
+            discountAmount: order.discountAmount ? Number(order.discountAmount) : null,
             items: order.items.map(item => ({
                 ...item,
                 price: Number(item.price),
@@ -1058,6 +1091,7 @@ export async function getOrderById(id: string): Promise<GetOrderByIdResponse> {
             tax: Number(order.tax),
             shipping: Number(order.shipping),
             total: Number(order.total),
+            discountAmount: order.discountAmount ? Number(order.discountAmount) : null,
             items: order.items.map(item => ({
                 ...item,
                 price: Number(item.price),
@@ -1132,6 +1166,7 @@ export async function updateOrderStatus({
             tax: Number(order.tax),
             shipping: Number(order.shipping),
             total: Number(order.total),
+            discountAmount: order.discountAmount ? Number(order.discountAmount) : null,
             items: order.items.map(item => ({
                 ...item,
                 price: Number(item.price),
@@ -1187,11 +1222,12 @@ export async function deleteOrder(id: string): Promise<DeleteOrderResponse> {
  */
 export const createGuestOrder = async (orderData: OrderData) => {
   try {
-    console.log('🎯 createGuestOrder - Starting guest order creation');
-    console.log('🎯 createGuestOrder - Order data:', {
+    console.log('🎯 createGuestOrder - Starting guest order creation with data:', {
       cartId: orderData.cartId,
       email: orderData.shippingAddress.email,
-      total: orderData.total
+      appliedPromotion: orderData.appliedPromotion,
+      total: orderData.total,
+      subtotal: orderData.subtotal
     });
 
     // Get the cart to ensure it exists
@@ -1262,6 +1298,13 @@ export const createGuestOrder = async (orderData: OrderData) => {
     // Add order notes with shipping and payment method
     const notes = `Guest Order - Shipping Method: ${orderData.shipping.method}, Payment Method: ${orderData.payment?.method || 'Not specified'}`;
 
+    console.log('🎯 createGuestOrder - About to create order with promotion data:', {
+      appliedPromotionId: orderData.appliedPromotion?.id || null,
+      discountAmount: orderData.appliedPromotion?.discount || null,
+      hasAppliedPromotion: !!orderData.appliedPromotion,
+      guestEmail: orderData.shippingAddress.email
+    });
+
     // Create the order in a transaction
     const result = await db.$transaction(async (tx) => {
       console.log('🎯 createGuestOrder - Starting database transaction');
@@ -1275,6 +1318,8 @@ export const createGuestOrder = async (orderData: OrderData) => {
           tax: orderData.tax,
           shipping: orderData.shipping.cost,
           total: orderData.total,
+          appliedPromotionId: orderData.appliedPromotion?.id || null,
+          discountAmount: orderData.appliedPromotion?.discount || null,
           shippingAddress: JSON.stringify(orderData.shippingAddress),
           notes: notes,
           items: {
@@ -1283,7 +1328,13 @@ export const createGuestOrder = async (orderData: OrderData) => {
         },
       });
 
-      console.log('🎯 createGuestOrder - Order created with ID:', order.id);
+      console.log('✅ createGuestOrder - Order created with promotion data:', {
+        orderId: order.id,
+        appliedPromotionId: order.appliedPromotionId,
+        discountAmount: order.discountAmount?.toString(),
+        guestEmail: order.guestEmail,
+        total: order.total.toString()
+      });
 
       // Delete the cart after successful order creation
       await tx.cart.delete({
@@ -1309,7 +1360,7 @@ export const createGuestOrder = async (orderData: OrderData) => {
 
     return { success: true, order: serializedOrder };
   } catch (error) {
-    console.error('🎯 createGuestOrder - Error creating guest order:', error);
+    console.error('❌ createGuestOrder - Error creating guest order:', error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to create order" };
   }
 };
@@ -1410,6 +1461,8 @@ export async function createGuestOrderWithoutDeletingCart(data: OrderData) {
         subtotal: new Decimal(data.subtotal),
         tax: new Decimal(data.tax),
         total: new Decimal(data.total),
+        appliedPromotionId: data.appliedPromotion?.id || null,
+        discountAmount: data.appliedPromotion?.discount ? new Decimal(data.appliedPromotion.discount) : null,
         paymentIntent: data.payment?.providerId || null,
         notes: notes,
         items: {

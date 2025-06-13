@@ -387,3 +387,12 @@ The promotions system provides comprehensive discount and coupon management capa
 - ✅ Status filtering and search functionality
 - ✅ Usage tracking and statistics
 - ✅ Comprehensive testing and documentation
+
+## Promotion System
+
+- Supports percentage, fixed amount, BOGO, and free item promotions.
+- **Per-User Limit:** Each promotion can have a per-user limit (`perUserLimit`). Users (by account or guest email) can only use a code up to this limit.
+- **Guest Email:** Guests must enter an email to use promo codes. Usage is tracked by email.
+- **Promo Code Persistence:** Promo codes are not auto-applied to new carts. After an order is placed or the cart is emptied, all applied promotions are cleared.
+- **Cart Filtering:** If a guest has used a promo code up to their per-user limit, it will not be shown as applied in the cart for new items.
+- **Admin Panel:** Admins can set per-user limits for each promotion.

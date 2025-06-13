@@ -15,65 +15,101 @@ export interface AppliedPromotion {
         id: string;
         name: string;
     } | null;
+    cartId?: string;
 }
 
-const STORAGE_KEY = 'cart-promotions';
+interface CartPromotionsState {
+  [cartId: string]: AppliedPromotion[];
+}
 
-export function useCartPromotions() {
-    const [appliedPromotions, setAppliedPromotions] = useState<AppliedPromotion[]>([]);
-    const [isLoaded, setIsLoaded] = useState(false);
+const STORAGE_KEY = 'cart-promotions-by-cart';
+
+export function useCartPromotions(currentCartId?: string) {
+    const [promotionsByCart, setPromotionsByCart] = useState<CartPromotionsState>({});
+    
+    // Get promotions for current cart only
+    const appliedPromotions = currentCartId ? (promotionsByCart[currentCartId] || []) : [];
 
     // Load promotions from localStorage on mount
     useEffect(() => {
         try {
             const stored = localStorage.getItem(STORAGE_KEY);
             if (stored) {
-                const promotions = JSON.parse(stored);
-                setAppliedPromotions(promotions);
+                const parsed = JSON.parse(stored) as CartPromotionsState;
+                setPromotionsByCart(parsed);
             }
         } catch (error) {
-            console.error('Error loading promotions from localStorage:', error);
-        } finally {
-            setIsLoaded(true);
+            console.error('Error loading cart promotions:', error);
         }
     }, []);
 
-    // Save promotions to localStorage whenever they change
+    // Save to localStorage whenever promotions change
     useEffect(() => {
-        if (isLoaded) {
-            try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(appliedPromotions));
-            } catch (error) {
-                console.error('Error saving promotions to localStorage:', error);
-            }
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(promotionsByCart));
+        } catch (error) {
+            console.error('Error saving cart promotions:', error);
         }
-    }, [appliedPromotions, isLoaded]);
+    }, [promotionsByCart]);
 
     const addPromotion = useCallback((promotion: AppliedPromotion) => {
-        setAppliedPromotions(prev => {
-            // Check if promotion is already applied
-            if (prev.some(p => p.id === promotion.id)) {
+        if (!currentCartId) {
+            console.warn('Cannot add promotion without cart ID');
+            return;
+        }
+        
+        setPromotionsByCart(prev => {
+            const cartPromotions = prev[currentCartId] || [];
+            
+            // Check if promotion already exists for this cart
+            if (cartPromotions.some(p => p.id === promotion.id)) {
                 return prev;
             }
-            return [...prev, promotion];
+            
+            const updatedPromotions = [...cartPromotions, { ...promotion, cartId: currentCartId }];
+            
+            return {
+                ...prev,
+                [currentCartId]: updatedPromotions
+            };
+        });
+    }, [currentCartId]);
+
+    const removePromotion = useCallback((promotionId: string) => {
+        if (!currentCartId) return;
+        
+        setPromotionsByCart(prev => {
+            const cartPromotions = prev[currentCartId] || [];
+            const updatedPromotions = cartPromotions.filter(p => p.id !== promotionId);
+            
+            return {
+                ...prev,
+                [currentCartId]: updatedPromotions
+            };
+        });
+    }, [currentCartId]);
+
+    const clearPromotions = useCallback(() => {
+        if (!currentCartId) return;
+        
+        setPromotionsByCart(prev => {
+            const updated = { ...prev };
+            delete updated[currentCartId];
+            return updated;
+        });
+    }, [currentCartId]);
+
+    // Clear promotions for a specific cart (useful when cart is deleted)
+    const clearCartPromotions = useCallback((cartId: string) => {
+        setPromotionsByCart(prev => {
+            const updated = { ...prev };
+            delete updated[cartId];
+            return updated;
         });
     }, []);
 
-    const removePromotion = useCallback((promotionId: string) => {
-        setAppliedPromotions(prev => prev.filter(p => p.id !== promotionId));
-    }, []);
-
-    const clearPromotions = useCallback(() => {
-        setAppliedPromotions([]);
-        try {
-            localStorage.removeItem(STORAGE_KEY);
-        } catch (error) {
-            console.error('Error clearing promotions from localStorage:', error);
-        }
-    }, []);
-
     const getTotalDiscount = useCallback(() => {
-        return appliedPromotions.reduce((sum, promo) => sum + promo.discount, 0);
+        return appliedPromotions.reduce((total, promo) => total + promo.discount, 0);
     }, [appliedPromotions]);
 
     const hasPromotion = useCallback((promotionId: string) => {
@@ -94,11 +130,12 @@ export function useCartPromotions() {
         addPromotion,
         removePromotion,
         clearPromotions,
+        clearCartPromotions,
         clearPromotionsAfterOrder,
         getTotalDiscount,
         hasPromotion,
         getPromotionByCode,
         promotionCount: appliedPromotions.length,
-        isLoaded
+        isLoaded: Object.keys(promotionsByCart).length > 0
     };
 } 

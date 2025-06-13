@@ -1,5 +1,11 @@
 # 🎯 Promotion System Testing Checklist
 
+## Updates (2024-06)
+- **Per-User Limit:** Promotions can now have a per-user limit (`perUserLimit`). This restricts how many times a user (by account or guest email) can use a code.
+- **Guest Email Enforcement:** Guests must enter an email to use promo codes. Usage is tracked by email.
+- **Promo Code Persistence:** Promo codes are **not** auto-applied to new carts. After an order is placed or the cart is emptied, all applied promotions are cleared.
+- **Cart Filtering:** If a guest has used a promo code up to their per-user limit, it will not be shown as applied in the cart for new items.
+
 ## Overview
 This document provides comprehensive test cases for the promotion/coupon system. Use this checklist to ensure all promotion features work correctly across different scenarios.
 
@@ -293,3 +299,10 @@ Use this section to track your testing progress:
 **Tester:** ___________  
 **Environment:** ___________  
 **Issues Found:** ___________ 
+
+---
+
+## 🆕 Clearing Promotions After Order/Cart Emptied
+- [ ] After a successful order or when the cart is emptied, all applied promotions are cleared from the cart and local storage.
+- [ ] Promo codes must be re-entered for each new cart/session.
+- [ ] No promo code is auto-applied to a new cart.
