@@ -17,8 +17,12 @@ interface ApplyPromotionRequest {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('🎯 [PROMO-APPLY] Starting promotion application tracking request');
+  
   try {
     const body: ApplyPromotionRequest = await request.json();
+    console.log('🎯 [PROMO-APPLY] Request body:', JSON.stringify(body, null, 2));
+    
     const {
       promotionId,
       orderId,
@@ -33,6 +37,13 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!promotionId || !orderId || discountAmount === undefined || originalAmount === undefined || finalAmount === undefined) {
+      console.log('❌ [PROMO-APPLY] Missing required fields:', {
+        promotionId: !!promotionId,
+        orderId: !!orderId,
+        discountAmount: discountAmount !== undefined,
+        originalAmount: originalAmount !== undefined,
+        finalAmount: finalAmount !== undefined
+      });
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -49,6 +60,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!order) {
+      console.log('❌ [PROMO-APPLY] Order not found:', orderId);
       return NextResponse.json(
         { error: 'Order not found' },
         { status: 404 }
@@ -64,6 +76,11 @@ export async function POST(request: NextRequest) {
 
     // If still no userId, we cannot proceed (guest checkout with no session)
     if (!userId) {
+      console.log('❌ [PROMO-APPLY] No user ID available for promotion tracking:', {
+        orderId,
+        sessionUserId: session?.user?.id,
+        orderUserId: order.userId
+      });
       return NextResponse.json(
         { error: 'User identification required for promotion tracking' },
         { status: 400 }
@@ -75,6 +92,7 @@ export async function POST(request: NextRequest) {
       where: { id: promotionId },
       select: {
         id: true,
+        name: true,
         usageCount: true,
         usageLimit: true,
         startDate: true,
@@ -85,11 +103,21 @@ export async function POST(request: NextRequest) {
     });
 
     if (!promotion) {
+      console.log('❌ [PROMO-APPLY] Promotion not found:', promotionId);
       return NextResponse.json(
         { error: 'Promotion not found' },
         { status: 404 }
       );
     }
+
+    console.log('🎯 [PROMO-APPLY] Processing promotion tracking:', {
+      promotionId,
+      promotionName: promotion.name,
+      orderId,
+      userId,
+      discountAmount,
+      currentUsageCount: promotion._count.usageRecords
+    });
 
     // Check if user has used any promotion before (for first-time tracking)
     const userPromotionHistory = await prisma.promotionUsage.findFirst({
@@ -147,8 +175,13 @@ export async function POST(request: NextRequest) {
       return usageRecord;
     });
 
-    console.log(`✅ Promotion ${promotionId} applied to order ${orderId} for user ${userId}`);
-    console.log(`💰 Discount applied: $${discountAmount}`);
+    console.log('✅ [PROMO-APPLY] Promotion tracking completed successfully:', {
+      promotionId,
+      orderId,
+      userId,
+      discountAmount,
+      usageRecordId: result.id
+    });
 
     return NextResponse.json({
       success: true,
@@ -165,11 +198,12 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Error applying promotion:', error);
+    console.error('💥 [PROMO-APPLY] Unexpected error:', error);
     
     // Handle specific database errors
     if (error instanceof Error) {
       if (error.message.includes('Foreign key constraint')) {
+        console.log('❌ [PROMO-APPLY] Foreign key constraint error:', error.message);
         return NextResponse.json(
           { error: 'Invalid promotion or order ID' },
           { status: 400 }
@@ -177,6 +211,7 @@ export async function POST(request: NextRequest) {
       }
       
       if (error.message.includes('Unique constraint')) {
+        console.log('❌ [PROMO-APPLY] Unique constraint error:', error.message);
         return NextResponse.json(
           { error: 'Promotion has already been applied to this order' },
           { status: 409 }
@@ -185,7 +220,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Failed to apply promotion' },
+      { error: 'Failed to apply promotion', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
