@@ -44,7 +44,8 @@ export default function CartPageContent() {
         appliedPromotions,
         addPromotion,
         removePromotion,
-        getTotalDiscount
+        getTotalDiscount,
+        clearPromotions
     } = useCartPromotions();
 
     // Debounce pending quantity updates
@@ -98,6 +99,13 @@ export default function CartPageContent() {
     useEffect(() => {
         loadCart();
     }, [loadCart]);
+
+    // In useEffect after loading cart, clear promotions if cart is empty or new
+    useEffect(() => {
+        if (cart && cart.items.length === 0) {
+            clearPromotions();
+        }
+    }, [cart, clearPromotions]);
 
     // Handle debounced quantity updates
     useEffect(() => {
