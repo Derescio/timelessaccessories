@@ -201,3 +201,58 @@ export default function PurchaseReceiptEmail({ order }: { order: any }) {
 - `Cannot read property 'createElement' of undefined` → Missing React import for JSX syntax
 
 **Testing Strategy:**
+- Test email templates in isolation before integrating with webhooks
+- Use React Email's preview functionality for development
+- Verify all imports are correct in both service functions and template components
+
+## Cart & Promotions
+
+### 1. Coupon Persistence Issues
+
+**Challenge:** Applied coupon codes disappearing after page refresh or navigation.
+
+**Symptoms:**
+- User applies coupon successfully
+- Coupon shows in cart with discount applied
+- After page refresh, coupon disappears
+- localStorage contains promotion data but it's not being loaded
+
+**Root Cause:** Overly aggressive cart state clearing logic that removes promotions when cart loads.
+
+**Lesson:** When implementing cart state management:
+- **Avoid clearing user-applied data** during normal cart loading operations
+- Only clear promotions when explicitly intended (order completion, user action)
+- Be careful with `useEffect` dependencies that trigger on cart ID changes
+- Cart loading should not affect previously applied promotions
+- **Test persistence scenarios** thoroughly (page refresh, navigation, browser restart)
+
+**Anti-Pattern to Avoid:**
+```typescript
+// ❌ This clears promotions every time cart loads
+useEffect(() => {
+    if (cart?.id && previousCartHash && cart.id !== previousCartHash) {
+        // This triggers on every page load when cart goes from null to loaded
+        localStorage.removeItem(`cart-promotions-${cart.id}`);
+    }
+}, [cart?.id]);
+```
+
+**Solution:**
+- Remove automatic promotion clearing on cart state changes
+- Only clear promotions on explicit user actions or order completion
+- Keep promotion state management simple and predictable
+- Use cart ID as a key for promotion storage but don't clear on cart loading
+
+**Prevention:**
+1. Always test coupon persistence after page refresh
+2. Avoid clearing user data during normal loading operations  
+3. Be explicit about when and why promotions should be cleared
+4. Use descriptive variable names and comments for clearing logic
+5. Consider the user experience impact of any automatic clearing behavior
+
+**Testing Checklist:**
+- [ ] Apply coupon → Refresh page → Coupon persists
+- [ ] Apply coupon → Navigate away → Return → Coupon persists  
+- [ ] Apply coupon → Close browser → Reopen → Coupon persists
+- [ ] Complete order → Promotions cleared appropriately
+- [ ] Multiple coupons → All persist correctly

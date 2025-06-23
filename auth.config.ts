@@ -9,8 +9,8 @@ export const authConfig = {
             const pathname = request?.nextUrl?.pathname;
             const searchParams = request?.nextUrl?.searchParams;
             
-            console.log('🔒 Auth Config - Pathname:', pathname);
-            console.log('🔒 Auth Config - Is authenticated:', !!auth);
+            //console.log('🔒 Auth Config - Pathname:', pathname);
+            //console.log('🔒 Auth Config - Is authenticated:', !!auth);
             
             // Define paths that require authentication
             const protectedPaths = [
@@ -31,8 +31,8 @@ export const authConfig = {
             const isProtectedPath = protectedPaths.some(p => p.test(pathname));
             const isGuestAllowedPath = guestAllowedPaths.some(p => p.test(pathname));
             
-            console.log('🔒 Auth Config - Is protected path:', isProtectedPath);
-            console.log('🔒 Auth Config - Is guest allowed path:', isGuestAllowedPath);
+           // console.log('🔒 Auth Config - Is protected path:', isProtectedPath);
+           // console.log('🔒 Auth Config - Is guest allowed path:', isGuestAllowedPath);
             
             // Handle protected paths - require authentication
             if (isProtectedPath && !auth) {
@@ -52,10 +52,10 @@ export const authConfig = {
             
             if (isCheckoutPath && !auth) {
                 if (isGuestCheckout) {
-                    console.log('🔒 Auth Config - Guest checkout allowed');
+                    //console.log('🔒 Auth Config - Guest checkout allowed');
                     return true;
                 } else {
-                    console.log('🔒 Auth Config - Checkout requires auth or guest flag');
+                   // console.log('🔒 Auth Config - Checkout requires auth or guest flag');
                     return false;
                 }
             }
@@ -73,7 +73,7 @@ export const authConfig = {
                 return response;
             }
             
-            console.log('🔒 Auth Config - Default: allowing access');
+            //console.log('🔒 Auth Config - Default: allowing access');
             return true;
         },
     },

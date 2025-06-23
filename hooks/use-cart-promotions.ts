@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { addPromotionToCart, removePromotionFromCart } from '@/lib/actions/cart.actions';
 
 export interface AppliedPromotion {
     id: string;
@@ -18,94 +19,75 @@ export interface AppliedPromotion {
     cartId?: string;
 }
 
-interface CartPromotionsState {
-  [cartId: string]: AppliedPromotion[];
-}
-
-const STORAGE_KEY = 'cart-promotions-by-cart';
-
-export function useCartPromotions(currentCartId?: string) {
-    const [promotionsByCart, setPromotionsByCart] = useState<CartPromotionsState>({});
+export function useCartPromotions(cartData?: { id: string; promotions?: AppliedPromotion[] } | null) {
+    const [isLoaded, setIsLoaded] = useState(false);
     
-    // Get promotions for current cart only
-    const appliedPromotions = currentCartId ? (promotionsByCart[currentCartId] || []) : [];
+    // Get promotions from cart data (server-side)
+    const appliedPromotions = cartData?.promotions || [];
+    const currentCartId = cartData?.id;
 
-    // Load promotions from localStorage on mount
+    // Set loaded state when cart data is available
     useEffect(() => {
-        try {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            if (stored) {
-                const parsed = JSON.parse(stored) as CartPromotionsState;
-                setPromotionsByCart(parsed);
-            }
-        } catch (error) {
-            console.error('Error loading cart promotions:', error);
+        if (cartData) {
+            setIsLoaded(true);
+            console.log('🎯 [useCartPromotions] Cart data loaded:', {
+                cartId: cartData.id,
+                promotionsCount: appliedPromotions.length,
+                promotions: appliedPromotions.map(p => ({ 
+                    couponCode: p.couponCode, 
+                    discount: p.discount 
+                }))
+            });
         }
-    }, []);
+    }, [cartData, appliedPromotions]);
 
-    // Save to localStorage whenever promotions change
-    useEffect(() => {
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(promotionsByCart));
-        } catch (error) {
-            console.error('Error saving cart promotions:', error);
-        }
-    }, [promotionsByCart]);
-
-    const addPromotion = useCallback((promotion: AppliedPromotion) => {
+    const addPromotion = useCallback(async (promotion: AppliedPromotion) => {
         if (!currentCartId) {
-            console.warn('Cannot add promotion without cart ID');
-            return;
+            console.warn('Cannot add promotion without cart ID - cart may still be loading');
+            return { success: false, error: 'Cart ID not available' };
         }
         
-        setPromotionsByCart(prev => {
-            const cartPromotions = prev[currentCartId] || [];
-            
-            // Check if promotion already exists for this cart
-            if (cartPromotions.some(p => p.id === promotion.id)) {
-                return prev;
-            }
-            
-            const updatedPromotions = [...cartPromotions, { ...promotion, cartId: currentCartId }];
-            
-            return {
-                ...prev,
-                [currentCartId]: updatedPromotions
-            };
+        console.log('🎯 Adding promotion to cart:', currentCartId, promotion.couponCode);
+        
+        const result = await addPromotionToCart(currentCartId, {
+            promotionId: promotion.id,
+            couponCode: promotion.couponCode || '',
+            discount: promotion.discount,
+            discountType: promotion.discountType,
+            appliedItems: promotion.appliedTo,
+            freeItem: promotion.freeItem
         });
+        
+        return result;
     }, [currentCartId]);
 
-    const removePromotion = useCallback((promotionId: string) => {
-        if (!currentCartId) return;
+    const removePromotion = useCallback(async (promotionId: string) => {
+        if (!currentCartId) {
+            return { success: false, error: 'Cart ID not available' };
+        }
         
-        setPromotionsByCart(prev => {
-            const cartPromotions = prev[currentCartId] || [];
-            const updatedPromotions = cartPromotions.filter(p => p.id !== promotionId);
-            
-            return {
-                ...prev,
-                [currentCartId]: updatedPromotions
-            };
-        });
+        console.log('🎯 Removing promotion from cart:', currentCartId, promotionId);
+        
+        const result = await removePromotionFromCart(currentCartId, promotionId);
+        return result;
     }, [currentCartId]);
 
-    const clearPromotions = useCallback(() => {
-        if (!currentCartId) return;
+    const clearPromotions = useCallback(async () => {
+        if (!currentCartId) return { success: false, error: 'Cart ID not available' };
         
-        setPromotionsByCart(prev => {
-            const updated = { ...prev };
-            delete updated[currentCartId];
-            return updated;
-        });
-    }, [currentCartId]);
+        // Remove all promotions for this cart
+        const results = await Promise.all(
+            appliedPromotions.map(promo => removePromotionFromCart(currentCartId, promo.id))
+        );
+        
+        return { success: results.every(r => r.success) };
+    }, [currentCartId, appliedPromotions]);
 
     // Clear promotions for a specific cart (useful when cart is deleted)
-    const clearCartPromotions = useCallback((cartId: string) => {
-        setPromotionsByCart(prev => {
-            const updated = { ...prev };
-            delete updated[cartId];
-            return updated;
-        });
+    const clearCartPromotions = useCallback(async (cartId: string) => {
+        // This would need to be implemented if needed
+        console.warn('clearCartPromotions not implemented for server-side promotions');
+        return { success: false, error: 'Not implemented' };
     }, []);
 
     const getTotalDiscount = useCallback(() => {
@@ -121,8 +103,8 @@ export function useCartPromotions(currentCartId?: string) {
     }, [appliedPromotions]);
 
     // Function to clear promotions after successful order
-    const clearPromotionsAfterOrder = useCallback(() => {
-        clearPromotions();
+    const clearPromotionsAfterOrder = useCallback(async () => {
+        return await clearPromotions();
     }, [clearPromotions]);
 
     return {
@@ -136,6 +118,6 @@ export function useCartPromotions(currentCartId?: string) {
         hasPromotion,
         getPromotionByCode,
         promotionCount: appliedPromotions.length,
-        isLoaded: Object.keys(promotionsByCart).length > 0
+        isLoaded: isLoaded
     };
 } 

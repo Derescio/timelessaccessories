@@ -29,7 +29,7 @@ export async function getCart() {
     const session = await auth();
     const userId = session?.user?.id;
 
-    //console.log('🛒 getCart - User ID:', userId || 'Guest');
+    console.log('🛒 getCart - User ID:', userId || 'Guest');
 
     // Find cart based on user authentication status
     let cart;
@@ -56,10 +56,23 @@ export async function getCart() {
                 }
               }
             }
+          },
+          promotions: {
+            include: {
+              promotion: {
+                select: {
+                  id: true,
+                  name: true,
+                  description: true,
+                  promotionType: true,
+                  couponCode: true,
+                }
+              }
+            }
           }
         }
       });
-     // console.log('🛒 getCart - Found user cart:', !!cart, 'Items:', cart?.items.length || 0);
+     console.log('🛒 getCart - Found user cart:', !!cart, 'Items:', cart?.items.length || 0);
     } else {
       // For guests, find by sessionId
       const cookieStore = await cookies();
@@ -86,6 +99,19 @@ export async function getCart() {
                     sku: true,
                     retailPrice: true,
                     images: true,
+                  }
+                }
+              }
+            },
+            promotions: {
+              include: {
+                promotion: {
+                  select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                    promotionType: true,
+                    couponCode: true,
                   }
                 }
               }
@@ -658,37 +684,73 @@ function formatCartResponse(cart: Record<string, unknown>) {
     userId: string | null;
     sessionId: string | null;
     items: Array<Record<string, unknown>>;
+    promotions?: Array<{
+      id: string;
+      couponCode: string;
+      discount: string | number;
+      discountType: string;
+      appliedItems: string[];
+      freeItem?: Record<string, unknown> | null;
+      promotion: {
+        id: string;
+        name: string;
+        description?: string | null;
+        promotionType: string;
+        couponCode?: string | null;
+      };
+    }>;
   };
+
+  const subtotal = typedCart.items.reduce((acc: number, item) => {
+    const typedItem = item as {
+      inventory: { retailPrice: string | number; compareAtPrice?: string | number; discountPercentage?: number; hasDiscount?: boolean };
+      quantity: number;
+    };
+
+    // For items with a discount, use the compareAtPrice as the base for discount calculation
+    let price = Number(typedItem.inventory.retailPrice);
+
+    // If this item has a discount and a compareAtPrice, calculate the proper discounted price
+    if (typedItem.inventory.hasDiscount &&
+      typedItem.inventory.discountPercentage &&
+      typedItem.inventory.compareAtPrice) {
+      const compareAtPrice = Number(typedItem.inventory.compareAtPrice);
+      const discountPercentage = typedItem.inventory.discountPercentage;
+      price = compareAtPrice * (1 - discountPercentage / 100);
+    }
+
+    return acc + (price * typedItem.quantity);
+  }, 0);
+
+  // Calculate total discount from promotions
+  const totalDiscount = (typedCart.promotions || []).reduce((acc: number, promo) => {
+    return acc + Number(promo.discount);
+  }, 0);
 
   return {
     id: typedCart.id,
     userId: typedCart.userId,
     sessionId: typedCart.sessionId,
     items: typedCart.items.map(formatCartItemResponse),
+    promotions: (typedCart.promotions || []).map(promo => ({
+      id: promo.promotion.id,
+      name: promo.promotion.name,
+      description: promo.promotion.description,
+      type: promo.promotion.promotionType,
+      couponCode: promo.couponCode,
+      discount: Number(promo.discount),
+      discountType: promo.discountType,
+      appliedTo: promo.appliedItems,
+      freeItem: promo.freeItem || null,
+      cartId: typedCart.id
+    })),
     itemCount: typedCart.items.reduce((acc: number, item) => {
       const typedItem = item as { quantity: number };
       return acc + typedItem.quantity;
     }, 0),
-    total: typedCart.items.reduce((acc: number, item) => {
-      const typedItem = item as {
-        inventory: { retailPrice: string | number; compareAtPrice?: string | number; discountPercentage?: number; hasDiscount?: boolean };
-        quantity: number;
-      };
-
-      // For items with a discount, use the compareAtPrice as the base for discount calculation
-      let price = Number(typedItem.inventory.retailPrice);
-
-      // If this item has a discount and a compareAtPrice, calculate the proper discounted price
-      if (typedItem.inventory.hasDiscount &&
-        typedItem.inventory.discountPercentage &&
-        typedItem.inventory.compareAtPrice) {
-        const compareAtPrice = Number(typedItem.inventory.compareAtPrice);
-        const discountPercentage = typedItem.inventory.discountPercentage;
-        price = compareAtPrice * (1 - discountPercentage / 100);
-      }
-
-      return acc + (price * typedItem.quantity);
-    }, 0),
+    subtotal,
+    totalDiscount,
+    total: subtotal - totalDiscount,
   };
 }
 
@@ -795,6 +857,136 @@ export const cleanupCartAfterSuccessfulPayment = async (orderId: string) => {
 /**
  * Validate entire cart stock before checkout
  */
+/**
+ * Add a promotion to a cart
+ */
+export async function addPromotionToCart(cartId: string, promotionData: {
+  promotionId: string;
+  couponCode: string;
+  discount: number;
+  discountType: string;
+  appliedItems: string[];
+  freeItem?: { id: string; name: string } | null;
+}) {
+  try {
+    console.log('🎯 [addPromotionToCart] Adding promotion to cart:', {
+      cartId,
+      promotionId: promotionData.promotionId,
+      couponCode: promotionData.couponCode,
+      discount: promotionData.discount
+    });
+
+    // Check if promotion already exists for this cart
+    const existingPromotion = await prisma.cartPromotion.findUnique({
+      where: {
+        cartId_promotionId: {
+          cartId,
+          promotionId: promotionData.promotionId
+        }
+      }
+    });
+
+    if (existingPromotion) {
+      return { success: false, error: 'Promotion already applied to this cart' };
+    }
+
+    // Add the promotion to the cart
+    await prisma.cartPromotion.create({
+      data: {
+        cartId,
+        promotionId: promotionData.promotionId,
+        couponCode: promotionData.couponCode,
+        discount: promotionData.discount,
+        discountType: promotionData.discountType,
+        appliedItems: promotionData.appliedItems,
+        freeItem: promotionData.freeItem || undefined,
+      }
+    });
+
+    // Revalidate cart-related pages
+    revalidatePath('/cart');
+    revalidatePath('/shipping');
+
+    console.log('✅ [addPromotionToCart] Promotion added successfully');
+    return { success: true };
+
+  } catch (error) {
+    console.error('❌ [addPromotionToCart] Error:', error);
+    return { success: false, error: 'Failed to add promotion to cart' };
+  }
+}
+
+/**
+ * Remove a promotion from a cart
+ */
+export async function removePromotionFromCart(cartId: string, promotionId: string) {
+  try {
+    console.log('🎯 [removePromotionFromCart] Removing promotion:', {
+      cartId,
+      promotionId
+    });
+
+    await prisma.cartPromotion.delete({
+      where: {
+        cartId_promotionId: {
+          cartId,
+          promotionId
+        }
+      }
+    });
+
+    // Revalidate cart-related pages
+    revalidatePath('/cart');
+    revalidatePath('/shipping');
+
+    console.log('✅ [removePromotionFromCart] Promotion removed successfully');
+    return { success: true };
+
+  } catch (error) {
+    console.error('❌ [removePromotionFromCart] Error:', error);
+    return { success: false, error: 'Failed to remove promotion from cart' };
+  }
+}
+
+/**
+ * Get promotions for a specific cart
+ */
+export async function getCartPromotions(cartId: string) {
+  try {
+    const promotions = await prisma.cartPromotion.findMany({
+      where: { cartId },
+      include: {
+        promotion: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            promotionType: true,
+            couponCode: true,
+          }
+        }
+      }
+    });
+
+    return promotions.map(promo => ({
+      id: promo.promotion.id,
+      name: promo.promotion.name,
+      description: promo.promotion.description,
+      type: promo.promotion.promotionType,
+      couponCode: promo.couponCode,
+      discount: Number(promo.discount),
+      discountType: promo.discountType,
+      appliedTo: promo.appliedItems,
+      freeItem: promo.freeItem || null,
+      cartId: cartId
+    }));
+
+  } catch (error) {
+    console.error('❌ [getCartPromotions] Error:', error);
+    return [];
+  }
+}
+
 export async function validateCartStock(cartId?: string) {
   try {
     // Get the cart with full data

@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CouponInput } from '@/components/checkout/CouponInput';
 import { useCartPromotions, type AppliedPromotion } from '@/hooks/use-cart-promotions';
+import { toast } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 import { ShoppingCart, Plus, Minus } from 'lucide-react';
 
 // Demo cart items
@@ -41,12 +43,31 @@ const demoCartItems = [
 
 export default function CartDemoPage() {
     const [cartItems, setCartItems] = useState(demoCartItems);
+
+    // Create mock cart data for the demo
+    const mockCartData = {
+        id: 'demo-cart-123',
+        items: cartItems.map(item => ({
+            id: item.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            product: {
+                name: item.name,
+                slug: item.name.toLowerCase().replace(/\s+/g, '-')
+            },
+            inventory: {
+                retailPrice: item.price
+            }
+        })),
+        promotions: [] // Will be managed by the hook
+    };
+
     const {
         appliedPromotions,
         addPromotion,
         removePromotion,
         getTotalDiscount
-    } = useCartPromotions();
+    } = useCartPromotions(mockCartData);
 
     // Calculate totals
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -66,21 +87,53 @@ export default function CartDemoPage() {
         }
     };
 
-    const handleApplyPromotion = (promotion: AppliedPromotion) => {
-        addPromotion(promotion);
+    const handleApplyPromotion = async (promotion: AppliedPromotion): Promise<{ success: boolean, error?: string }> => {
+        try {
+            // For demo purposes, simulate the database operation
+            const result = await addPromotion(promotion);
+            if (result.success) {
+                toast.success(`Applied ${promotion.couponCode} promotion!`);
+                return { success: true };
+            } else {
+                toast.error(result.error || 'Failed to apply promotion');
+                return { success: false, error: result.error };
+            }
+        } catch (error) {
+            const errorMessage = 'Failed to apply promotion';
+            toast.error(errorMessage);
+            return { success: false, error: errorMessage };
+        }
     };
 
-    const handleRemovePromotion = (promotionId: string) => {
-        removePromotion(promotionId);
+    const handleRemovePromotion = async (promotionId: string): Promise<{ success: boolean, error?: string }> => {
+        try {
+            // For demo purposes, simulate the database operation
+            const result = await removePromotion(promotionId);
+            if (result.success) {
+                toast.success('Promotion removed!');
+                return { success: true };
+            } else {
+                toast.error(result.error || 'Failed to remove promotion');
+                return { success: false, error: result.error };
+            }
+        } catch (error) {
+            const errorMessage = 'Failed to remove promotion';
+            toast.error(errorMessage);
+            return { success: false, error: errorMessage };
+        }
     };
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-6xl">
             <div className="mb-8">
                 <h1 className="text-3xl font-bold mb-2">Cart with Promotions Demo</h1>
-                <p className="text-gray-600">
-                    Test the promotions system with sample cart items. Try coupon codes like WELCOME10, SAVE20, or FREESHIP.
+                <p className="text-gray-600 mb-2">
+                    Test the promotions system with sample cart items. This demo uses the database-first promotion persistence system.
                 </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+                    <p className="font-medium mb-1">🧪 Demo Mode:</p>
+                    <p>This page demonstrates the promotion system with mock data. Real promotions from your database will work here too!</p>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -246,6 +299,8 @@ export default function CartDemoPage() {
                     </CardContent>
                 </Card>
             )}
+
+            <Toaster />
         </div>
     );
 } 
