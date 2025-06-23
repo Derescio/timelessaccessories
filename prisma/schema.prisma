@@ -174,14 +174,15 @@ model OrderItem {
 }
 
 model Cart {
-  id        String     @id @default(cuid())
-  userId    String?    @unique
-  sessionId String?    @unique
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  processed Boolean    @default(false)
-  user      User?      @relation(fields: [userId], references: [id])
-  items     CartItem[]
+  id         String          @id @default(cuid())
+  userId     String?         @unique
+  sessionId  String?         @unique
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  processed  Boolean         @default(false)
+  user       User?           @relation(fields: [userId], references: [id])
+  items      CartItem[]
+  promotions CartPromotion[]
 
   @@index([userId])
   @@index([sessionId])
@@ -204,6 +205,25 @@ model CartItem {
   @@index([cartId])
   @@index([productId])
   @@index([inventoryId])
+}
+
+model CartPromotion {
+  id           String    @id @default(cuid())
+  cartId       String
+  promotionId  String
+  couponCode   String
+  discount     Decimal   @db.Decimal(10, 2)
+  discountType String
+  appliedItems String[]  @default([])
+  freeItem     Json? // Store free item details if applicable
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  cart         Cart      @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  promotion    Promotion @relation(fields: [promotionId], references: [id])
+
+  @@unique([cartId, promotionId]) // Prevent duplicate promotions per cart
+  @@index([cartId])
+  @@index([promotionId])
 }
 
 model Review {
@@ -515,8 +535,9 @@ model Promotion {
   updatedAt DateTime @updatedAt
 
   // Relations
-  appliedOrders Order[]          @relation("OrderPromotions")
-  usageRecords  PromotionUsage[]
+  appliedOrders  Order[]          @relation("OrderPromotions")
+  usageRecords   PromotionUsage[]
+  cartPromotions CartPromotion[]
 
   perUserLimit Int? // Max number of uses per user/email (null = unlimited)
 }

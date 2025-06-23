@@ -34,7 +34,7 @@ export function Footer() {
                     {/* Brand and Social */}
                     <div className="space-y-4">
                         <Link href="/" className="inline-block">
-                            <span className="text-xl font-bold">Timeless</span>
+                            <span className="text-xl font-bold">Shop-DW</span>
                         </Link>
                         <p className="text-sm text-muted-foreground">
                             Elevate your style with timeless pieces that blend elegance with modern design.

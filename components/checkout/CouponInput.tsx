@@ -38,8 +38,8 @@ interface AppliedPromotion extends Promotion {
 }
 
 interface CouponInputProps {
-    onApply: (promotion: AppliedPromotion) => void;
-    onRemove?: (promotionId: string) => void;
+    onApply: (promotion: AppliedPromotion) => Promise<{ success: boolean; error?: string }>;
+    onRemove?: (promotionId: string) => Promise<{ success: boolean; error?: string }>;
     cartItems: CartItem[];
     cartTotal: number;
     appliedPromotions?: AppliedPromotion[];
@@ -120,18 +120,33 @@ export function CouponInput({
                 freeItem: data.freeItem
             };
 
-            onApply(appliedPromotion);
-
-            toast.success("Coupon Applied!", {
-                description: data.message,
-                action: {
-                    label: "View Details",
-                    onClick: () => console.log("Promotion details:", data.promotion)
-                }
+            console.log('🎯 [COUPON-INPUT] Applying promotion:', {
+                promotionId: appliedPromotion.id,
+                couponCode: appliedPromotion.couponCode,
+                discount: appliedPromotion.discount,
+                timestamp: new Date().toISOString(),
+                fullPromotion: appliedPromotion
             });
 
-            // Clear the input after successful application
-            setCode('');
+            const applyResult = await onApply(appliedPromotion);
+
+            if (applyResult.success) {
+                toast.success("Coupon Applied!", {
+                    description: data.message,
+                    action: {
+                        label: "View Details",
+                        onClick: () => console.log("Promotion details:", data.promotion)
+                    }
+                });
+
+                // Clear the input after successful application
+                setCode('');
+            } else {
+                setError(applyResult.error || 'Failed to apply promotion');
+                toast.error("Application Failed", {
+                    description: applyResult.error || 'Failed to apply promotion to cart'
+                });
+            }
         } catch (err) {
             const errorMessage = 'An error occurred while validating the coupon';
             setError(errorMessage);
@@ -143,12 +158,18 @@ export function CouponInput({
         }
     };
 
-    const removeCoupon = (promotionId: string) => {
+    const removeCoupon = async (promotionId: string) => {
         if (onRemove) {
-            onRemove(promotionId);
-            toast.success("Coupon Removed", {
-                description: "The coupon has been removed from your order"
-            });
+            const result = await onRemove(promotionId);
+            if (result.success) {
+                toast.success("Coupon Removed", {
+                    description: "The coupon has been removed from your order"
+                });
+            } else {
+                toast.error("Removal Failed", {
+                    description: result.error || "Failed to remove coupon"
+                });
+            }
         }
     };
 

@@ -29,6 +29,13 @@ interface CartItem {
 interface Cart {
     id: string;
     items: CartItem[];
+    promotions?: AppliedPromotion[];
+    userId?: string | null;
+    sessionId?: string | null;
+    itemCount?: number;
+    subtotal?: number;
+    totalDiscount?: number;
+    total?: number;
 }
 
 export default function CartPageContent() {
@@ -44,15 +51,33 @@ export default function CartPageContent() {
         removePromotion,
         getTotalDiscount,
         clearPromotions
-    } = useCartPromotions(cart?.id);
+    } = useCartPromotions(cart);
+
+    // Debug cart and promotions state (can be removed in production)
+    useEffect(() => {
+        const storedPromotions = localStorage.getItem('cart-promotions-by-cart');
+        const storedData = storedPromotions ? JSON.parse(storedPromotions) : null;
+
+        console.log('🛒 [CART-DEBUG] Complete state:', {
+            cartId: cart?.id,
+            cartLoaded: !!cart,
+            cartItemsCount: cart?.items?.length || 0,
+            appliedPromotionsCount: appliedPromotions.length,
+            appliedPromotions: appliedPromotions.map(p => ({ id: p.id, code: p.couponCode, discount: p.discount })),
+            // LocalStorage debug
+            localStorageData: storedData,
+            localStorageCartIds: storedData ? Object.keys(storedData) : [],
+            currentCartInStorage: storedData && cart?.id ? storedData[cart.id] : null,
+            // Navigation debug
+            currentUrl: typeof window !== 'undefined' ? window.location.pathname : 'unknown',
+            timestamp: new Date().toISOString()
+        });
+    }, [cart?.id, appliedPromotions]);
 
     // Debounce pending quantity updates
     const debouncedQuantities = useDebounce(pendingQuantities, 500);
 
     const [guestEmail, setGuestEmail] = useState("");
-
-    // Track cart content changes to clear stale promotions
-    const [previousCartHash, setPreviousCartHash] = useState<string>('');
 
     // Create stable references to prevent infinite loops
     const cartItemsLength = cart?.items?.length || 0;
@@ -62,27 +87,12 @@ export default function CartPageContent() {
         // Animation completed
     };
 
-    // Simple cart change detection - just clear promotions when cart ID changes
-    useEffect(() => {
-        if (cart?.id && previousCartHash && cart.id !== previousCartHash) {
-            // Clear promotions when cart ID changes
-            const currentPromotions = JSON.parse(localStorage.getItem(`cart-promotions-${cart.id}`) || '[]');
-            if (currentPromotions.length > 0) {
-                localStorage.removeItem(`cart-promotions-${cart.id}`);
-                window.dispatchEvent(new CustomEvent('promotions-cleared'));
-            }
-        }
-        if (cart?.id) {
-            setPreviousCartHash(cart.id);
-        }
-    }, [cart?.id]); // Only depend on cart ID
-
     // Load cart with caching
     const loadCart = useCallback(async () => {
         setIsLoading(true);
         try {
             const cartData = await getCart();
-            setCart(cartData || null);
+            setCart(cartData as Cart || null);
         } catch (error) {
             console.error('Error loading cart:', error);
             toast.error('Failed to load cart');
@@ -171,14 +181,52 @@ export default function CartPageContent() {
     };
 
     // Handle promotion application
-    const handleApplyPromotion = useCallback((promotion: AppliedPromotion) => {
-        addPromotion(promotion);
-    }, [addPromotion]);
+    const handleApplyPromotion = useCallback(async (promotion: AppliedPromotion) => {
+        console.log('🛒 [CART] Applying promotion:', {
+            promotionId: promotion.id,
+            couponCode: promotion.couponCode,
+            discount: promotion.discount,
+            cartId: cart?.id,
+            currentPromotionsCount: appliedPromotions.length,
+            timestamp: new Date().toISOString()
+        });
+
+        const result = await addPromotion(promotion);
+
+        if (result.success) {
+            // Reload cart to get updated promotions
+            await loadCart();
+            // Don't show toast here - CouponInput already shows success toast
+        } else {
+            toast.error(result.error || 'Failed to apply promotion');
+        }
+
+        return result;
+    }, [addPromotion, appliedPromotions.length, cart?.id, loadCart]);
 
     // Handle promotion removal
-    const handleRemovePromotion = useCallback((promotionId: string) => {
-        removePromotion(promotionId);
-    }, [removePromotion]);
+    const handleRemovePromotion = useCallback(async (promotionId: string) => {
+        const removedPromotion = appliedPromotions.find(p => p.id === promotionId);
+        console.log('🛒 [CART] Removing promotion:', {
+            promotionId,
+            removedPromotion,
+            cartId: cart?.id,
+            currentPromotionsCount: appliedPromotions.length,
+            timestamp: new Date().toISOString()
+        });
+
+        const result = await removePromotion(promotionId);
+
+        if (result.success) {
+            // Reload cart to get updated promotions
+            await loadCart();
+            // Don't show toast here - CouponInput already shows success toast
+        } else {
+            toast.error(result.error || 'Failed to remove promotion');
+        }
+
+        return result;
+    }, [removePromotion, appliedPromotions, cart?.id, loadCart]);
 
     // Calculate cart totals with memoization
     const cartTotals = useMemo(() => {
@@ -323,9 +371,29 @@ export default function CartPageContent() {
                                         </div>
                                     </div>
 
+                                    {/* Guest Email Input (must come before promo codes) */}
+                                    {!isAuthenticated && (
+                                        <div className="border-t pt-4 mt-4">
+                                            <label htmlFor="guest-email" className="block text-sm font-medium mb-2">
+                                                Enter your email to use promo codes:
+                                            </label>
+                                            <input
+                                                id="guest-email"
+                                                type="email"
+                                                value={guestEmail}
+                                                onChange={e => setGuestEmail(e.target.value)}
+                                                className="w-full border rounded px-3 py-2"
+                                                placeholder="you@example.com"
+                                                autoComplete="email"
+                                                required
+                                            />
+                                        </div>
+                                    )}
+
                                     {/* Coupon Input Section */}
                                     <div className="border-t pt-4 mt-4">
                                         <h3 className="font-medium mb-3">Have a Promo Code?</h3>
+
                                         <CouponInput
                                             onApply={handleApplyPromotion}
                                             onRemove={handleRemovePromotion}
@@ -341,26 +409,15 @@ export default function CartPageContent() {
                                             appliedPromotions={appliedPromotions}
                                             maxPromotions={3}
                                             userEmail={isAuthenticated ? (session?.user?.email ?? undefined) : (guestEmail || undefined)}
+                                            disabled={!isAuthenticated && !guestEmail.trim()}
                                         />
-                                    </div>
 
-                                    {!isAuthenticated && (
-                                        <div className="mb-4">
-                                            <label htmlFor="guest-email" className="block text-sm font-medium mb-1">
-                                                Enter your email to use promo codes:
-                                            </label>
-                                            <input
-                                                id="guest-email"
-                                                type="email"
-                                                value={guestEmail}
-                                                onChange={e => setGuestEmail(e.target.value)}
-                                                className="w-full border rounded px-3 py-2"
-                                                placeholder="you@example.com"
-                                                autoComplete="email"
-                                                required
-                                            />
-                                        </div>
-                                    )}
+                                        {!isAuthenticated && !guestEmail.trim() && (
+                                            <p className="text-xs text-muted-foreground mt-2">
+                                                Please enter your email above to apply promo codes
+                                            </p>
+                                        )}
+                                    </div>
 
                                     <div className="mt-6">
                                         {isAuthenticated ? (

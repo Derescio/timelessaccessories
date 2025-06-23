@@ -131,11 +131,13 @@ export default function ShippingPage() {
     const { data: session, status } = useSession()
     const isAuthenticated = status === 'authenticated'
 
-    // Get applied promotions from cart
-    const { appliedPromotions, getTotalDiscount, isLoaded: promotionsLoaded } = useCartPromotions()
-
     // State for cart data
     const [cart, setCart] = useState<Cart | null>(null)
+
+    // Get applied promotions from cart - only when cart is loaded
+    const { appliedPromotions, getTotalDiscount, isLoaded: promotionsLoaded } = useCartPromotions(cart)
+
+
     const [isLoading, setIsLoading] = useState(true)
 
     // State for form data
@@ -182,11 +184,19 @@ export default function ShippingPage() {
 
     // Load cart data and user addresses on component mount
     useEffect(() => {
+        console.log('🔄 [SHIPPING] useEffect triggered - Loading data...', {
+            sessionUserName: session?.user?.name,
+            isAuthenticated,
+            sessionStatus: status
+        })
+
         async function loadData() {
             setIsLoading(true)
             try {
                 // Always load cart data
+                console.log('🔄 [SHIPPING] Calling getCart()...')
                 const cartResult = await getCart()
+                console.log('🔄 [SHIPPING] getCart() result:', !!cartResult)
 
                 // Only load user addresses if authenticated
                 let addresses = null
@@ -203,6 +213,10 @@ export default function ShippingPage() {
 
                 if (cartResult) {
                     setCart(cartResult)
+                    console.log('🛒 [SHIPPING] Cart loaded:', {
+                        cartId: cartResult.id,
+                        itemsCount: cartResult.items?.length || 0
+                    })
                 }
 
                 // If user has addresses and is authenticated, populate the form with the first address
@@ -247,7 +261,7 @@ export default function ShippingPage() {
         }
 
         loadData()
-    }, [session?.user?.name, isAuthenticated])
+    }, [session?.user?.name, isAuthenticated, status])
 
     // Calculate standard shipping based on region and order total
     const calculateStandardShipping = useCallback((region: string) => {
@@ -282,7 +296,14 @@ export default function ShippingPage() {
 
     // Calculate order summary - Updated to include tax
     const calculateOrderSummary = () => {
-        if (!cart) return { subtotal: 0, discount: 0, tax: 0, shipping: 0, total: 0 };
+        if (!cart || !promotionsLoaded) {
+            console.log('🎯 [SHIPPING] calculateOrderSummary - waiting for cart or promotions to load:', {
+                hasCart: !!cart,
+                promotionsLoaded,
+                cartId: cart?.id
+            });
+            return { subtotal: 0, discount: 0, tax: 0, shipping: 0, total: 0 };
+        }
 
         const subtotal = cart.items.reduce((total, item) =>
             total + (item.price * item.quantity), 0);
@@ -293,6 +314,16 @@ export default function ShippingPage() {
         const tax = calculateTax(formData.parish || formData.country || 'DEFAULT', discountedSubtotal);
         // Include tax in the total calculation
         const total = discountedSubtotal + shipping + tax;
+
+        console.log('🎯 [SHIPPING] calculateOrderSummary - calculated:', {
+            subtotal,
+            discount,
+            discountedSubtotal,
+            shipping,
+            tax,
+            total,
+            appliedPromotionsCount: appliedPromotions.length
+        });
 
         return { subtotal, discount, discountedSubtotal, tax, shipping, total };
     };
@@ -337,14 +368,17 @@ export default function ShippingPage() {
     // Handle form submission
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        // console.log('📦 Shipping form - Starting submission');
-        // console.log('📦 Shipping form - Form data:', {
-        //     ...formData,
-        //     email: formData.email || 'Not provided',
-        //     phone: formData.phone || 'Not provided'
-        // });
-        // console.log('📦 Shipping form - Is authenticated:', isAuthenticated);
-        // console.log('📦 Shipping form - Market type:', IS_LASCO_MARKET ? 'LASCO' : 'GLOBAL');
+
+        console.log('🚚 [SHIPPING] Form submission started:', {
+            cartId: cart?.id,
+            appliedPromotionsCount: appliedPromotions.length,
+            appliedPromotions: appliedPromotions,
+            totalDiscount: getTotalDiscount(),
+            orderSummary: calculateOrderSummary(),
+            isAuthenticated,
+            market: IS_LASCO_MARKET ? 'LASCO' : 'GLOBAL',
+            timestamp: new Date().toISOString()
+        });
 
         try {
             setIsCreatingOrder(true);
@@ -472,6 +506,17 @@ export default function ShippingPage() {
                         timestamp: new Date().toISOString()
                     };
 
+                    console.log('🚚 [SHIPPING-LASCO] Saving checkout data to localStorage:', {
+                        orderId: orderId,
+                        checkoutDataKeys: Object.keys(checkoutDataToSave),
+                        appliedPromotionsCount: checkoutDataToSave.appliedPromotions?.length || 0,
+                        appliedPromotions: checkoutDataToSave.appliedPromotions,
+                        discount: checkoutDataToSave.discount,
+                        total: checkoutDataToSave.total,
+                        pendingCreation: checkoutDataToSave.pendingCreation,
+                        timestamp: checkoutDataToSave.timestamp
+                    });
+
                     localStorage.setItem("checkoutData", JSON.stringify(checkoutDataToSave));
                     localStorage.setItem("cartId", cart?.id || "");
                     localStorage.setItem("lascoPayOrderId", orderId);
@@ -566,17 +611,24 @@ export default function ShippingPage() {
                     }
                 };
 
-                //  console.log("Saving checkout data to localStorage:", checkoutDataToSave);
+                console.log('🚚 [SHIPPING] Saving checkout data to localStorage:', {
+                    checkoutDataKeys: Object.keys(checkoutDataToSave),
+                    appliedPromotionsCount: checkoutDataToSave.appliedPromotions?.length || 0,
+                    appliedPromotions: checkoutDataToSave.appliedPromotions,
+                    discount: checkoutDataToSave.discount,
+                    total: checkoutDataToSave.total,
+                    cartId: checkoutDataToSave.cartId,
+                    pendingCreation: checkoutDataToSave.pendingCreation,
+                    timestamp: checkoutDataToSave.timestamp
+                });
 
-                // Log the actual JSON that will be stored
-                const jsonToStore = JSON.stringify(checkoutDataToSave);
-                //  console.log("JSON being stored in localStorage:", jsonToStore);
-
-                localStorage.setItem("checkoutData", jsonToStore);
+                localStorage.setItem("checkoutData", JSON.stringify(checkoutDataToSave));
                 localStorage.setItem("cartId", cart?.id || "");
 
+                console.log('🚚 [SHIPPING] Data saved to localStorage successfully');
+
                 // Directly navigate to confirmation page for order creation and review
-                //console.log(`Redirecting to confirmation page for order creation and payment`);
+                console.log('🚚 [SHIPPING] Redirecting to confirmation page');
                 router.push(`/confirmation`);
             }
 
@@ -1015,6 +1067,9 @@ export default function ShippingPage() {
                 <div className="lg:col-span-1">
                     <Card className="p-6 sticky top-20">
                         <h2 className="text-xl font-medium mb-4">Order Summary</h2>
+
+
+
                         <div className="space-y-4">
                             {cart && cart.items && cart.items.length > 0 ? (
                                 <>

@@ -129,11 +129,32 @@ export default function ConfirmationPage() {
     const searchParams = useSearchParams();
     const session = useSession();
 
-    // Get applied promotions from cart
-    const { appliedPromotions, getTotalDiscount, clearPromotionsAfterOrder, isLoaded: promotionsLoaded } = useCartPromotions();
-
     // State for cart data
     const [cart, setCart] = useState<Cart | null>(null);
+
+    // Get applied promotions from cart
+    const { appliedPromotions, getTotalDiscount, clearPromotionsAfterOrder, isLoaded: promotionsLoaded } = useCartPromotions(cart);
+
+    // Debug promotions loading
+    useEffect(() => {
+        const storedPromotions = localStorage.getItem('cart-promotions-by-cart');
+        const storedCheckoutData = localStorage.getItem('checkoutData');
+        const storedData = storedPromotions ? JSON.parse(storedPromotions) : null;
+        const checkoutDataParsed = storedCheckoutData ? JSON.parse(storedCheckoutData) : null;
+
+        console.log('🎯 [CONFIRMATION] Promotions state:', {
+            cartId: cart?.id,
+            appliedPromotionsCount: appliedPromotions.length,
+            appliedPromotions: appliedPromotions,
+            promotionsLoaded,
+            totalDiscount: getTotalDiscount(),
+            storedInLocalStorage: storedData,
+            checkoutDataPromotions: checkoutDataParsed?.appliedPromotions,
+            checkoutDataDiscount: checkoutDataParsed?.discount,
+            allStoredCartIds: storedData ? Object.keys(storedData) : [],
+            currentCartHasPromotions: storedData && cart?.id ? !!storedData[cart.id] : false
+        });
+    }, [cart?.id, appliedPromotions, promotionsLoaded, getTotalDiscount]);
     const [cartItems, setCartItems] = useState<CartItemDetails[] | OrderItemDetails[]>([]);
     const [checkoutData, setCheckoutData] = useState<CheckoutData>({});
     const [isLoading, setIsLoading] = useState(true);
@@ -169,15 +190,40 @@ export default function ConfirmationPage() {
     useEffect(() => {
         async function loadData() {
             setIsLoading(true);
+
+            console.log('✅ [CONFIRMATION] Starting data load:', {
+                urlOrderId: searchParams.get('orderId'),
+                hasCheckoutDataInStorage: !!localStorage.getItem('checkoutData'),
+                hasCartIdInStorage: !!localStorage.getItem('cartId'),
+                market: IS_LASCO_MARKET ? 'LASCO' : 'GLOBAL',
+                timestamp: new Date().toISOString()
+            });
+
             try {
                 const urlOrderId = searchParams.get('orderId');
                 const savedCheckoutData = localStorage.getItem('checkoutData');
                 const savedCartId = localStorage.getItem('cartId');
 
+                console.log('✅ [CONFIRMATION] Retrieved localStorage data:', {
+                    hasCheckoutData: !!savedCheckoutData,
+                    hasCartId: !!savedCartId,
+                    checkoutDataLength: savedCheckoutData?.length || 0
+                });
+
                 // If we have checkout data with pending creation flag
                 if (savedCheckoutData) {
                     const parsedCheckoutData = JSON.parse(savedCheckoutData);
-                    //console.log("Found saved checkout data:", parsedCheckoutData);
+
+                    console.log('✅ [CONFIRMATION] Parsed checkout data:', {
+                        cartId: parsedCheckoutData.cartId,
+                        orderId: parsedCheckoutData.orderId,
+                        pendingCreation: parsedCheckoutData.pendingCreation,
+                        appliedPromotionsCount: parsedCheckoutData.appliedPromotions?.length || 0,
+                        appliedPromotions: parsedCheckoutData.appliedPromotions,
+                        discount: parsedCheckoutData.discount,
+                        total: parsedCheckoutData.total,
+                        timestamp: parsedCheckoutData.timestamp
+                    });
 
                     // For LASCO market, orders are created on the shipping page
                     if (IS_LASCO_MARKET) {
@@ -216,7 +262,15 @@ export default function ConfirmationPage() {
                                     } : undefined
                                 }));
 
-                                setCart({ id: order.id, items: orderItems });
+                                // Use the original cart ID from checkout data, not the order ID
+                                const originalCartId = parsedCheckoutData.cartId || savedCartId || order.id;
+                                console.log('🛒 [CONFIRMATION-LASCO] Setting cart with original cart ID:', {
+                                    originalCartId,
+                                    orderIdUsedBefore: order.id,
+                                    checkoutDataCartId: parsedCheckoutData.cartId,
+                                    savedCartId
+                                });
+                                setCart({ id: originalCartId, items: orderItems });
                                 setCartItems(orderItems);
                             }
 
@@ -246,7 +300,20 @@ export default function ConfirmationPage() {
                                 total: parseFloat(String(order.total)),
                                 paymentMethod: { type: "LascoPay" },
                                 pendingCreation: false,
-                                courierName: parsedCheckoutData.courierName
+                                courierName: parsedCheckoutData.courierName,
+                                // Preserve promotion data from localStorage
+                                appliedPromotions: parsedCheckoutData.appliedPromotions || [],
+                                discount: parsedCheckoutData.discount || 0
+                            });
+
+                            console.log('✅ [CONFIRMATION-LASCO] Updated checkout data with preserved promotions:', {
+                                orderId: order.id,
+                                originalPromotionsCount: parsedCheckoutData.appliedPromotions?.length || 0,
+                                preservedPromotionsCount: (parsedCheckoutData.appliedPromotions || []).length,
+                                preservedDiscount: parsedCheckoutData.discount || 0,
+                                orderTotal: parseFloat(String(order.total)),
+                                orderDiscount: parseFloat(String(order.discountAmount || 0)),
+                                promotionsPreserved: !!(parsedCheckoutData.appliedPromotions || []).length
                             });
                         } else {
                             console.error("Failed to load LASCO order:", orderResult.error);
@@ -306,7 +373,15 @@ export default function ConfirmationPage() {
                                     } : undefined
                                 }));
 
-                                setCart({ id: order.id, items: orderItems });
+                                // Use the original cart ID from checkout data, not the order ID  
+                                const originalCartId = parsedCheckoutData.cartId || savedCartId || order.id;
+                                console.log('🛒 [CONFIRMATION-GLOBAL] Setting cart with original cart ID:', {
+                                    originalCartId,
+                                    orderIdUsedBefore: order.id,
+                                    checkoutDataCartId: parsedCheckoutData.cartId,
+                                    savedCartId
+                                });
+                                setCart({ id: originalCartId, items: orderItems });
                                 setCartItems(orderItems);
                             }
 
@@ -340,7 +415,21 @@ export default function ConfirmationPage() {
                                 tax: parseFloat(String(order.tax)),
                                 total: parseFloat(String(order.total)),
                                 paymentMethod: { type: paymentMethod },
-                                pendingCreation: false
+                                pendingCreation: false,
+                                // Preserve promotion data from localStorage
+                                appliedPromotions: parsedCheckoutData.appliedPromotions || [],
+                                discount: parsedCheckoutData.discount || 0
+                            });
+
+                            console.log('✅ [CONFIRMATION-GLOBAL] Updated checkout data with preserved promotions:', {
+                                orderId: order.id,
+                                originalPromotionsCount: parsedCheckoutData.appliedPromotions?.length || 0,
+                                preservedPromotionsCount: (parsedCheckoutData.appliedPromotions || []).length,
+                                preservedDiscount: parsedCheckoutData.discount || 0,
+                                orderTotal: parseFloat(String(order.total)),
+                                orderDiscount: parseFloat(String(order.discountAmount || 0)),
+                                promotionsPreserved: !!(parsedCheckoutData.appliedPromotions || []).length,
+                                paymentMethod: paymentMethod
                             });
                         } else {
                             console.error("Failed to load order:", orderResult.error);
@@ -468,7 +557,16 @@ export default function ConfirmationPage() {
                 appliedPromotionsCount: appliedPromotions.length,
                 appliedPromotions: appliedPromotions,
                 firstAppliedPromotion: firstAppliedPromotion,
-                promotionDiscount: promotionDiscount
+                promotionDiscount: promotionDiscount,
+                checkoutDataDiscount: checkoutData.discount,
+                calculatedDiscount: checkoutData.discount || promotionDiscount,
+                orderDataWillInclude: {
+                    discount: checkoutData.discount || promotionDiscount,
+                    appliedPromotion: firstAppliedPromotion ? {
+                        id: firstAppliedPromotion.id,
+                        discount: firstAppliedPromotion.discount
+                    } : undefined
+                }
             });
 
             const orderData = {

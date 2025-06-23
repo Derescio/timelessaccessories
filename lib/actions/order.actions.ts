@@ -1356,6 +1356,7 @@ export const createGuestOrder = async (orderData: OrderData) => {
       subtotal: Number(result.subtotal),
       tax: Number(result.tax),
       total: Number(result.total),
+      discountAmount: result.discountAmount ? Number(result.discountAmount) : null,
     };
 
     return { success: true, order: serializedOrder };
@@ -1522,6 +1523,7 @@ export async function createGuestOrderWithoutDeletingCart(data: OrderData) {
       subtotal: Number(order.subtotal),
       tax: Number(order.tax),
       total: Number(order.total),
+      discountAmount: order.discountAmount ? Number(order.discountAmount) : null,
     }
 
     // Revalidate relevant paths
