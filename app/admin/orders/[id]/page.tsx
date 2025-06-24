@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { Input } from "@/components/ui/input";
 
 // Define proper interface for the order object
 interface OrderItem {
@@ -61,6 +62,7 @@ interface Order {
         postalCode?: string;
         country: string;
     } | null;
+    trackingNumber?: string;
 }
 
 interface OrderDetailPageProps {
@@ -73,6 +75,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
     const resolvedParams = use(params);
     const [order, setOrder] = useState<Order | null>(null);
     const [loading, setLoading] = useState(true);
+    const [trackingNumber, setTrackingNumber] = useState("");
 
     useEffect(() => {
         const fetchOrder = async () => {
@@ -81,7 +84,10 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                 const response = await getOrderById(resolvedParams.id);
 
                 if (response.success && response.data) {
-                    setOrder(response.data as Order);
+                    const orderData = response.data as Order;
+                    setOrder(orderData);
+                    // Set tracking number if it exists
+                    setTrackingNumber(orderData.trackingNumber || "");
                 } else {
                     toast.error(response.error || "Failed to fetch order");
                 }
@@ -100,10 +106,14 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
             const response = await updateOrderStatus({
                 id: resolvedParams.id,
                 status: newStatus,
+                trackingNumber: trackingNumber.trim() || undefined,
             });
 
             if (response.success) {
-                toast.success("Order status updated successfully");
+                const message = newStatus === OrderStatus.SHIPPED
+                    ? "Order marked as shipped and customer notified via email!"
+                    : "Order status updated successfully";
+                toast.success(message);
                 setOrder(response.data as Order);
             } else {
                 toast.error(response.error || "Failed to update order status");
@@ -228,6 +238,32 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Email</span>
                             <span>{order.user?.email || order.guestEmail}</span>
+                        </div>
+                        {/* Add a text field to input tracking number to send in email */}
+                        <div className="flex flex-col space-y-2">
+                            <label className="text-sm font-medium text-muted-foreground">
+                                Tracking Number
+                            </label>
+                            <Input
+                                type="text"
+                                placeholder="Enter tracking number"
+                                value={trackingNumber}
+                                onChange={(e) => setTrackingNumber(e.target.value)}
+                                className="w-full"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Will be included in shipping confirmation email with Canada Post tracking link when status is set to "Shipped"
+                            </p>
+                            {trackingNumber.trim() && trackingNumber !== (order?.trackingNumber || "") && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleStatusChange(order!.status)}
+                                    className="w-full"
+                                >
+                                    Save Tracking Number
+                                </Button>
+                            )}
                         </div>
                     </CardContent>
                 </Card>

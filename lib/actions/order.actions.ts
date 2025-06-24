@@ -1115,6 +1115,7 @@ export async function getOrderById(id: string): Promise<GetOrderByIdResponse> {
 interface UpdateOrderStatusParams {
     id: string;
     status: OrderStatus;
+    trackingNumber?: string;
 }
 
 interface UpdateOrderStatusResponse {
@@ -1126,11 +1127,16 @@ interface UpdateOrderStatusResponse {
 export async function updateOrderStatus({
     id,
     status,
+    trackingNumber,
 }: UpdateOrderStatusParams): Promise<UpdateOrderStatusResponse> {
     try {
         const order = await db.order.update({
             where: { id },
-            data: { status },
+            data: { 
+                status,
+                ...(trackingNumber && { trackingNumber }),
+                updatedAt: new Date()
+            },
             include: {
                 user: {
                     select: {
@@ -1172,6 +1178,18 @@ export async function updateOrderStatus({
                 price: Number(item.price),
             })),
         } as unknown as SerializedOrder;
+
+        // Send shipping confirmation email if status changed to SHIPPED
+        if (status === OrderStatus.SHIPPED) {
+            try {
+                const { sendShippingConfirmationEmail } = await import('@/email');
+                await sendShippingConfirmationEmail(id, trackingNumber);
+                console.log(`✅ Shipping confirmation email sent for order ${id}`);
+            } catch (emailError) {
+                console.error(`❌ Failed to send shipping confirmation email for order ${id}:`, emailError);
+                // Don't fail the status update if email fails
+            }
+        }
 
         revalidatePath("/admin/orders");
         revalidatePath(`/admin/orders/${id}`);
