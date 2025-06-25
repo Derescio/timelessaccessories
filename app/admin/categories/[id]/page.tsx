@@ -94,7 +94,7 @@ export default function EditCategoryPage({ params }: EditCategoryPageProps) {
                     imageUrl: category.imageUrl || undefined,
                     parentId: category.parentId || undefined,
                     slug: category.slug,
-                    isActive: true,
+                    isActive: category.isActive,
                     defaultProductTypeId: category.defaultProductTypeId || undefined,
                 }}
                 categories={categories}
