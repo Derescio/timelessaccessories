@@ -54,6 +54,8 @@ next-env.d.ts
 /uploads
 /public/uploads
 /docs
+
 # Database
 *.db
 *.sqlite 
+/lib/db.ts

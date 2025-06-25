@@ -301,6 +301,9 @@ export async function getFeaturedProducts(limit = 8) {
 export async function getAllCategories() {
   try {
     const categories = await db.category.findMany({
+      where: {
+        isActive: true,
+      },
       include: {
         products: {
           where: {

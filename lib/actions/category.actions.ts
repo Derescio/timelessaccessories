@@ -115,6 +115,7 @@ export async function createCategory(data: CategoryFormValues) {
         imageUrl: validatedData.imageUrl,
         parentId: validatedData.parentId,
         defaultProductTypeId: validatedData.defaultProductTypeId,
+        isActive: validatedData.isActive,
       },
     });
 
@@ -203,6 +204,7 @@ export async function updateCategory(data: CategoryFormValues & { id: string }) 
         slug: validatedData.slug,
         defaultProductTypeId: validatedData.defaultProductTypeId || null,
         userId: userId,
+        isActive: validatedData.isActive,
       },
     });
 

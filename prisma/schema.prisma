@@ -106,6 +106,7 @@ model Category {
   slug                 String       @unique
   userId               String?
   defaultProductTypeId String?
+  isActive             Boolean      @default(true)
   defaultProductType   ProductType? @relation(fields: [defaultProductTypeId], references: [id])
   parent               Category?    @relation("SubCategories", fields: [parentId], references: [id])
   children             Category[]   @relation("SubCategories")

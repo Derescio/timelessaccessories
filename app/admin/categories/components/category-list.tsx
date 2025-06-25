@@ -58,6 +58,7 @@ interface CategoryWithCount {
     updatedAt: Date;
     parentId: string | null;
     slug: string;
+    isActive: boolean;
     parent: CategoryParent | null;
     children: CategoryChild[];
     _count?: {
@@ -156,6 +157,7 @@ export function CategoryList({ categories }: CategoryListProps) {
                             <TableHead>Slug</TableHead>
                             <TableHead>Parent</TableHead>
                             <TableHead>Products</TableHead>
+                            <TableHead>Status</TableHead>
                             <TableHead>Created</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
@@ -163,7 +165,7 @@ export function CategoryList({ categories }: CategoryListProps) {
                     <TableBody>
                         {hierarchicalCategories.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-24 text-center">
+                                <TableCell colSpan={8} className="h-24 text-center">
                                     No categories found
                                 </TableCell>
                             </TableRow>
@@ -206,6 +208,11 @@ export function CategoryList({ categories }: CategoryListProps) {
                                         ) : (
                                             <Badge variant="outline">0</Badge>
                                         )}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant={category.isActive ? "default" : "secondary"}>
+                                            {category.isActive ? "Active" : "Inactive"}
+                                        </Badge>
                                     </TableCell>
                                     <TableCell>
                                         {formatDateTime(category.createdAt).dateOnly}
