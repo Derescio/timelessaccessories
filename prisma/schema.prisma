@@ -25,13 +25,13 @@ model User {
   addresses       Address[]
   cart            Cart?
   categories      Category[]
+  designs         Design[]          @relation("UserDesigns")
   orders          Order[]
   productWishlist ProductWishlist[] @relation("ProductWishlist")
+  promotionUsage  PromotionUsage[]
   reviews         Review[]
   Session         Session[]
   wishlist        Wishlist?
-  designs         Design[]          @relation("UserDesigns")
-  promotionUsage  PromotionUsage[]
 }
 
 model Product {
@@ -56,13 +56,13 @@ model Product {
   category           Category                @relation(fields: [categoryId], references: [id])
   productType        ProductType?            @relation(fields: [productTypeId], references: [id])
   attributeValues    ProductAttributeValue[]
+  productDesigns     ProductDesign[]         @relation("ProductDesigns")
   inventories        ProductInventory[]
   productWishlist    ProductWishlist[]       @relation("ProductWishlist")
+  freeItemPromotions Promotion[]             @relation("FreeItemPromotion")
   reviews            Review[]
   WishlistItem       WishlistItem[]
-  productDesigns     ProductDesign[]         @relation("ProductDesigns")
   promotions         Promotion[]             @relation("ProductPromotions")
-  freeItemPromotions Promotion[]             @relation("FreeItemPromotion")
 
   @@index([categoryId])
   @@index([isActive])
@@ -78,14 +78,14 @@ model ProductInventory {
   discountPercentage Int?
   hasDiscount        Boolean                   @default(false)
   quantity           Int                       @default(0)
-  reservedStock      Int                       @default(0)
   lowStock           Int                       @default(5)
   images             String[]
   attributes         Json?
   isDefault          Boolean                   @default(false)
-  printifyVariantId  String?
   createdAt          DateTime                  @default(now())
   updatedAt          DateTime                  @updatedAt
+  reservedStock      Int                       @default(0)
+  printifyVariantId  String?
   cartItems          CartItem[]
   attributeValues    InventoryAttributeValue[]
   orderItems         OrderItem[]
@@ -121,9 +121,7 @@ model Category {
 model Order {
   id                 String            @id @default(cuid())
   userId             String?
-  guestEmail         String?
   status             OrderStatus       @default(PENDING)
-  fulfillmentStatus  FulfillmentStatus @default(PENDING)
   subtotal           Decimal           @db.Decimal(10, 2)
   tax                Decimal           @db.Decimal(10, 2)
   shipping           Decimal           @db.Decimal(10, 2)
@@ -133,18 +131,20 @@ model Order {
   shippingAddress    Json
   paymentIntent      String?
   notes              String?
-  printifyOrderId    String?
-  trackingNumber     String?
-  trackingUrl        String?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   cartId             String?
   chargeId           String?
+  guestEmail         String?
+  fulfillmentStatus  FulfillmentStatus @default(PENDING)
+  printifyOrderId    String?
+  trackingNumber     String?
+  trackingUrl        String?
   appliedPromotionId String?
   discountAmount     Decimal?          @db.Decimal(10, 2)
   address            Address?          @relation(fields: [addressId], references: [id])
-  user               User?             @relation(fields: [userId], references: [id])
   appliedPromotion   Promotion?        @relation("OrderPromotions", fields: [appliedPromotionId], references: [id])
+  user               User?             @relation(fields: [userId], references: [id])
   items              OrderItem[]
   payment            Payment?
   promotionUsage     PromotionUsage[]
@@ -216,13 +216,13 @@ model CartPromotion {
   discount     Decimal   @db.Decimal(10, 2)
   discountType String
   appliedItems String[]  @default([])
-  freeItem     Json? // Store free item details if applicable
+  freeItem     Json?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   cart         Cart      @relation(fields: [cartId], references: [id], onDelete: Cascade)
   promotion    Promotion @relation(fields: [promotionId], references: [id])
 
-  @@unique([cartId, promotionId]) // Prevent duplicate promotions per cart
+  @@unique([cartId, promotionId])
   @@index([cartId])
   @@index([promotionId])
 }
@@ -435,12 +435,12 @@ model ProductDesign {
   id        String   @id @default(cuid())
   productId String
   designId  String
-  position  String // 'front', 'back', 'left', 'right', etc.
-  x         Float    @default(50) // Percentage from left
-  y         Float    @default(50) // Percentage from top
-  scale     Float    @default(100) // Scale percentage
-  angle     Float    @default(0) // Rotation in degrees
-  layer     Int      @default(1) // Layer order
+  position  String
+  x         Float    @default(50)
+  y         Float    @default(50)
+  scale     Float    @default(100)
+  angle     Float    @default(0)
+  layer     Int      @default(1)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -450,6 +450,60 @@ model ProductDesign {
   @@unique([productId, designId, position])
   @@index([productId])
   @@index([designId])
+}
+
+model Promotion {
+  id                     String           @id @default(cuid())
+  name                   String
+  description            String?
+  promotionType          PromotionType
+  value                  Decimal
+  minimumOrderValue      Decimal?
+  startDate              DateTime
+  endDate                DateTime
+  isActive               Boolean          @default(true)
+  freeItemId             String?
+  couponCode             String?          @unique
+  usageLimit             Int?
+  usageCount             Int              @default(0)
+  applyToAllItems        Boolean          @default(false)
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  isOneTimeUse           Boolean          @default(false)
+  requiresAuthentication Boolean          @default(false)
+  perUserLimit           Int?
+  cartPromotions         CartPromotion[]
+  appliedOrders          Order[]          @relation("OrderPromotions")
+  freeItem               Product?         @relation("FreeItemPromotion", fields: [freeItemId], references: [id])
+  usageRecords           PromotionUsage[]
+  categories             Category[]       @relation("CategoryPromotions")
+  products               Product[]        @relation("ProductPromotions")
+}
+
+model PromotionUsage {
+  id               String    @id @default(cuid())
+  promotionId      String
+  userId           String
+  orderId          String?
+  discountAmount   Decimal   @db.Decimal(10, 2)
+  originalAmount   Decimal   @db.Decimal(10, 2)
+  finalAmount      Decimal   @db.Decimal(10, 2)
+  couponCode       String?
+  customerSegment  String?
+  deviceType       String?
+  referralSource   String?
+  isFirstTimeUse   Boolean   @default(false)
+  timeToConversion Int?
+  cartItemCount    Int?
+  createdAt        DateTime  @default(now())
+  order            Order?    @relation(fields: [orderId], references: [id])
+  promotion        Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id])
+
+  @@index([promotionId])
+  @@index([userId])
+  @@index([orderId])
+  @@index([createdAt])
 }
 
 enum AttributeType {
@@ -502,78 +556,4 @@ enum PromotionType {
   FIXED_AMOUNT_DISCOUNT
   FREE_ITEM
   BUY_ONE_GET_ONE
-}
-
-model Promotion {
-  id                String        @id @default(cuid())
-  name              String
-  description       String?
-  promotionType     PromotionType
-  value             Decimal // Percentage or fixed amount
-  minimumOrderValue Decimal? // For minimum purchase requirements
-  startDate         DateTime
-  endDate           DateTime
-  isActive          Boolean       @default(true)
-
-  // For FREE_ITEM promotions
-  freeItemId String?
-  freeItem   Product? @relation("FreeItemPromotion", fields: [freeItemId], references: [id])
-
-  // For coupon codes
-  couponCode             String? @unique
-  usageLimit             Int? // Max number of uses
-  usageCount             Int     @default(0)
-  isOneTimeUse           Boolean @default(false) // For codes like WELCOME10 that can only be used once per user
-  requiresAuthentication Boolean @default(false) // Restrict to signed-in users only
-
-  // For specific products or categories
-  applyToAllItems Boolean    @default(false)
-  products        Product[]  @relation("ProductPromotions")
-  categories      Category[] @relation("CategoryPromotions")
-
-  // For tracking
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  appliedOrders  Order[]          @relation("OrderPromotions")
-  usageRecords   PromotionUsage[]
-  cartPromotions CartPromotion[]
-
-  perUserLimit Int? // Max number of uses per user/email (null = unlimited)
-}
-
-model PromotionUsage {
-  id          String    @id @default(cuid())
-  promotionId String
-  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
-
-  // Customer and order information
-  userId  String
-  user    User    @relation(fields: [userId], references: [id])
-  orderId String?
-  order   Order?  @relation(fields: [orderId], references: [id])
-
-  // Usage details
-  discountAmount Decimal @db.Decimal(10, 2) // Actual discount applied
-  originalAmount Decimal @db.Decimal(10, 2) // Order total before discount
-  finalAmount    Decimal @db.Decimal(10, 2) // Order total after discount
-
-  // Metadata
-  couponCode      String? // The code used (if any)
-  customerSegment String? // new, returning, vip, etc.
-  deviceType      String? // mobile, desktop, tablet
-  referralSource  String? // social, email, organic, etc.
-
-  // Additional tracking
-  isFirstTimeUse   Boolean @default(false) // First time this user used any promotion
-  timeToConversion Int? // Minutes from promotion start to use
-  cartItemCount    Int? // Number of items in cart
-
-  createdAt DateTime @default(now())
-
-  @@index([promotionId])
-  @@index([userId])
-  @@index([orderId])
-  @@index([createdAt])
 }
