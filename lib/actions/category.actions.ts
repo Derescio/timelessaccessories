@@ -120,6 +120,7 @@ export async function createCategory(data: CategoryFormValues) {
     });
 
     revalidatePath("/admin/categories");
+    revalidatePath("/"); // Revalidate homepage where categories are shown
     return { data: category };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -209,6 +210,7 @@ export async function updateCategory(data: CategoryFormValues & { id: string }) 
     });
 
     revalidatePath("/admin/categories");
+    revalidatePath("/"); // Revalidate homepage where categories are shown
     return { success: true, data: updatedCategory };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -273,6 +275,7 @@ export async function deleteCategory(id: string) {
     });
 
     revalidatePath("/admin/categories");
+    revalidatePath("/"); // Revalidate homepage where categories are shown
     return { success: true };
   } catch (error) {
     return { success: false, error: "Failed to delete category" };

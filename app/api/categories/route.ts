@@ -4,6 +4,9 @@ import { db } from "@/lib/db";
 export async function GET() {
   try {
     const categories = await db.category.findMany({
+      where: {
+        isActive: true, // Only return active categories
+      },
       orderBy: {
         name: "asc",
       },
@@ -15,6 +18,7 @@ export async function GET() {
         defaultProductTypeId: true,
         imageUrl: true,
         description: true,
+        isActive: true,
       },
     });
 
