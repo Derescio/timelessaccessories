@@ -42,6 +42,8 @@ export function CategoryCarousel({ categories }: CategoryCarouselProps) {
             opts={{
                 align: "start",
                 loop: true,
+                dragFree: true,
+                skipSnaps: true,
             }}
             plugins={[plugin.current]}
             className="w-full max-w-6xl mx-auto px-4"
