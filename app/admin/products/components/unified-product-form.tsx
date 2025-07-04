@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { z } from "zod";
 import { ProductType, Category } from "@prisma/client";
 // import { Loader2, Image as ImageIcon, X } from "lucide-react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Package, Trash2 } from "lucide-react";
 // import { UploadDropzone } from "@/lib/uploadthing";
 // import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -36,9 +36,9 @@ const productSchema = z.object({
     productTypeId: z.string().optional(),
     isFeatured: z.boolean().default(false),
     isActive: z.boolean().default(true),
-    price: z.number().min(0, "Price cannot be negative"),
-    sku: z.string().min(1, "SKU is required"),
-    costPrice: z.number().min(0, "Cost price cannot be negative"),
+    price: z.number().min(0, "Price cannot be negative").default(0),
+    sku: z.string().default(""),
+    costPrice: z.number().min(0, "Cost price cannot be negative").default(0),
     compareAtPrice: z.number().optional(),
     hasDiscount: z.boolean().default(false),
     discountPercentage: z.number().optional(),
@@ -46,7 +46,37 @@ const productSchema = z.object({
     stock: z.number().int().min(0, "Stock cannot be negative").default(0),
     imageUrl: z.string().optional().nullable(), // Keep for backward compatibility
     images: z.array(z.string()).optional(), // Add support for multiple images
-});
+    // New variant support
+    useVariants: z.boolean().default(false),
+    variants: z.array(z.object({
+        id: z.string(),
+        sku: z.string(),
+        price: z.number(),
+        costPrice: z.number(),
+        compareAtPrice: z.number().optional(),
+        stock: z.number(),
+        attributeCombination: z.record(z.string()),
+        extraCost: z.number().default(0),
+        images: z.array(z.string()).default([]),
+        isDefault: z.boolean().default(false)
+    })).default([]),
+    basePrice: z.number().min(0, "Base price cannot be negative").default(0),
+    baseCostPrice: z.number().min(0, "Base cost price cannot be negative").default(0),
+    baseStock: z.number().int().min(0, "Base stock cannot be negative").default(0),
+}).refine(
+    (data) => {
+        // When variants are enabled, base fields are not required
+        if (data.useVariants) {
+            return data.variants.length > 0; // Must have at least one variant
+        }
+        // When variants are not enabled, require base fields
+        return data.sku.length > 0; // SKU is required when not using variants
+    },
+    {
+        message: "Either provide base product details or enable variants with at least one variant",
+        path: ["useVariants"]
+    }
+);
 
 // Define a more flexible type that includes dynamic fields
 type ProductFormValues = z.infer<typeof productSchema> & {
@@ -65,6 +95,8 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [productTypeAttributes, setProductTypeAttributes] = useState<ProductTypeAttribute[]>([]);
     const [loadingAttributes, setLoadingAttributes] = useState(false);
+    const [generatedVariants, setGeneratedVariants] = useState<any[]>([]);
+    const [variantPreview, setVariantPreview] = useState<any[]>([]);
     const router = useRouter();
 
     // Initialize form
@@ -88,6 +120,11 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
             imageUrl: initialData?.imageUrl || null,
             images: initialData?.images || [], // Initialize images array
             attributeValues: initialData?.attributeValues || {},
+            useVariants: initialData?.useVariants !== undefined ? initialData.useVariants : false,
+            variants: initialData?.variants || [],
+            basePrice: initialData?.basePrice || 0,
+            baseCostPrice: initialData?.baseCostPrice || 0,
+            baseStock: initialData?.baseStock || 0,
         }
     });
 
@@ -259,6 +296,174 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
         }
     }, [form, formValues.name]);
 
+    // Variant generation helper functions
+    const generateVariantCombinations = useCallback(() => {
+        const inventoryAttributes = productTypeAttributes.filter(attr => attr.isForInventory);
+
+        if (inventoryAttributes.length === 0) {
+            return [];
+        }
+
+        // Get selected attribute values
+        const selectedAttributeValues: Record<string, string[]> = {};
+        let hasSelectedValues = false;
+
+        inventoryAttributes.forEach(attr => {
+            const fieldValue = form.getValues(`attributeValues.${attr.id}`) || [];
+            const isIncluded = form.getValues(`include.${attr.id}`) !== false;
+
+            if (isIncluded && Array.isArray(fieldValue) && fieldValue.length > 0) {
+                selectedAttributeValues[attr.id] = fieldValue;
+                hasSelectedValues = true;
+            }
+        });
+
+        if (!hasSelectedValues) {
+            return [];
+        }
+
+        // Generate all combinations
+        const attributeKeys = Object.keys(selectedAttributeValues);
+        const combinations: { attributes: Record<string, string>; extraCost: number }[] = [];
+
+        const generateCombinations = (index: number, current: Record<string, string>, currentExtraCost: number = 0) => {
+            if (index === attributeKeys.length) {
+                combinations.push({
+                    attributes: { ...current },
+                    extraCost: currentExtraCost
+                });
+                return;
+            }
+
+            const attributeId = attributeKeys[index];
+            const values = selectedAttributeValues[attributeId];
+
+            values.forEach(value => {
+                // Get extra cost for this value from enhanced options
+                const attr = inventoryAttributes.find(a => a.id === attributeId);
+                let valueExtraCost = 0;
+
+                if (attr && attr.options) {
+                    try {
+                        const options = typeof attr.options === 'string' ? JSON.parse(attr.options) : attr.options;
+                        if (Array.isArray(options)) {
+                            const option = options.find(opt => opt.value === value);
+                            if (option && option.extraCost) {
+                                valueExtraCost = parseFloat(option.extraCost) || 0;
+                            }
+                        }
+                    } catch (error) {
+                        console.log("Error parsing options for extra cost:", error);
+                    }
+                }
+
+                current[attributeId] = value;
+                generateCombinations(index + 1, current, currentExtraCost + valueExtraCost);
+                delete current[attributeId];
+            });
+        };
+
+        generateCombinations(0, {}, 0);
+
+        // Convert combinations to variants with pricing info
+        const basePrice = form.getValues("basePrice") || form.getValues("price") || 0;
+        const baseCostPrice = form.getValues("baseCostPrice") || form.getValues("costPrice") || 0;
+        const baseStock = form.getValues("baseStock") || form.getValues("stock") || 0;
+        const baseSku = form.getValues("sku") || "PROD";
+
+        return combinations.map((combination, index) => {
+            // Generate SKU from combination
+            const skuSuffix = attributeKeys
+                .map(attrId => {
+                    const attr = inventoryAttributes.find(a => a.id === attrId);
+                    const value = combination.attributes[attrId];
+                    return value.replace(/\s+/g, '').toUpperCase();
+                })
+                .join('-');
+
+            const sku = `${baseSku}-${skuSuffix}`;
+
+            // Calculate final price including extra costs
+            const finalPrice = basePrice + combination.extraCost;
+
+            return {
+                id: `variant-${index}`,
+                sku: sku,
+                price: finalPrice,
+                costPrice: baseCostPrice,
+                stock: baseStock,
+                attributeCombination: combination.attributes,
+                extraCost: combination.extraCost,
+                images: [],
+                isDefault: index === 0
+            };
+        });
+    }, [productTypeAttributes, form]);
+
+    const handleGenerateVariants = useCallback(() => {
+        const variants = generateVariantCombinations();
+        setGeneratedVariants(variants);
+        setVariantPreview(variants);
+        form.setValue("variants", variants);
+        form.setValue("useVariants", variants.length > 0);
+    }, [generateVariantCombinations, form]);
+
+    // Auto-sync pricing when switching modes
+    useEffect(() => {
+        const subscription = form.watch((values, { name }) => {
+            if (name === "useVariants") {
+                const useVariants = values.useVariants;
+
+                if (useVariants) {
+                    // Switching TO variant mode - sync existing values to base values
+                    const currentPrice = form.getValues("price") || 0;
+                    const currentCostPrice = form.getValues("costPrice") || 0;
+                    const currentStock = form.getValues("stock") || 0;
+
+                    if (currentPrice > 0) form.setValue("basePrice", currentPrice);
+                    if (currentCostPrice > 0) form.setValue("baseCostPrice", currentCostPrice);
+                    if (currentStock > 0) form.setValue("baseStock", currentStock);
+                } else {
+                    // Switching FROM variant mode - sync base values back to regular values
+                    const basePrice = form.getValues("basePrice") || 0;
+                    const baseCostPrice = form.getValues("baseCostPrice") || 0;
+                    const baseStock = form.getValues("baseStock") || 0;
+
+                    if (basePrice > 0) form.setValue("price", basePrice);
+                    if (baseCostPrice > 0) form.setValue("costPrice", baseCostPrice);
+                    if (baseStock > 0) form.setValue("stock", baseStock);
+
+                    // Clear variants when switching back
+                    form.setValue("variants", []);
+                    setVariantPreview([]);
+                    setGeneratedVariants([]);
+                }
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, [form]);
+
+    const updateVariant = useCallback((variantId: string, field: string, value: any) => {
+        const currentVariants = form.getValues("variants") || [];
+        const updatedVariants = currentVariants.map(variant =>
+            variant.id === variantId ? { ...variant, [field]: value } : variant
+        );
+        form.setValue("variants", updatedVariants);
+        setVariantPreview(updatedVariants);
+    }, [form]);
+
+    const removeVariant = useCallback((variantId: string) => {
+        const currentVariants = form.getValues("variants") || [];
+        const updatedVariants = currentVariants.filter(variant => variant.id !== variantId);
+        form.setValue("variants", updatedVariants);
+        setVariantPreview(updatedVariants);
+
+        if (updatedVariants.length === 0) {
+            form.setValue("useVariants", false);
+        }
+    }, [form]);
+
     async function onSubmit(values: ProductFormValues) {
         try {
             setIsSubmitting(true);
@@ -287,7 +492,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
 
             // Get all the product type attributes to identify which are for product vs inventory
             const productAttrs = productTypeAttributes.filter(attr => attr.isForProduct);
-            const inventoryAttrs = productTypeAttributes.filter(attr => !attr.isForProduct);
+            const inventoryAttrs = productTypeAttributes.filter(attr => attr.isForInventory);
 
             // Map attribute IDs to their configuration
             const attrMap = productTypeAttributes.reduce((acc, attr) => {
@@ -340,7 +545,10 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                 attributeValues: processedAttributeValues,
                 // New approach with separated values
                 productAttributeValues: productAttributeValues,
-                inventoryAttributeValues: inventoryAttributeValues
+                inventoryAttributeValues: inventoryAttributeValues,
+                // Variant data
+                useVariants: values.useVariants || false,
+                variants: values.variants || []
             };
 
             //console.log('Submitting product with JSON inventory attributes:', inventoryAttributeValues);
@@ -497,57 +705,78 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
 
     // Pricing tab
     const PricingTab = () => {
+        const useVariants = form.watch("useVariants") as boolean;
+
         return (
             <div className="space-y-4 py-2 pb-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                        control={form.control}
-                        name="price"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Price</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        {...field}
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        onBlur={field.onBlur}
-                                        ref={field.ref}
-                                        name={field.name}
-                                        value={field.value}
-                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                {/* Variant Mode Notice */}
+                {useVariants && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                        <div className="flex items-center space-x-2">
+                            <Package className="h-5 w-5 text-blue-600" />
+                            <div>
+                                <h3 className="font-medium text-blue-900">Variant Mode Enabled</h3>
+                                <p className="text-sm text-blue-700">
+                                    Individual pricing is managed in the <strong>Variants tab</strong>.
+                                    Set base prices there to apply to all variants.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
-                    <FormField
-                        control={form.control}
-                        name="costPrice"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Cost Price</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        {...field}
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        onBlur={field.onBlur}
-                                        ref={field.ref}
-                                        name={field.name}
-                                        value={field.value}
-                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </div>
+                {/* Regular Pricing (Single Product Mode) */}
+                {!useVariants && (
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="price"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Price</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            {...field}
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            onBlur={field.onBlur}
+                                            ref={field.ref}
+                                            name={field.name}
+                                            value={field.value}
+                                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="costPrice"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Cost Price</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            {...field}
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            onBlur={field.onBlur}
+                                            ref={field.ref}
+                                            name={field.name}
+                                            value={field.value}
+                                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                )}
 
                 <FormField
                     control={form.control}
@@ -600,47 +829,70 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
 
     // Inventory tab
     const InventoryTab = () => {
+        const useVariants = form.watch("useVariants") as boolean;
+
         return (
             <div className="space-y-4 py-2 pb-4">
-                <FormField
-                    control={form.control}
-                    name="sku"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>SKU</FormLabel>
-                            <FormControl>
-                                <Input placeholder="Enter product SKU" {...field} />
-                            </FormControl>
-                            <FormDescription>
-                                Stock Keeping Unit - unique identifier for your product
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
+                {/* Variant Mode Notice */}
+                {useVariants && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                        <div className="flex items-center space-x-2">
+                            <Package className="h-5 w-5 text-blue-600" />
+                            <div>
+                                <h3 className="font-medium text-blue-900">Variant Mode Enabled</h3>
+                                <p className="text-sm text-blue-700">
+                                    Individual inventory is managed in the <strong>Variants tab</strong>.
+                                    SKUs and stock levels are set per variant.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
-                <FormField
-                    control={form.control}
-                    name="stock"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Stock Quantity</FormLabel>
-                            <FormControl>
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    step="1"
-                                    onBlur={field.onBlur}
-                                    ref={field.ref}
-                                    name={field.name}
-                                    value={field.value}
-                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
+                {/* Regular Inventory (Single Product Mode) */}
+                {!useVariants && (
+                    <>
+                        <FormField
+                            control={form.control}
+                            name="sku"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>SKU</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Enter product SKU" {...field} />
+                                    </FormControl>
+                                    <FormDescription>
+                                        Stock Keeping Unit - unique identifier for your product
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="stock"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Stock Quantity</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            onBlur={field.onBlur}
+                                            ref={field.ref}
+                                            name={field.name}
+                                            value={field.value}
+                                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </>
+                )}
             </div>
         );
     };
@@ -709,12 +961,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
 
                     <ImageUploader
                         endpoint="productImage"
-                        onChange={handleAddImage}
-                        onClientUploadComplete={(res) => {
-                            //console.log("Upload completed:", res);
-                            const file = res[0] as { url?: string, ufsUrl?: string };
-                            const imageUrl = file.ufsUrl || file.url;
-
+                        onChange={(imageUrl) => {
                             if (imageUrl) {
                                 handleAddImage(imageUrl);
                                 sonnerToast.success("Image uploaded successfully");
@@ -752,7 +999,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
         };
 
         const handleSelectAllInventoryAttributes = (checked: boolean) => {
-            const inventoryAttrs = productTypeAttributes.filter(attr => !attr.isForProduct);
+            const inventoryAttrs = productTypeAttributes.filter(attr => attr.isForInventory);
             inventoryAttrs.forEach(attr => {
                 if (!attr.isRequired) {
                     form.setValue(`include.${attr.id}` as any, checked);
@@ -796,7 +1043,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
 
         // Group attributes by type for display
         const productAttributes = productTypeAttributes.filter(attr => attr.isForProduct);
-        const inventoryAttributes = productTypeAttributes.filter(attr => !attr.isForProduct);
+        const inventoryAttributes = productTypeAttributes.filter(attr => attr.isForInventory);
 
         return (
             <div className="space-y-6 py-2 pb-4">
@@ -826,9 +1073,19 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
 
                                 // Parse options for attributes
                                 let options: string[] = [];
-                                if (attribute.type === AttributeType.ARRAY && attribute.options) {
+                                if ((attribute.type === AttributeType.ARRAY || attribute.type === AttributeType.SELECT) && attribute.options) {
                                     try {
-                                        options = JSON.parse(attribute.options as string);
+                                        const parsedOptions = JSON.parse(attribute.options as string);
+                                        // Handle new option structure with {value, label, extraCost}
+                                        if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
+                                            if (typeof parsedOptions[0] === 'object' && parsedOptions[0].label) {
+                                                // New structure: extract labels
+                                                options = parsedOptions.map(opt => opt.label || opt.value);
+                                            } else {
+                                                // Old structure: simple strings
+                                                options = parsedOptions;
+                                            }
+                                        }
                                     } catch (e) {
                                         console.error("Failed to parse options:", e);
                                     }
@@ -870,7 +1127,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
 
                                         {form.watch(includeFieldId) !== false && (
                                             <div className="mt-2">
-                                                {attribute.type === AttributeType.ARRAY && options.length > 0 ? (
+                                                {(attribute.type === AttributeType.ARRAY || attribute.type === AttributeType.SELECT) && options.length > 0 ? (
                                                     <div className="space-y-2">
                                                         <div className="flex items-center justify-between mb-2 pl-2">
                                                             <Label className="text-sm font-medium">Available Options</Label>
@@ -1000,9 +1257,19 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
 
                                 // Parse options for attributes
                                 let options: string[] = [];
-                                if (attribute.type === AttributeType.ARRAY && attribute.options) {
+                                if ((attribute.type === AttributeType.ARRAY || attribute.type === AttributeType.SELECT) && attribute.options) {
                                     try {
-                                        options = JSON.parse(attribute.options as string);
+                                        const parsedOptions = JSON.parse(attribute.options as string);
+                                        // Handle new option structure with {value, label, extraCost}
+                                        if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
+                                            if (typeof parsedOptions[0] === 'object' && parsedOptions[0].label) {
+                                                // New structure: extract labels
+                                                options = parsedOptions.map(opt => opt.label || opt.value);
+                                            } else {
+                                                // Old structure: simple strings
+                                                options = parsedOptions;
+                                            }
+                                        }
                                     } catch (e) {
                                         console.error("Failed to parse options:", e);
                                     }
@@ -1044,7 +1311,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
 
                                         {form.watch(includeFieldId) !== false && (
                                             <div className="mt-2">
-                                                {attribute.type === AttributeType.ARRAY && options.length > 0 ? (
+                                                {(attribute.type === AttributeType.ARRAY || attribute.type === AttributeType.SELECT) && options.length > 0 ? (
                                                     <div className="space-y-2">
                                                         <div className="flex items-center justify-between mb-2 pl-2">
                                                             <Label className="text-sm font-medium">Available Options</Label>
@@ -1157,6 +1424,242 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
         );
     };
 
+    // Variants tab
+    const VariantsTab = () => {
+        const inventoryAttributes = productTypeAttributes.filter(attr => attr.isForInventory);
+        const useVariants = form.watch("useVariants") as boolean;
+        const formVariants = form.watch("variants") as any[] || [];
+        const variants = variantPreview.length > 0 ? variantPreview : formVariants;
+
+        return (
+            <div className="space-y-6 py-2 pb-4">
+                {/* Variant Configuration */}
+                <div className="rounded-lg border p-4">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="text-lg font-semibold">Variant Configuration</h3>
+                            <p className="text-sm text-muted-foreground">
+                                Generate product variants based on inventory attributes
+                            </p>
+                        </div>
+                        <FormField
+                            control={form.control}
+                            name="useVariants"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center space-x-2">
+                                    <FormControl>
+                                        <Switch
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                        />
+                                    </FormControl>
+                                    <FormLabel>Use Variants</FormLabel>
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+
+                    {useVariants && (
+                        <div className="space-y-4">
+                            {/* Base Pricing */}
+                            <div className="grid grid-cols-3 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="basePrice"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Base Price</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    {...field}
+                                                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                />
+                                            </FormControl>
+                                            <FormDescription>Default price for all variants</FormDescription>
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="baseCostPrice"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Base Cost Price</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    {...field}
+                                                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                />
+                                            </FormControl>
+                                            <FormDescription>Default cost for all variants</FormDescription>
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="baseStock"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Base Stock</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    {...field}
+                                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                                />
+                                            </FormControl>
+                                            <FormDescription>Default stock for all variants</FormDescription>
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+
+                            {/* Generate Variants Button */}
+                            <div className="flex justify-center">
+                                <Button
+                                    type="button"
+                                    onClick={handleGenerateVariants}
+                                    disabled={inventoryAttributes.length === 0 || generateVariantCombinations().length === 0}
+                                    className="flex items-center space-x-2"
+                                >
+                                    <Package className="h-4 w-4" />
+                                    <span>Generate Variants ({generateVariantCombinations().length} combinations)</span>
+                                </Button>
+                            </div>
+
+                            {inventoryAttributes.length === 0 && (
+                                <div className="text-center text-muted-foreground py-4">
+                                    <p>No inventory attributes found. Please configure inventory attributes in the Attributes tab first.</p>
+                                </div>
+                            )}
+
+                            {inventoryAttributes.length > 0 && generateVariantCombinations().length === 0 && (
+                                <div className="text-center text-muted-foreground py-4">
+                                    <p>Select attribute values in the Attributes tab to generate variants.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Variants Preview */}
+                {useVariants && variants.length > 0 && (
+                    <div className="rounded-lg border p-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold">Generated Variants ({variants.length})</h3>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setVariantPreview([]);
+                                    form.setValue("variants", []);
+                                    form.setValue("useVariants", false);
+                                }}
+                            >
+                                Clear All
+                            </Button>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full border-collapse border border-gray-200">
+                                <thead>
+                                    <tr className="bg-gray-50">
+                                        <th className="border border-gray-200 p-2 text-left">SKU</th>
+                                        <th className="border border-gray-200 p-2 text-left">Attributes</th>
+                                        <th className="border border-gray-200 p-2 text-left">Extra Cost</th>
+                                        <th className="border border-gray-200 p-2 text-left">Final Price</th>
+                                        <th className="border border-gray-200 p-2 text-left">Cost</th>
+                                        <th className="border border-gray-200 p-2 text-left">Stock</th>
+                                        <th className="border border-gray-200 p-2 text-left">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {variants.map((variant) => (
+                                        <tr key={variant.id} className="hover:bg-gray-50">
+                                            <td className="border border-gray-200 p-2">
+                                                <Input
+                                                    value={variant.sku}
+                                                    onChange={(e) => updateVariant(variant.id, 'sku', e.target.value)}
+                                                    className="w-full"
+                                                />
+                                            </td>
+                                            <td className="border border-gray-200 p-2">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {Object.entries(variant.attributeCombination).map(([attrId, value]) => {
+                                                        const attr = inventoryAttributes.find(a => a.id === attrId);
+                                                        return (
+                                                            <span key={attrId} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                                                {attr?.displayName || attrId}: {String(value)}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </td>
+                                            <td className="border border-gray-200 p-2 text-center">
+                                                <div className="text-sm font-mono">
+                                                    {variant.extraCost > 0 ? (
+                                                        <span className="text-green-600">+${variant.extraCost.toFixed(2)}</span>
+                                                    ) : (
+                                                        <span className="text-muted-foreground">$0.00</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="border border-gray-200 p-2">
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={variant.price}
+                                                    onChange={(e) => updateVariant(variant.id, 'price', parseFloat(e.target.value) || 0)}
+                                                    className="w-full"
+                                                />
+                                            </td>
+                                            <td className="border border-gray-200 p-2">
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={variant.costPrice}
+                                                    onChange={(e) => updateVariant(variant.id, 'costPrice', parseFloat(e.target.value) || 0)}
+                                                    className="w-full"
+                                                />
+                                            </td>
+                                            <td className="border border-gray-200 p-2">
+                                                <Input
+                                                    type="number"
+                                                    value={variant.stock}
+                                                    onChange={(e) => updateVariant(variant.id, 'stock', parseInt(e.target.value) || 0)}
+                                                    className="w-full"
+                                                />
+                                            </td>
+                                            <td className="border border-gray-200 p-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => removeVariant(variant.id)}
+                                                    className="text-red-600 hover:text-red-800"
+                                                >
+                                                    <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     // Display tab
     const DisplayTab = () => {
         return (
@@ -1213,12 +1716,13 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                 <div className="flex w-full space-x-4">
                     <div className="w-full space-y-6">
                         <Tabs defaultValue="basic" className="w-full">
-                            <TabsList className="grid w-full grid-cols-6">
+                            <TabsList className="grid w-full grid-cols-7">
                                 <TabsTrigger value="basic">Basic Details</TabsTrigger>
                                 <TabsTrigger value="pricing">Pricing</TabsTrigger>
                                 <TabsTrigger value="inventory">Inventory</TabsTrigger>
                                 <TabsTrigger value="image">Images</TabsTrigger>
                                 <TabsTrigger value="attributes">Attributes</TabsTrigger>
+                                <TabsTrigger value="variants">Variants</TabsTrigger>
                                 <TabsTrigger value="display">Display</TabsTrigger>
                             </TabsList>
                             <TabsContent value="basic" className="space-y-4">
@@ -1235,6 +1739,9 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                             </TabsContent>
                             <TabsContent value="attributes" className="space-y-4">
                                 <AttributesTab />
+                            </TabsContent>
+                            <TabsContent value="variants" className="space-y-4">
+                                <VariantsTab />
                             </TabsContent>
                             <TabsContent value="display" className="space-y-4">
                                 <DisplayTab />

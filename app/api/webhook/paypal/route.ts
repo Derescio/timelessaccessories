@@ -8,6 +8,59 @@ import { prisma } from "@/lib/prisma";
 import { recordPromotionUsage } from '@/lib/actions/promotions-actions';
 
 /**
+ * Verify PayPal webhook signature (for production use)
+ */
+async function verifyPayPalWebhook(headers: Headers, rawBody: string): Promise<boolean> {
+  try {
+    const webhookId = process.env.PAYPAL_WEBHOOK_ID;
+    if (!webhookId) {
+      console.warn('⚠️ PAYPAL_WEBHOOK_ID not configured, skipping verification');
+      return true; // Allow for development
+    }
+
+    // Get PayPal access token
+    const auth = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_APP_SECRET}`).toString('base64');
+    const tokenResponse = await fetch(`${process.env.PAYPAL_API_URL || 'https://api-m.sandbox.paypal.com'}/v1/oauth2/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${auth}`,
+      },
+      body: 'grant_type=client_credentials',
+    });
+
+    const tokenData = await tokenResponse.json();
+    const accessToken = tokenData.access_token;
+
+    // Verify webhook signature
+    const verificationData = {
+      webhook_id: webhookId,
+      event_body: rawBody,
+      transmission_id: headers.get('paypal-transmission-id'),
+      transmission_time: headers.get('paypal-transmission-time'),
+      cert_url: headers.get('paypal-cert-url'),
+      auth_algo: headers.get('paypal-auth-algo'),
+      transmission_sig: headers.get('paypal-transmission-sig'),
+    };
+
+    const verifyResponse = await fetch(`${process.env.PAYPAL_API_URL || 'https://api-m.sandbox.paypal.com'}/v1/notifications/verify-webhook-signature`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(verificationData),
+    });
+
+    const verifyResult = await verifyResponse.json();
+    return verifyResult.verification_status === 'SUCCESS';
+  } catch (error) {
+    console.error('❌ PayPal webhook verification failed:', error);
+    return false;
+  }
+}
+
+/**
  * Reduce stock for all items in an order after PayPal payment confirmation
  */
 async function reduceOrderStock(orderId: string) {
@@ -125,11 +178,11 @@ export async function POST(request: Request) {
     console.log(`📊 PAYPAL WEBHOOK [${timestamp}]: Full payload structure:`, JSON.stringify(payload, null, 2));
 
     // In production, you should verify the webhook signature here
-    // const isVerified = await verifyPayPalWebhook(request.headers, rawBody);
-    // if (!isVerified) {
-    //   console.error(`❌ PAYPAL WEBHOOK [${timestamp}]: Invalid signature`);
-    //   return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-    // }
+    const isVerified = await verifyPayPalWebhook(request.headers, rawBody);
+    if (!isVerified) {
+      console.error(`❌ PAYPAL WEBHOOK [${timestamp}]: Invalid signature`);
+      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    }
 
     // Process webhook event
     if (payload.event_type === 'PAYMENT.CAPTURE.COMPLETED') {
@@ -182,14 +235,18 @@ export async function POST(request: Request) {
           // Clean up cart
           console.log(`🛒 PAYPAL WEBHOOK [${timestamp}]: Cleaning up cart for order: ${customId}`);
           try {
-            await cleanupCartAfterSuccessfulPayment(customId);
-            console.log(`✅ PAYPAL WEBHOOK [${timestamp}]: Cart cleaned up successfully for order: ${customId}`);
+            const cartCleanupResult = await cleanupCartAfterSuccessfulPayment(customId);
+            if (cartCleanupResult.success) {
+              console.log(`✅ PAYPAL WEBHOOK [${timestamp}]: Cart cleaned up successfully for order: ${customId}`);
+            } else {
+              console.error(`❌ PAYPAL WEBHOOK [${timestamp}]: Cart cleanup failed for order ${customId}:`, cartCleanupResult.error);
+            }
           } catch (cartError) {
             console.error(`❌ PAYPAL WEBHOOK [${timestamp}]: Error cleaning up cart for order ${customId}:`, cartError);
             // Don't fail the webhook for cart cleanup errors
           }
 
-          // Send confirmation email
+          // Explicitly send confirmation email (same as Stripe flow)
           console.log(`📧 PAYPAL WEBHOOK [${timestamp}]: Sending order confirmation email for: ${customId}`);
           try {
             await sendOrderConfirmationEmail(customId);

@@ -125,6 +125,20 @@ export async function getProductBySlug(slug: string): Promise<ClientProduct | nu
       },
       include: {
         category: true,
+        productType: {
+          include: {
+            attributes: {
+              where: {
+                isForProduct: true
+              }
+            }
+          }
+        },
+        attributeValues: {
+          include: {
+            attribute: true
+          }
+        },
         inventories: {
           orderBy: [
             { isDefault: 'desc' },
@@ -149,7 +163,8 @@ export async function getProductBySlug(slug: string): Promise<ClientProduct | nu
     if (!productData) {
       return null;
     }
-    
+
+
     // Get the default inventory or first available
     const defaultInventory = productData.inventories.find(inv => inv.isDefault) || productData.inventories[0];
     
@@ -179,6 +194,18 @@ export async function getProductBySlug(slug: string): Promise<ClientProduct | nu
         imageUrl: productData.category.imageUrl || undefined,
         parentId: productData.category.parentId || undefined,
       },
+      productAttributes: productData.attributeValues?.map(pv => ({
+        id: pv.id,
+        displayName: pv.attribute.displayName,
+        value: pv.value,
+        attribute: {
+          id: pv.attribute.id,
+          name: pv.attribute.name,
+          displayName: pv.attribute.displayName,
+          type: pv.attribute.type,
+          options: pv.attribute.options,
+        },
+      })) || [],
       images: defaultInventory?.images.map((url, index) => ({
         id: `${defaultInventory.id}-image-${index}`,
         url: url.startsWith("http") ? url : `/uploads/${url}`,
@@ -274,7 +301,7 @@ export async function getFeaturedProducts(limit = 8) {
         discountPercentage: defaultInventory.discountPercentage || null,
         hasDiscount: defaultInventory.hasDiscount || false,
         slug: product.slug,
-        mainImage: defaultInventory.images?.[0] || "/placeholder.svg",
+        mainImage: defaultInventory.images?.[0] || "/images/placeholder.svg",
         images: defaultInventory.images || [],
         category: product.category ? {
           name: product.category.name,
@@ -511,6 +538,8 @@ export async function createProductWithAttributes(data: ExtendedProductFormValue
             attributeValues,
             productAttributeValues,
             inventoryAttributeValues,
+            useVariants,
+            variants,
         } = data;
 
         // Prepare product data
@@ -527,31 +556,72 @@ export async function createProductWithAttributes(data: ExtendedProductFormValue
             },
         };
 
+        // Prepare inventory data
+        let inventoryData;
+        
+        if (useVariants && variants && variants.length > 0) {
+            // Create multiple inventory items from variants
+            inventoryData = variants.map((variant, index) => ({
+                sku: variant.sku || generateSku(),
+                retailPrice: variant.price || 0,
+                costPrice: variant.costPrice || 0,
+                compareAtPrice: variant.compareAtPrice || null,
+                hasDiscount: hasDiscount || false,
+                discountPercentage: discountPercentage || null,
+                quantity: variant.stock || 0,
+                images: variant.images && variant.images.length > 0 
+                        ? variant.images 
+                        : (Array.isArray(images) && images.length > 0 
+                           ? images 
+                           : (imageUrl ? [imageUrl] : [])),
+                attributes: variant.attributeCombination || {},
+                isDefault: variant.isDefault || index === 0
+            }));
+        } else {
+            // Create single inventory item (legacy mode)
+            inventoryData = [{
+                sku: sku || generateSku(),
+                retailPrice: price || 0,
+                costPrice: costPrice || 0,
+                compareAtPrice: compareAtPrice || null,
+                hasDiscount: hasDiscount || false,
+                discountPercentage: discountPercentage || null,
+                quantity: stock || 0,
+                images: Array.isArray(images) && images.length > 0 
+                       ? images 
+                       : (imageUrl ? [imageUrl] : []),
+                attributes: Object.keys(inventoryAttributeValues || {}).length > 0 ? inventoryAttributeValues : undefined,
+                isDefault: true
+            }];
+        }
+
         // Create product with inventory
         const product = await db.product.create({
             data: {
                 ...productData,
                 productTypeId: productTypeId || null,
                 inventories: {
-                    create: [{
-                        sku: sku || generateSku(),
-                        retailPrice: price || 0,
-                        costPrice: costPrice || 0,
-                        compareAtPrice: compareAtPrice || null,
-                        hasDiscount: hasDiscount || false,
-                        discountPercentage: discountPercentage || null,
-                        quantity: stock || 0,
-                        images: Array.isArray(images) && images.length > 0 
-                               ? images 
-                               : (imageUrl ? [imageUrl] : []),
-                        attributes: Object.keys(inventoryAttributeValues || {}).length > 0 ? inventoryAttributeValues : undefined,
-                        isDefault: true
-                    }]
+                    create: inventoryData
                 }
             }
         });
 
-       // console.log("Product created:", product);
+        // Create product-level attribute values if provided
+        if (productAttributeValues && Object.keys(productAttributeValues).length > 0) {
+            const attributeEntries = Object.entries(productAttributeValues).map(([attributeId, value]) => ({
+                productId: product.id,
+                attributeId,
+                value: typeof value === 'object' ? JSON.stringify(value) : String(value)
+            }));
+
+            if (attributeEntries.length > 0) {
+                await db.productAttributeValue.createMany({
+                    data: attributeEntries
+                });
+            }
+        }
+
+        console.log(`Product created with ${inventoryData.length} inventory items`);
         return { success: true, data: product };
     } catch (error) {
         console.error("Error creating product:", error);

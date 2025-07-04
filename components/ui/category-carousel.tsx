@@ -48,7 +48,7 @@ export function CategoryCarousel({ categories }: CategoryCarouselProps) {
         >
             <CarouselContent>
                 {categories.map((category) => {
-                    const imageSrc = category.firstInventoryImage || category.imageUrl || `/placeholder.svg`;
+                    const imageSrc = category.imageUrl || category.firstInventoryImage || `/images/placeholder.svg`;
                     // console.log(`Rendering category: ${category.name}`, {
                     //     imageSrc,
                     //     hasInventoryImage: !!category.firstInventoryImage,

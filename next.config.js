@@ -43,6 +43,11 @@ const nextConfig = {
       },
       {
         protocol: "https",
+        hostname: "s.alicdn.com",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
         hostname: '"merchant-portal.lascobizja.com',
         pathname: "**",
       },

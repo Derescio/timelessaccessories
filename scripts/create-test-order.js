@@ -66,7 +66,7 @@ async function createTestOrder() {
         quantity: 2, // This should match the reserved stock
         price: inventory.retailPrice,
         name: inventory.product.name,
-        image: inventory.images[0] || "/placeholder.svg",
+        image: inventory.images[0] || "/images/placeholder.svg",
       },
     });
 

@@ -41,7 +41,7 @@ async function createCategory(name: string, description: string, parentId: strin
       slug,
       parentId,
       userId,
-      imageUrl: "/placeholder.svg", // Default placeholder
+      imageUrl: "/images/placeholder.svg", // Default placeholder
     }
   });
 }

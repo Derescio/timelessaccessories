@@ -165,6 +165,7 @@ export interface CartItemDetails {
     discountPercentage: number | null;
     hasDiscount: boolean;
     maxQuantity: number; // Available inventory
+    attributes?: Record<string, string>; // Selected product/inventory attributes
 }
 
 // Category types

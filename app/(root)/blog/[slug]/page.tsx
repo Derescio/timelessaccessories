@@ -114,7 +114,7 @@ export default function BlogPostPage() {
                                 slug="sample-post"
                                 title="Sample Blog Post Title"
                                 excerpt="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
-                                image="/placeholder.svg?height=400&width=600&text=Related+Post"
+                                image="/images/placeholder.svg?height=400&width=600&text=Related+Post"
                                 author="Admin"
                                 date="APRIL 05, 2023"
                             // category="TRENDS"

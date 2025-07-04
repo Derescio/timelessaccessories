@@ -16,7 +16,7 @@ import { PAYMENT_METHODS } from '@/lib/constants'
 export const categorySchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name must be at most 50 characters'),
     description: z.string().optional(),
-    imageUrl: z.string().optional().default('/placeholder.svg'),
+    imageUrl: z.string().optional().default('/images/placeholder.svg'),
     parentId: z.string().optional().nullable(),
     isActive: z.boolean().default(true),
     defaultProductTypeId: z.string().optional().nullable(),

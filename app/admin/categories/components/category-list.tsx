@@ -175,7 +175,7 @@ export function CategoryList({ categories }: CategoryListProps) {
                                     <TableCell>
                                         <div className="relative h-10 w-10 rounded-md overflow-hidden">
                                             <Image
-                                                src={category.imageUrl || "/placeholder.svg"}
+                                                src={category.imageUrl || "/images/placeholder.svg"}
                                                 alt={category.name}
                                                 fill
                                                 className="object-cover"

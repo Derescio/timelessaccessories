@@ -115,65 +115,48 @@ export async function getAccessToken() {
 
 }
 
-// Create PayPal order
-// async function createOrder(amount: number, orderId: string) {
-//   try {
-//     const accessToken = await getAccessToken();
-    
-//     const response = await fetch(`${PAYPAL_API_URL}/v2/checkout/orders`, {
-//       method: 'POST',
-//       headers: {
-//         'Content-Type': 'application/json',
-//         'Authorization': `Bearer ${accessToken}`
-//       },
-//       body: JSON.stringify({
-//         intent: 'CAPTURE',
-//         purchase_units: [
-//           {
-//             reference_id: orderId,
-//             amount: {
-//               currency_code: 'USD',
-//               value: amount.toFixed(2)
-//             }
-//           }
-//         ]
-//       })
-//     });
-    
-//     const data = await response.json();
-    
-//     if (!response.ok) {
-//       throw new Error(data.message || 'Failed to create PayPal order');
-//     }
-    
-//     return data;
-//   } catch (error) {
-//     console.error('Error creating PayPal order:', error);
-//     throw error;
-//   }
-// }
-async function createOrder(amount:number){
+// Create PayPal order with custom_id field for webhook processing
+async function createOrder(amount: number, orderId?: string) {
   const accessToken = await getAccessToken();
   const url = `${base}/v2/checkout/orders`;
-  const response = await fetch(url, {
-      method: 'post',
-      headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
+  
+  console.log(`🔄 Creating PayPal order for amount: ${amount}, orderId: ${orderId}`);
+  
+  const orderData = {
+    intent: 'CAPTURE',
+    purchase_units: [
+      {
+        amount: {
+          currency_code: 'USD',
+          value: amount.toString(),
+        },
+        // Include custom_id so webhook can identify the order
+        custom_id: orderId || '',
+        description: orderId ? `Order ${orderId}` : 'Payment',
       },
-      body: JSON.stringify({
-          intent: 'CAPTURE',
-          purchase_units: [
-              {
-                  amount: {
-                      currency_code: 'USD',
-                      value: amount,
-                  },
-              },
-          ],
-      }),
+    ],
+    application_context: {
+      brand_name: 'Timeless Accessories',
+      shipping_preference: 'NO_SHIPPING',
+      user_action: 'PAY_NOW',
+    }
+  };
+
+  console.log(`🔄 PayPal order data:`, JSON.stringify(orderData, null, 2));
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(orderData),
   });
-  return handleResponse(response);
+  
+  const result = await handleResponse(response);
+  console.log(`✅ PayPal order created with ID: ${result.id}, custom_id: ${orderId}`);
+  
+  return result;
 }
 
 // Capture PayPal payment

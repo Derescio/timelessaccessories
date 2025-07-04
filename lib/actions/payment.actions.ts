@@ -183,6 +183,11 @@ export const updateOrderPaymentStatus = async ({
         updatedAt: new Date(),
       }
     });
+
+    // NOTE: Email sending is now handled explicitly in webhooks to avoid duplicates
+    // and ensure proper error handling
+    console.log(`✅ Payment status updated for order: ${orderId} - Email will be sent by webhook`);
+
     revalidatePath(`/order-success?orderId=${orderId}`);
     return { success: true };
   } catch (error) {

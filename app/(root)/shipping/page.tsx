@@ -46,10 +46,11 @@ import { Card } from "@/components/ui/card"
 import { getCart } from "@/lib/actions/cart.actions"
 import { getUserAddresses } from "@/lib/actions/user.actions"
 import { PAYMENT_METHODS } from "@/lib/constants"
-import { Check, Info, Loader2 } from "lucide-react"
+import { Check, Info, Loader2, CreditCard } from "lucide-react"
 import { COURIERS } from "@/lib/validators"
 import { toast } from "sonner"
 import { calculateShipping, getEstimatedShippingTime } from "@/lib/utils/shipping-calculator"
+import { CountrySelectorDB } from "@/components/shared/CountrySelectorDB"
 import { calculateTax } from "@/lib/utils/tax-calculator"
 import LascoPayButton from "@/components/checkout/LascoPayButton"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -182,6 +183,28 @@ export default function ShippingPage() {
     // State to track if order has been created (for LASCO market)
     const [orderCreated, setOrderCreated] = useState<{ orderId: string, total: number } | null>(null)
 
+    // State for country selector (GLOBAL market only)
+    interface Country {
+        id: number;
+        name: string;
+        iso2: string;
+        emoji: string;
+        hasStates: boolean;
+        region?: string;
+        capital?: string;
+    }
+
+    interface State {
+        id: number;
+        name: string;
+        stateCode: string;
+        hasCities: boolean;
+    }
+
+    const [selectedCountry, setSelectedCountry] = useState<Country | undefined>(undefined)
+    const [selectedState, setSelectedState] = useState<State | undefined>(undefined)
+    const [selectedCity, setSelectedCity] = useState<string>('')
+
     // Load cart data and user addresses on component mount
     useEffect(() => {
         console.log('🔄 [SHIPPING] useEffect triggered - Loading data...', {
@@ -278,54 +301,243 @@ export default function ShippingPage() {
         // Calculate shipping when parish or country changes
         const region = IS_LASCO_MARKET ? formData.parish || '' : formData.country || '';
         const shippingCost = calculateStandardShipping(region);
-        setFormData(prev => ({
-            ...prev,
-            shippingPrice: shippingCost
-        }));
+
+        // Handle both sync and async results
+        if (typeof shippingCost === 'number') {
+            setFormData(prev => ({
+                ...prev,
+                shippingPrice: shippingCost
+            }));
+        } else {
+            shippingCost.then(cost => {
+                setFormData(prev => ({
+                    ...prev,
+                    shippingPrice: cost
+                }));
+            });
+        }
     }, [formData.parish, formData.country, calculateStandardShipping]);
 
     useEffect(() => {
         // Recalculate shipping when courier toggle changes
         const region = IS_LASCO_MARKET ? formData.parish || '' : formData.country || '';
         const shippingCost = calculateStandardShipping(region);
-        setFormData(prev => ({
-            ...prev,
-            shippingPrice: shippingCost
-        }));
+
+        // Handle both sync and async results
+        if (typeof shippingCost === 'number') {
+            setFormData(prev => ({
+                ...prev,
+                shippingPrice: shippingCost
+            }));
+        } else {
+            shippingCost.then(cost => {
+                setFormData(prev => ({
+                    ...prev,
+                    shippingPrice: cost
+                }));
+            });
+        }
     }, [useCourier, formData.parish, formData.country, calculateStandardShipping]);
 
-    // Calculate order summary - Updated to include tax
+    // Handle shipping calculation when country is selected (GLOBAL market)
+    const handleShippingCalculation = useCallback(async (countryId: number, stateId?: number) => {
+        console.log('🚚 [SHIPPING CALC] Starting shipping calculation:', {
+            countryId,
+            stateId,
+            selectedCountryName: selectedCountry?.name,
+            selectedCountryIso2: selectedCountry?.iso2,
+            market: 'GLOBAL',
+            timestamp: new Date().toISOString()
+        });
+
+        try {
+            const orderTotal = cart?.items.reduce((total, item) => total + (item.price * item.quantity), 0) || 0;
+
+            console.log('🚚 [SHIPPING CALC] Order details:', {
+                cartItemCount: cart?.items?.length || 0,
+                orderTotalDollars: orderTotal,
+                cartItems: cart?.items?.map(item => ({
+                    name: item.name,
+                    price: item.price,
+                    quantity: item.quantity,
+                    total: item.price * item.quantity
+                })) || []
+            });
+
+            // Call the shipping API endpoint
+            const response = await fetch('/api/geographical/shipping', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    countryId,
+                    stateId,
+                    subtotal: orderTotal,
+                    market: 'GLOBAL'
+                })
+            });
+
+            const result = await response.json();
+
+            console.log('🚚 [SHIPPING CALC] API Response:', {
+                success: result.success,
+                data: result.data,
+                error: result.error
+            });
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to calculate shipping');
+            }
+
+            console.log('🚚 [SHIPPING CALC] Shipping calculation details:', {
+                countryName: result.data.countryName,
+                countryCode: result.data.countryCode,
+                shippingRateDollars: result.data.rate,
+                freeShippingThresholdDollars: result.data.freeShippingThreshold,
+                isFreeShipping: result.data.isFreeShipping,
+                currency: result.data.currency,
+                currencySymbol: result.data.currencySymbol
+            });
+
+            setFormData(prev => ({
+                ...prev,
+                country: selectedCountry?.name || '',
+                shippingPrice: result.data.rate
+            }));
+
+            // Clear any country-related errors
+            setFormErrors(prev => ({ ...prev, country: "" }));
+
+            console.log('🚚 [SHIPPING CALC] Updated form data:', {
+                country: selectedCountry?.name || '',
+                shippingPriceDollars: result.data.rate,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error('🚚 [SHIPPING CALC] Error calculating shipping:', error);
+            // Set a fallback shipping rate if calculation fails
+            setFormData(prev => ({
+                ...prev,
+                country: selectedCountry?.name || '',
+                shippingPrice: 25 // $25 fallback
+            }));
+
+            console.log('🚚 [SHIPPING CALC] Applied fallback shipping:', {
+                fallbackRateDollars: 25,
+                country: selectedCountry?.name || '',
+                timestamp: new Date().toISOString()
+            });
+        }
+    }, [cart, selectedCountry]);
+
+    // Handle country selection for GLOBAL market
+    const handleCountryChange = useCallback((country: Country | null) => {
+        setSelectedCountry(country || undefined);
+        if (country) {
+            setFormData(prev => ({
+                ...prev,
+                country: country.name
+            }));
+            setFormErrors(prev => ({ ...prev, country: "" }));
+        }
+    }, []);
+
+    // Handle state selection for GLOBAL market
+    const handleStateChange = useCallback((state: State | null) => {
+        setSelectedState(state || undefined);
+        if (state) {
+            setFormData(prev => ({
+                ...prev,
+                state: state.name
+            }));
+            setFormErrors(prev => ({ ...prev, state: "" }));
+        }
+    }, []);
+
+    // Handle city input for GLOBAL market
+    const handleCityChange = useCallback((city: string) => {
+        setSelectedCity(city);
+        setFormData(prev => ({
+            ...prev,
+            city: city
+        }));
+        setFormErrors(prev => ({ ...prev, city: "" }));
+    }, []);
+
+    // Calculate order summary - Updated to include tax and proper free shipping handling
     const calculateOrderSummary = () => {
         if (!cart || !promotionsLoaded) {
-            console.log('🎯 [SHIPPING] calculateOrderSummary - waiting for cart or promotions to load:', {
+            console.log('🎯 [ORDER SUMMARY] Waiting for cart or promotions to load:', {
                 hasCart: !!cart,
                 promotionsLoaded,
                 cartId: cart?.id
             });
-            return { subtotal: 0, discount: 0, tax: 0, shipping: 0, total: 0 };
+            return { subtotal: 0, discount: 0, tax: 0, shipping: 0, total: 0, qualifiesForFreeShipping: false };
         }
 
         const subtotal = cart.items.reduce((total, item) =>
             total + (item.price * item.quantity), 0);
         const discount = getTotalDiscount();
         const discountedSubtotal = Math.max(0, subtotal - discount);
-        const shipping = formData.shippingPrice;
-        // Calculate tax based on the discounted subtotal
-        const tax = calculateTax(formData.parish || formData.country || 'DEFAULT', discountedSubtotal);
+
+        console.log('🎯 [ORDER SUMMARY] Initial calculations:', {
+            subtotalDollars: subtotal,
+            discountDollars: discount,
+            discountedSubtotalDollars: discountedSubtotal,
+            appliedPromotionsCount: appliedPromotions.length,
+            cartItemCount: cart.items.length
+        });
+
+        // Check if order qualifies for free shipping based on discounted subtotal
+        // For LASCO market: $200 threshold, for GLOBAL market: $400 threshold
+        const freeShippingThreshold = IS_LASCO_MARKET ? 200 : 400; // in dollars
+        const qualifiesForFreeShipping = discountedSubtotal >= freeShippingThreshold;
+
+        console.log('🎯 [ORDER SUMMARY] Free shipping check:', {
+            market: IS_LASCO_MARKET ? 'LASCO' : 'GLOBAL',
+            freeShippingThresholdDollars: freeShippingThreshold,
+            discountedSubtotalDollars: discountedSubtotal,
+            qualifiesForFreeShipping,
+            shortfallDollars: qualifiesForFreeShipping ? 0 : (freeShippingThreshold - discountedSubtotal)
+        });
+
+        // Set shipping to $0 if qualifies for free shipping, otherwise use the calculated rate
+        const shipping = qualifiesForFreeShipping ? 0 : formData.shippingPrice;
+
+        console.log('🎯 [ORDER SUMMARY] Shipping calculation:', {
+            rawShippingPriceDollars: formData.shippingPrice,
+            finalShippingDollars: shipping,
+            wasShippingWaived: qualifiesForFreeShipping
+        });
+
+        // Calculate tax based on the discounted subtotal + shipping (13% tax rate)
+        const taxableAmount = discountedSubtotal + shipping;
+        const tax = calculateTax(formData.parish || formData.country || 'DEFAULT', taxableAmount);
+
+        console.log('🎯 [ORDER SUMMARY] Tax calculation:', {
+            taxRegion: formData.parish || formData.country || 'DEFAULT',
+            taxableAmountDollars: taxableAmount,
+            taxRate: '13%',
+            taxAmountDollars: tax
+        });
+
         // Include tax in the total calculation
         const total = discountedSubtotal + shipping + tax;
 
-        console.log('🎯 [SHIPPING] calculateOrderSummary - calculated:', {
-            subtotal,
-            discount,
-            discountedSubtotal,
-            shipping,
-            tax,
-            total,
-            appliedPromotionsCount: appliedPromotions.length
+        console.log('🎯 [ORDER SUMMARY] Final calculation:', {
+            subtotalDollars: subtotal,
+            discountDollars: discount,
+            discountedSubtotalDollars: discountedSubtotal,
+            shippingDollars: shipping,
+            taxDollars: tax,
+            totalDollars: total,
+            qualifiesForFreeShipping,
+            appliedPromotionsCount: appliedPromotions.length,
+            timestamp: new Date().toISOString()
         });
 
-        return { subtotal, discount, discountedSubtotal, tax, shipping, total };
+        return { subtotal, discount, discountedSubtotal, tax, shipping, total, qualifiesForFreeShipping };
     };
 
     // Check if this order qualifies for free shipping
@@ -388,6 +600,7 @@ export default function ShippingPage() {
             const formIsValid = validateForm();
             if (!formIsValid) {
                 // console.log("📦 Shipping form - Form validation failed:", formErrors);
+                toast.error("Please fill in all required fields in the shipping address form");
                 setIsCreatingOrder(false);
                 return;
             }
@@ -644,22 +857,42 @@ export default function ShippingPage() {
         const errors: Record<string, string> = {};
 
         // Check required fields
-        if (!formData.fullName) errors.fullName = "Full name is required";
-        if (!formData.streetAddress) errors.streetAddress = "Street address is required";
-        if (!formData.city) errors.city = "City is required";
+        if (!formData.fullName?.trim()) errors.fullName = "Full name is required";
+        if (!formData.streetAddress?.trim()) errors.streetAddress = "Street address is required";
 
         // Email is required for guest users, optional for authenticated users
-        if (!isAuthenticated && !formData.email) {
+        if (!isAuthenticated && !formData.email?.trim()) {
             errors.email = "Email is required for guest checkout";
         } else if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
             errors.email = "Please enter a valid email address";
         }
 
-        // Check for either country or parish depending on market type
-        if (IS_LASCO_MARKET && !formData.parish) {
-            errors.parish = "Parish is required";
-        } else if (!IS_LASCO_MARKET && !formData.country) {
-            errors.country = "Country is required";
+        // Market-specific validations
+        if (IS_LASCO_MARKET) {
+            // LASCO market: Parish is required
+            if (!formData.parish?.trim()) {
+                errors.parish = "Parish is required";
+            }
+            // Courier selection is required for LASCO market
+            if (!selectedCourier) {
+                errors.courier = "Please select a courier service";
+            }
+        } else {
+            // GLOBAL market: Country, state, and city are required
+            if (!formData.country?.trim()) {
+                errors.country = "Country is required";
+            }
+            if (!formData.state?.trim()) {
+                errors.state = "State/Province is required";
+            }
+            if (!formData.city?.trim()) {
+                errors.city = "City is required";
+            }
+        }
+
+        // Phone validation (optional but if provided, should be valid)
+        if (formData.phone && formData.phone.trim() && !/^\+?[\d\s\-\(\)]+$/.test(formData.phone)) {
+            errors.phone = "Please enter a valid phone number";
         }
 
         // Update form errors
@@ -737,8 +970,9 @@ export default function ShippingPage() {
                             )}
                         </div>
                         <div className="space-y-4">
+                            {/* Full Name */}
                             <div>
-                                <Label htmlFor="fullName">Full Name</Label>
+                                <Label htmlFor="fullName">Full Name *</Label>
                                 <Input
                                     id="fullName"
                                     name="fullName"
@@ -746,27 +980,32 @@ export default function ShippingPage() {
                                     onChange={handleInputChange}
                                     className={formErrors.fullName ? "border-red-500" : ""}
                                     disabled={!!orderCreated}
+                                    required
                                 />
                                 {formErrors.fullName && (
                                     <p className="text-red-500 text-sm mt-1">{formErrors.fullName}</p>
                                 )}
                             </div>
 
+                            {/* Email */}
                             <div>
-                                <Label htmlFor="email">Email</Label>
+                                <Label htmlFor="email">Email {!isAuthenticated && "*"}</Label>
                                 <Input
                                     id="email"
                                     name="email"
+                                    type="email"
                                     value={formData.email || ""}
                                     onChange={handleInputChange}
                                     className={formErrors.email ? "border-red-500" : ""}
                                     disabled={!!orderCreated}
+                                    required={!isAuthenticated}
                                 />
                                 {formErrors.email && (
                                     <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>
                                 )}
                             </div>
 
+                            {/* Phone */}
                             <div>
                                 <Label htmlFor="phone">Phone</Label>
                                 <Input
@@ -782,8 +1021,66 @@ export default function ShippingPage() {
                                 )}
                             </div>
 
+                            {/* Country/Parish Section */}
+                            {IS_LASCO_MARKET ? (
+                                /* LASCO Market: Parish Input */
+                                <div>
+                                    <Label htmlFor="parish">Parish *</Label>
+                                    <Input
+                                        id="parish"
+                                        name="parish"
+                                        value={formData.parish || ""}
+                                        onChange={handleInputChange}
+                                        className={formErrors.parish ? "border-red-500" : ""}
+                                        placeholder="Kingston, St. Catherine, etc."
+                                        disabled={!!orderCreated}
+                                        required
+                                    />
+                                    {formErrors.parish && (
+                                        <p className="text-red-500 text-sm mt-1">{formErrors.parish}</p>
+                                    )}
+                                    {formData.parish && !useCourier && (
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                            Standard shipping: ${((formData.shippingPrice || 0) / 100).toFixed(2)}
+                                            <br />
+                                            Estimated delivery: {getEstimatedShippingTime(formData.parish)}
+                                        </p>
+                                    )}
+                                </div>
+                            ) : (
+                                /* GLOBAL Market: Country Selector with States and Cities */
+                                <div className="space-y-4">
+                                    <CountrySelectorDB
+                                        selectedCountry={selectedCountry}
+                                        selectedState={selectedState}
+                                        selectedCity={selectedCity}
+                                        onCountryChange={handleCountryChange}
+                                        onStateChange={handleStateChange}
+                                        onCityChange={handleCityChange}
+                                        onShippingCalculation={handleShippingCalculation}
+                                        disabled={!!orderCreated}
+                                    />
+                                    {formErrors.country && (
+                                        <p className="text-red-500 text-sm mt-1">{formErrors.country}</p>
+                                    )}
+                                    {formErrors.state && (
+                                        <p className="text-red-500 text-sm mt-1">{formErrors.state}</p>
+                                    )}
+                                    {formErrors.city && (
+                                        <p className="text-red-500 text-sm mt-1">{formErrors.city}</p>
+                                    )}
+                                    {/* {formData.country && (
+                                        <p className="text-sm text-muted-foreground">
+                                            Standard shipping: ${formData.shippingPrice.toFixed(2)}
+                                            {calculateOrderSummary().qualifiesForFreeShipping && " (Free shipping applied)"}
+                                        </p>
+                                    )} */}
+                                </div>
+                            )}
+
+                            {/* Street Address */}
                             <div>
-                                <Label htmlFor="streetAddress">Street Address</Label>
+                                <Label htmlFor="streetAddress">Street Address *</Label>
                                 <Input
                                     id="streetAddress"
                                     name="streetAddress"
@@ -791,94 +1088,16 @@ export default function ShippingPage() {
                                     onChange={handleInputChange}
                                     className={formErrors.streetAddress ? "border-red-500" : ""}
                                     disabled={!!orderCreated}
+                                    required
                                 />
                                 {formErrors.streetAddress && (
                                     <p className="text-red-500 text-sm mt-1">{formErrors.streetAddress}</p>
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <Label htmlFor="city">City</Label>
-                                    <Input
-                                        id="city"
-                                        name="city"
-                                        value={formData.city || ""}
-                                        onChange={handleInputChange}
-                                        className={formErrors.city ? "border-red-500" : ""}
-                                        disabled={!!orderCreated}
-                                    />
-                                    {formErrors.city && (
-                                        <p className="text-red-500 text-sm mt-1">{formErrors.city}</p>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="state">State/Province</Label>
-                                    <Input
-                                        id="state"
-                                        name="state"
-                                        value={formData.state || ""}
-                                        onChange={handleInputChange}
-                                        className={formErrors.state ? "border-red-500" : ""}
-                                        disabled={!!orderCreated}
-                                        placeholder="State or province"
-                                    />
-                                    {formErrors.state && (
-                                        <p className="text-red-500 text-sm mt-1">{formErrors.state}</p>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <Label htmlFor={IS_LASCO_MARKET ? "parish" : "country"}>
-                                            {IS_LASCO_MARKET ? "Parish" : "Country"}
-                                        </Label>
-                                        {!IS_LASCO_MARKET && (
-                                            <TooltipProvider>
-                                                <Tooltip>
-                                                    <TooltipTrigger>
-                                                        <Info className="h-4 w-4 text-muted-foreground" />
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                        <p className="max-w-xs">
-                                                            Please enter your country (e.g. USA, Canada, UK).
-                                                        </p>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            </TooltipProvider>
-                                        )}
-                                    </div>
-                                    <Input
-                                        id={IS_LASCO_MARKET ? "parish" : "country"}
-                                        name={IS_LASCO_MARKET ? "parish" : "country"}
-                                        value={IS_LASCO_MARKET ? (formData.parish || "") : (formData.country || "")}
-                                        onChange={handleInputChange}
-                                        className={formErrors[IS_LASCO_MARKET ? "parish" : "country"] ? "border-red-500" : ""}
-                                        placeholder={IS_LASCO_MARKET ? "Kingston, St. Catherine, etc." : "USA, Canada, UK, etc."}
-                                        disabled={!!orderCreated}
-                                    />
-                                    {formErrors[IS_LASCO_MARKET ? "parish" : "country"] && (
-                                        <p className="text-red-500 text-sm mt-1">
-                                            {formErrors[IS_LASCO_MARKET ? "parish" : "country"]}
-                                        </p>
-                                    )}
-                                    {((IS_LASCO_MARKET && formData.parish) || (!IS_LASCO_MARKET && formData.country)) && !useCourier && (
-                                        <p className="text-sm text-muted-foreground mt-1">
-                                            Standard shipping: ${((formData.shippingPrice || 0) / 100).toFixed(2)}
-                                            {qualifiesForFreeShipping && " (Free shipping applied)"}
-                                            <br />
-                                            Estimated delivery: {getEstimatedShippingTime(IS_LASCO_MARKET ? formData.parish! : formData.country!)}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-
                             {/* Postal Code - Only show for GLOBAL market */}
                             {!IS_LASCO_MARKET && (
-                                <div className="col-span-2">
+                                <div>
                                     <Label htmlFor="postalCode" className={formErrors.postalCode ? "text-red-500" : ""}>
                                         Postal Code
                                     </Label>
@@ -991,20 +1210,11 @@ export default function ShippingPage() {
                             </div>
                         </div>
                     ) : (
-                        /* GLOBAL Market: Standard Shipping with Regular Payment Methods */
+                        /* GLOBAL Market: Payment Method First, Then Shipping */
                         <>
+                            {/* Payment Method for Global Market - Moved Above Shipping */}
                             <div className="border p-6 rounded-md">
-                                <h2 className="text-xl font-medium">Shipping Method</h2>
-                                <div className="bg-muted/30 p-4 rounded-md mt-4">
-                                    <p className="text-sm text-muted-foreground">
-                                        Using standard shipping based on your country.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Payment Method for Global Market */}
-                            <div className="border p-6 rounded-md">
-                                <h2 className="text-xl font-medium mb-4">Payment Method</h2>
+                                <h2 className="text-xl font-medium mb-6">Payment Method</h2>
                                 {orderCreated ? (
                                     <div className="space-y-4">
                                         <div className="bg-muted/50 p-4 rounded-md">
@@ -1022,42 +1232,65 @@ export default function ShippingPage() {
                                     </div>
                                 ) : (
                                     <>
-                                        <RadioGroup
-                                            value={paymentMethod}
-                                            onValueChange={handlePaymentMethodChange}
-                                            className="space-y-3"
-                                        >
+                                        <div className="grid grid-cols-1 gap-3">
                                             {PAYMENT_METHODS.map((method) => (
-                                                <div key={method} className="flex items-center space-x-2 border p-3 rounded-md">
-                                                    <RadioGroupItem value={method} id={`payment-${method}`} />
-                                                    <Label htmlFor={`payment-${method}`} className="flex-1 cursor-pointer">
-                                                        <div className="flex flex-col">
-                                                            <span>{method}</span>
-                                                            {method === "PayPal" && (
-                                                                <span className="text-xs text-muted-foreground mt-1">
-                                                                    Pay securely using your PayPal account or credit card
-                                                                </span>
-                                                            )}
+                                                <div
+                                                    key={method}
+                                                    className={`relative border-2 rounded-lg p-4 cursor-pointer transition-all duration-200 hover:border-primary/50 ${paymentMethod === method
+                                                        ? 'border-primary bg-primary/5'
+                                                        : 'border-gray-200 hover:bg-gray-50'
+                                                        }`}
+                                                    onClick={() => handlePaymentMethodChange(method)}
+                                                >
+                                                    <div className="flex items-center space-x-4">
+                                                        {/* Payment Method Icon */}
+                                                        <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-white border shadow-sm">
                                                             {method === "Stripe" && (
-                                                                <span className="text-xs text-muted-foreground mt-1">
-                                                                    Pay directly with your credit or debit card
-                                                                </span>
+                                                                <CreditCard className="w-6 h-6 text-blue-600" />
                                                             )}
-                                                            {method === "COD" && (
-                                                                <span className="text-xs text-muted-foreground mt-1">
-                                                                    Pay when you receive your order
-                                                                </span>
+                                                            {method === "PayPal" && (
+                                                                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                                                                    <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 2.28A.641.641 0 0 1 5.568 1.8h6.896c1.789 0 3.199.37 4.19 1.102.99.732 1.486 1.892 1.486 3.48 0 .388-.04.775-.118 1.162 1.274.67 1.911 1.892 1.911 3.666 0 1.774-.706 3.147-2.118 4.119-1.412.972-3.452 1.458-6.12 1.458h-1.294a.641.641 0 0 0-.633.553l-.118.553-.394 2.484a.641.641 0 0 1-.633.553z" fill="#253B80" />
+                                                                    <path d="M16.947 6.99c-.158 1.025-.553 1.892-1.184 2.6-.632.709-1.501 1.273-2.607 1.693a8.502 8.502 0 0 1-3.295.632H7.076l-.79 4.977h3.688c.395 0 .711-.316.79-.711l.079-.395.474-2.958.079-.474c.079-.395.395-.711.79-.711h.474c2.212 0 3.925-.869 4.42-3.401.197-1.025.079-1.892-.474-2.484-.197-.237-.474-.395-.79-.553z" fill="#179BD7" />
+                                                                    <path d="M15.842 6.516c-.158-.079-.316-.158-.553-.237a5.085 5.085 0 0 0-.948-.158c-.632-.079-1.342-.079-2.133-.079H9.05c-.237 0-.474.158-.553.395L7.628 10.99l-.158.948c.079-.395.395-.711.79-.711h2.685c2.607 0 4.656-.948 5.25-3.717.237-1.104.079-2.054-.553-2.764z" fill="#222D65" />
+                                                                </svg>
                                                             )}
                                                         </div>
-                                                    </Label>
+
+                                                        {/* Payment Method Details */}
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center space-x-2">
+                                                                <h3 className="font-semibold text-gray-900">{method}</h3>
+                                                                {paymentMethod === method && (
+                                                                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                                                                        <Check className="w-3 h-3 text-white" />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-sm text-gray-600 mt-1">
+                                                                {method === "PayPal" && "Pay securely with your PayPal account or credit card"}
+                                                                {method === "Stripe" && "Pay directly with your credit or debit card"}
+                                                            </p>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             ))}
-                                        </RadioGroup>
+                                        </div>
                                         {formErrors.paymentMethod && (
                                             <p className="text-red-500 text-sm mt-2">{formErrors.paymentMethod}</p>
                                         )}
                                     </>
                                 )}
+                            </div>
+
+                            {/* Shipping Method - Moved Below Payment */}
+                            <div className="border p-6 rounded-md">
+                                <h2 className="text-xl font-medium">Shipping Method</h2>
+                                <div className="bg-muted/30 p-4 rounded-md mt-4">
+                                    <p className="text-sm text-muted-foreground">
+                                        Using standard shipping based on your country.
+                                    </p>
+                                </div>
                             </div>
                         </>
                     )}
@@ -1101,9 +1334,19 @@ export default function ShippingPage() {
                                         ))}
 
                                         {calculateOrderSummary().discount > 0 && (
-                                            <div className="flex justify-between text-green-600 font-medium">
-                                                <span>Total Savings</span>
-                                                <span>-${calculateOrderSummary().discount.toFixed(2)}</span>
+                                            <div className="flex justify-between flex-col text-green-600 font-medium">
+                                                {/* <div>
+                                                    <span className="text-black">Subtotal : </span>
+                                                    <span>${calculateOrderSummary().subtotal.toFixed(2)}</span>
+                                                </div> */}
+                                                <div>
+                                                    <span className="text-black">Total Savings : </span>
+                                                    <span>-${calculateOrderSummary().discount.toFixed(2)}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-black">Pre Tax Total After Discount : </span>
+                                                    <span>${(calculateOrderSummary().discountedSubtotal || 0).toFixed(2)}</span>
+                                                </div>
                                             </div>
                                         )}
 
@@ -1117,7 +1360,13 @@ export default function ShippingPage() {
 
                                         <div className="flex justify-between">
                                             <span>Shipping</span>
-                                            <span>${calculateOrderSummary().shipping.toFixed(2)}</span>
+                                            <span>
+                                                {calculateOrderSummary().qualifiesForFreeShipping ? (
+                                                    <span className="text-green-600 font-medium">FREE</span>
+                                                ) : (
+                                                    `$${calculateOrderSummary().shipping.toFixed(2)}`
+                                                )}
+                                            </span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span>Tax</span>

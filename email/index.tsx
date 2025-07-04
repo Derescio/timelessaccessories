@@ -73,7 +73,7 @@ export async function sendOrderConfirmationEmail(orderId: string): Promise<void>
                     qty: item.quantity,
                     price: Number(item.price),
                     totalPrice: Number(item.price) * item.quantity,
-                    image: item.image || "/placeholder.svg",
+                    image: item.image || "/images/placeholder.svg",
                 };
             }),
             shippingAddress,
@@ -176,7 +176,7 @@ export async function sendShippingConfirmationEmail(orderId: string, trackingNum
                     qty: item.quantity,
                     price: Number(item.price),
                     totalPrice: Number(item.price) * item.quantity,
-                    image: item.image || "/placeholder.svg",
+                    image: item.image || "/images/placeholder.svg",
                 };
             }),
             shippingAddress,

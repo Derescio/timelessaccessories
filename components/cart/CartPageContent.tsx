@@ -14,6 +14,7 @@ import { Card } from '@/components/ui/card';
 import { useDebounce } from '@/hooks/use-debounce';
 import { CouponInput } from '@/components/checkout/CouponInput';
 import { useCartPromotions, type AppliedPromotion } from '@/hooks/use-cart-promotions';
+import { calculateTax } from '@/lib/utils/tax-calculator';
 
 interface CartItem {
     id: string;
@@ -234,8 +235,8 @@ export default function CartPageContent() {
             total + (item.price * item.quantity), 0) || 0;
         const totalDiscount = getTotalDiscount();
         const discountedSubtotal = Math.max(0, subtotal - totalDiscount);
-        const estimatedTax = discountedSubtotal * 0.07; // 7% tax rate
-        const shipping = subtotal > 50 ? 0 : 5.99; // Free shipping over $50
+        const estimatedTax = calculateTax('DEFAULT', discountedSubtotal); // 13% tax rate
+        const shipping = 0; // Shipping will be calculated on shipping page based on country
         const total = discountedSubtotal + estimatedTax + shipping;
 
         return { subtotal, totalDiscount, discountedSubtotal, estimatedTax, shipping, total };
@@ -356,7 +357,7 @@ export default function CartPageContent() {
 
                                         <div className="flex justify-between">
                                             <span>Shipping</span>
-                                            <span>{shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}</span>
+                                            <span>{shipping === 0 ? '$0.00' : `$${shipping.toFixed(2)}`}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span>Estimated Tax</span>

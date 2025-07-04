@@ -49,7 +49,7 @@ export default function BlogSection() {
                         >
                             <div className="aspect-[4/3] overflow-hidden">
                                 <Image
-                                    src={post.image || "/placeholder.svg"}
+                                    src={post.image || "/images/placeholder.svg"}
                                     alt={post.title}
                                     width={400}
                                     height={250}
