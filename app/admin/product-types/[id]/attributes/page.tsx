@@ -55,7 +55,8 @@ export default async function AttributesPage({ params }: AttributesPageProps) {
 
     const productType = result.data;
     const productAttributes = productType.attributes.filter(attr => attr.isForProduct);
-    const inventoryAttributes = productType.attributes.filter(attr => !attr.isForProduct);
+    const inventoryAttributes = productType.attributes.filter(attr => attr.isForInventory);
+    const sharedAttributes = productType.attributes.filter(attr => attr.isForProduct && attr.isForInventory);
 
     const AttributeActions = ({ attributeId }: { attributeId: string }) => (
         <div className="flex items-center gap-2">
@@ -112,17 +113,92 @@ export default async function AttributesPage({ params }: AttributesPageProps) {
                 </div>
             </div>
 
-            <Tabs defaultValue="product">
-                <TabsList className="grid w-full md:w-80 grid-cols-2">
-                    <TabsTrigger value="product">Product Attributes</TabsTrigger>
-                    <TabsTrigger value="inventory">Inventory Attributes</TabsTrigger>
+            <Tabs defaultValue="all">
+                <TabsList className="grid w-full md:w-96 grid-cols-3">
+                    <TabsTrigger value="all">All Attributes</TabsTrigger>
+                    <TabsTrigger value="product">Product Only</TabsTrigger>
+                    <TabsTrigger value="inventory">Inventory Only</TabsTrigger>
                 </TabsList>
+
+                <TabsContent value="all" className="space-y-4 mt-4">
+                    <div className="flex justify-between">
+                        <h3 className="text-lg font-medium">All Attributes</h3>
+                        <Button asChild size="sm">
+                            <Link href={`/admin/product-types/${productTypeId}/attributes/new`}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Add Attribute
+                            </Link>
+                        </Button>
+                    </div>
+
+                    <Card>
+                        <CardContent className="pt-6">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Name</TableHead>
+                                        <TableHead>Type</TableHead>
+                                        <TableHead>Usage</TableHead>
+                                        <TableHead>Required</TableHead>
+                                        <TableHead>Options</TableHead>
+                                        <TableHead>Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {productType.attributes.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="text-center">
+                                                No attributes defined yet.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        productType.attributes.map((attr) => (
+                                            <TableRow key={attr.id}>
+                                                <TableCell className="font-medium">{attr.displayName}</TableCell>
+                                                <TableCell>{attr.type}</TableCell>
+                                                <TableCell>
+                                                    <div className="flex gap-1">
+                                                        {attr.isForProduct && (
+                                                            <Badge variant="secondary">Product</Badge>
+                                                        )}
+                                                        {attr.isForInventory && (
+                                                            <Badge variant="outline">Inventory</Badge>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {attr.isRequired ? (
+                                                        <Badge variant="default">Required</Badge>
+                                                    ) : (
+                                                        <Badge variant="outline">Optional</Badge>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {attr.options ? (
+                                                        <span className="text-sm text-muted-foreground">
+                                                            {JSON.parse(attr.options as string).length} options
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-sm text-muted-foreground">None</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <AttributeActions attributeId={attr.id} />
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
 
                 <TabsContent value="product" className="space-y-4 mt-4">
                     <div className="flex justify-between">
-                        <h3 className="text-lg font-medium">Product Attributes</h3>
+                        <h3 className="text-lg font-medium">Product-Only Attributes</h3>
                         <Button asChild size="sm">
-                            <Link href={`/admin/product-types/${productTypeId}/attributes/new?for=product`}>
+                            <Link href={`/admin/product-types/${productTypeId}/attributes/new`}>
                                 <PlusCircle className="mr-2 h-4 w-4" />
                                 Add Attribute
                             </Link>
@@ -142,14 +218,14 @@ export default async function AttributesPage({ params }: AttributesPageProps) {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {productAttributes.length === 0 ? (
+                                    {productAttributes.filter(attr => !attr.isForInventory).length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={5} className="text-center">
-                                                No product attributes defined yet.
+                                                No product-only attributes defined yet.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        productAttributes.map((attr) => (
+                                        productAttributes.filter(attr => !attr.isForInventory).map((attr) => (
                                             <TableRow key={attr.id}>
                                                 <TableCell className="font-medium">{attr.displayName}</TableCell>
                                                 <TableCell>{attr.type}</TableCell>
@@ -183,9 +259,9 @@ export default async function AttributesPage({ params }: AttributesPageProps) {
 
                 <TabsContent value="inventory" className="space-y-4 mt-4">
                     <div className="flex justify-between">
-                        <h3 className="text-lg font-medium">Inventory Attributes</h3>
+                        <h3 className="text-lg font-medium">Inventory-Only Attributes</h3>
                         <Button asChild size="sm">
-                            <Link href={`/admin/product-types/${productTypeId}/attributes/new?for=inventory`}>
+                            <Link href={`/admin/product-types/${productTypeId}/attributes/new`}>
                                 <PlusCircle className="mr-2 h-4 w-4" />
                                 Add Attribute
                             </Link>
@@ -205,14 +281,14 @@ export default async function AttributesPage({ params }: AttributesPageProps) {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {inventoryAttributes.length === 0 ? (
+                                    {inventoryAttributes.filter(attr => !attr.isForProduct).length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={5} className="text-center">
-                                                No inventory attributes defined yet.
+                                                No inventory-only attributes defined yet.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        inventoryAttributes.map((attr) => (
+                                        inventoryAttributes.filter(attr => !attr.isForProduct).map((attr) => (
                                             <TableRow key={attr.id}>
                                                 <TableCell className="font-medium">{attr.displayName}</TableCell>
                                                 <TableCell>{attr.type}</TableCell>

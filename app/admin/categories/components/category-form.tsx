@@ -36,7 +36,7 @@ export function CategoryForm({ initialData, categories = [], onSubmit }: Categor
             name: initialData?.name || "",
             description: initialData?.description || undefined,
             parentId: initialData?.parentId || null,
-            imageUrl: initialData?.imageUrl || "/placeholder.svg",
+            imageUrl: initialData?.imageUrl || "/images/placeholder.svg",
             slug: initialData?.slug || "",
             isActive: initialData?.isActive !== undefined ? initialData.isActive : true,
             defaultProductTypeId: initialData?.defaultProductTypeId || null,
@@ -143,7 +143,7 @@ export function CategoryForm({ initialData, categories = [], onSubmit }: Categor
                                 <div className="flex items-center gap-4">
                                     <div className="relative w-32 h-32">
                                         <Image
-                                            src={field.value || "/placeholder.svg"}
+                                            src={field.value || "/images/placeholder.svg"}
                                             alt="Category image"
                                             fill
                                             className="object-cover rounded-md"

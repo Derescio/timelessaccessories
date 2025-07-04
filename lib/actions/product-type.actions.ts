@@ -97,6 +97,23 @@ export async function getProductTypeAttributes(productTypeId: string, isForProdu
   }
 }
 
+export async function getProductTypeAttributeById(attributeId: string) {
+  try {
+    const attribute = await prisma.productTypeAttribute.findUnique({
+      where: { id: attributeId }
+    });
+    
+    if (!attribute) {
+      return { success: false, error: "Attribute not found" };
+    }
+    
+    return { success: true, data: attribute };
+  } catch (error) {
+    console.error("Error fetching product type attribute:", error);
+    return { success: false, error: "Failed to fetch product type attribute" };
+  }
+}
+
 export async function getProductAttributeValues(productId: string) {
   try {
     const attributeValues = await prisma.productAttributeValue.findMany({
@@ -237,8 +254,9 @@ export async function createProductTypeAttribute(data: {
   description?: string | null;
   type: AttributeType;
   isRequired: boolean;
-  options?: string[];
+  options?: string | null;
   isForProduct: boolean;
+  isForInventory: boolean;
 }) {
   try {
     const session = await auth();
@@ -256,8 +274,9 @@ export async function createProductTypeAttribute(data: {
         description: data.description,
         type: data.type,
         isRequired: data.isRequired,
-        options: data.options ? JSON.stringify(data.options) : Prisma.JsonNull,
+        options: data.options || Prisma.JsonNull,
         isForProduct: data.isForProduct,
+        isForInventory: data.isForInventory,
         productTypeId: data.productTypeId
       }
     });
@@ -277,10 +296,11 @@ export async function updateProductTypeAttribute(data: {
   name: string;
   displayName: string;
   description?: string;
-  type: string;
+  type: AttributeType;
   isRequired: boolean;
-  options?: string[];
+  options?: string | null;
   isForProduct: boolean;
+  isForInventory: boolean;
 }) {
   try {
     const session = await auth();
@@ -295,10 +315,11 @@ export async function updateProductTypeAttribute(data: {
         name: data.name,
         displayName: data.displayName,
         description: data.description,
-        type: data.type as AttributeType,
+        type: data.type,
         isRequired: data.isRequired,
-        options: data.options ? JSON.stringify(data.options) : Prisma.JsonNull,
-        isForProduct: data.isForProduct
+        options: data.options || Prisma.JsonNull,
+        isForProduct: data.isForProduct,
+        isForInventory: data.isForInventory
       }
     });
     
@@ -331,3 +352,56 @@ export async function deleteProductTypeAttribute(id: string, productTypeId: stri
     return { success: false, error: "Failed to delete attribute" };
   }
 }
+
+// Add these functions to your existing product-type.actions.ts file
+
+// export async function getProductTypeAttributeById(attributeId: string) {
+//   try {
+//       const attribute = await prisma.productTypeAttribute.findUnique({
+//           where: { id: attributeId },
+//           include: {
+//               productType: true
+//           }
+//       });
+
+//       if (!attribute) {
+//           return { success: false, error: "Attribute not found" };
+//       }
+
+//       return { success: true, data: attribute };
+//   } catch (error) {
+//       console.error("Error fetching attribute:", error);
+//       return { success: false, error: "Failed to fetch attribute" };
+//   }
+// }
+
+// export async function updateProductTypeAttribute(
+//   attributeId: string, 
+//   data: {
+//       displayName: string;
+//       description?: string;
+//       type: AttributeType;
+//       isRequired: boolean;
+//       isForProduct: boolean;
+//       options?: string;
+//   }
+// ) {
+//   try {
+//       const updatedAttribute = await prisma.productTypeAttribute.update({
+//           where: { id: attributeId },
+//           data: {
+//               displayName: data.displayName,
+//               description: data.description,
+//               type: data.type,
+//               isRequired: data.isRequired,
+//               isForProduct: data.isForProduct,
+//               options: data.options,
+//           }
+//       });
+
+//       return { success: true, data: updatedAttribute };
+//   } catch (error) {
+//       console.error("Error updating attribute:", error);
+//       return { success: false, error: "Failed to update attribute" };
+//   }
+// }

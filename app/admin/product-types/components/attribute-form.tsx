@@ -1,362 +1,464 @@
 "use client";
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { InfoIcon } from "lucide-react";
-import { ProductTypeAttribute } from "@prisma/client";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { X, Plus, DollarSign, Upload, Image as ImageIcon } from "lucide-react";
+import { createProductTypeAttribute, updateProductTypeAttribute } from "@/lib/actions/product-type.actions";
+import { AttributeType } from "@prisma/client";
 import { toast } from "sonner";
-
-const attributeTypes = [
-    { label: "Text", value: "TEXT" },
-    { label: "Number", value: "NUMBER" },
-    { label: "Boolean", value: "BOOLEAN" },
-    { label: "Select", value: "SELECT" },
-    { label: "Multi-select", value: "MULTI_SELECT" },
-    { label: "Date", value: "DATE" },
-    { label: "Color", value: "COLOR" },
-    { label: "Dimension", value: "DIMENSION" },
-    { label: "Weight", value: "WEIGHT" },
-];
+import { ImageUploader } from "@/components/ui/uploadthing";
+import Image from "next/image";
 
 const attributeSchema = z.object({
     name: z.string().min(1, "Name is required"),
     displayName: z.string().min(1, "Display name is required"),
-    description: z.string().optional().nullable(),
-    type: z.string().min(1, "Type is required"),
+    description: z.string().optional(),
+    type: z.nativeEnum(AttributeType),
     isRequired: z.boolean().default(false),
-    options: z.string().optional().nullable(),
-    isForProduct: z.boolean(),
+    isForProduct: z.boolean().default(false),
+    isForInventory: z.boolean().default(false),
+    options: z.array(z.object({
+        value: z.string().min(1, "Option value is required"),
+        label: z.string().min(1, "Option label is required"),
+        extraCost: z.number().min(0, "Extra cost must be 0 or positive").default(0),
+        imageUrl: z.string().optional()
+    })).optional()
+}).refine(data => data.isForProduct || data.isForInventory, {
+    message: "Attribute must be used for Product, Inventory, or both",
+    path: ["isForProduct"]
 });
 
-// Export the type for use in other components
 export type AttributeFormValues = z.infer<typeof attributeSchema>;
 
 interface AttributeFormProps {
-    initialData?: Partial<ProductTypeAttribute>;
-    productTypeId?: string;
-    onSubmit: (data: AttributeFormValues) => Promise<{ success: boolean; data?: any; error?: string }>;
+    productTypeId: string;
+    attribute?: {
+        id: string;
+        name: string;
+        displayName: string;
+        description: string | null;
+        type: AttributeType;
+        isRequired: boolean;
+        isForProduct: boolean;
+        isForInventory?: boolean;
+        options: any;
+    };
 }
 
-export function AttributeForm({ initialData, productTypeId, onSubmit }: AttributeFormProps) {
-    const [isLoading, setIsLoading] = useState(false);
+export function AttributeForm({ productTypeId, attribute }: AttributeFormProps) {
     const router = useRouter();
-
-    // Determine if this is for product or inventory based on the URL
-    const isFromProductTab = initialData?.isForProduct !== false;
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showOptions, setShowOptions] = useState(false);
 
     const form = useForm<AttributeFormValues>({
         resolver: zodResolver(attributeSchema),
         defaultValues: {
-            name: initialData?.name || "",
-            displayName: initialData?.displayName || "",
-            description: initialData?.description || "",
-            type: initialData?.type?.toString() || "TEXT",
-            isRequired: initialData?.isRequired || false,
-            options: initialData?.options?.toString() || "",
-            isForProduct: initialData?.isForProduct !== undefined ? initialData.isForProduct : isFromProductTab,
-        },
+            name: attribute?.name || "",
+            displayName: attribute?.displayName || "",
+            description: attribute?.description || "",
+            type: attribute?.type || AttributeType.STRING,
+            isRequired: attribute?.isRequired || false,
+            isForProduct: attribute?.isForProduct || false,
+            isForInventory: attribute?.isForInventory || (attribute ? !attribute.isForProduct : false), // Migrate old data
+            options: attribute?.options ? JSON.parse(attribute.options as string).map((opt: any) => ({
+                value: opt.value,
+                label: opt.label,
+                extraCost: opt.extraCost || 0,
+                imageUrl: opt.imageUrl || ""
+            })) : []
+        }
     });
 
-    const watchType = form.watch("type");
-    const watchIsForProduct = form.watch("isForProduct");
-    const showOptions = watchType === "SELECT" || watchType === "MULTI_SELECT";
+    const watchedType = form.watch("type");
+    const watchedOptions = form.watch("options");
 
-    const handleSubmit = async (data: AttributeFormValues) => {
-        if (isLoading) return;
-        
+    useEffect(() => {
+        const shouldShowOptions = watchedType === AttributeType.SELECT;
+        setShowOptions(shouldShowOptions);
+
+        if (!shouldShowOptions) {
+            form.setValue("options", []);
+        }
+    }, [watchedType, form]);
+
+    const addOption = () => {
+        const currentOptions = form.getValues("options") || [];
+        form.setValue("options", [...currentOptions, { value: "", label: "", extraCost: 0, imageUrl: "" }]);
+    };
+
+    const removeOption = (index: number) => {
+        const currentOptions = form.getValues("options") || [];
+        form.setValue("options", currentOptions.filter((_, i) => i !== index));
+    };
+
+    const updateOptionImage = (index: number, imageUrl: string) => {
+        const currentOptions = form.getValues("options") || [];
+        const newOptions = [...currentOptions];
+        newOptions[index] = { ...newOptions[index], imageUrl };
+        form.setValue("options", newOptions);
+    };
+
+    const calculateTotalCost = (extraCost: number) => {
+        // This would ideally come from the product type's base price
+        const basePrice = 100; // Placeholder
+        return basePrice + extraCost;
+    };
+
+    const onSubmit = async (data: AttributeFormValues) => {
+        setIsSubmitting(true);
+
         try {
-            setIsLoading(true);
-            const result = await onSubmit(data);
-            
-            if (result.success) {
-                toast.success("Attribute created successfully!");
-                
-                // If we have a productTypeId, redirect to the attributes list page
-                if (productTypeId) {
-                    router.push(`/admin/product-types/${productTypeId}/attributes`);
-                } else {
-                    form.reset(); // Reset the form if no redirection
-                }
+            const formattedData = {
+                productTypeId,
+                name: data.name,
+                displayName: data.displayName,
+                description: data.description || undefined,
+                type: data.type,
+                isRequired: data.isRequired,
+                isForProduct: data.isForProduct,
+                isForInventory: data.isForInventory,
+                options: data.options && data.options.length > 0 ? JSON.stringify(data.options) : null
+            };
+
+            let result;
+            if (attribute) {
+                result = await updateProductTypeAttribute({
+                    id: attribute.id,
+                    ...formattedData
+                });
             } else {
-                toast.error(result.error || "Failed to create attribute");
+                result = await createProductTypeAttribute(formattedData);
+            }
+
+            if (result.success) {
+                toast.success(attribute ? "Attribute updated successfully" : "Attribute created successfully");
+                router.push(`/admin/product-types/${productTypeId}/attributes`);
+                router.refresh();
+            } else {
+                toast.error(result.error || "An error occurred");
             }
         } catch (error) {
-            console.error("Error submitting form:", error);
-            toast.error(
-                error instanceof Error 
-                    ? error.message 
-                    : "An unexpected error occurred"
-            );
+            console.error("Error saving attribute:", error);
+            toast.error("An error occurred while saving the attribute");
         } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const getLevelExplanation = () => {
-        if (watchIsForProduct) {
-            return (
-                <div className="pt-2 text-sm text-muted-foreground">
-                    <p><strong>Examples for products:</strong> Brand, Material, Style, etc.</p>
-                    <p>Applied to all variations of a product.</p>
-                </div>
-            );
-        } else {
-            return (
-                <div className="pt-2 text-sm text-muted-foreground">
-                    <p><strong>Examples for inventory:</strong> Size, Color, etc.</p>
-                    <p>Applied to specific variations of a product.</p>
-                </div>
-            );
-        }
-    };
-
-    const getTypeDescription = (type: string) => {
-        switch (type) {
-            case "TEXT":
-                return "Free text input";
-            case "NUMBER":
-                return "Numeric values only";
-            case "BOOLEAN":
-                return "Yes/No values";
-            case "SELECT":
-                return "Single selection from options";
-            case "MULTI_SELECT":
-                return "Multiple selections from options";
-            case "DATE":
-                return "Date picker";
-            case "COLOR":
-                return "Color selection";
-            case "DIMENSION":
-                return "Product dimensions (length, width, height)";
-            case "WEIGHT":
-                return "Product weight";
-            default:
-                return "";
+            setIsSubmitting(false);
         }
     };
 
     return (
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
-                <Card className="mb-6">
-                    <CardHeader className="pb-3">
-                        <CardTitle>Attribute Level</CardTitle>
-                        <CardDescription>
-                            Choose whether this attribute applies to the entire product or to specific inventory variants
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <FormField
-                            control={form.control}
-                            name="isForProduct"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-col space-y-3">
-                                    <div className="flex items-center justify-between space-x-2 rounded-md border p-4">
+        <div className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>{attribute ? "Edit Attribute" : "Create New Attribute"}</CardTitle>
+                    <CardDescription>
+                        Define an attribute that can be used for products, inventory items, or both.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        {/* Basic Information */}
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">Internal Name</Label>
+                                    <Input
+                                        id="name"
+                                        placeholder="e.g., material"
+                                        {...form.register("name")}
+                                    />
+                                    {form.formState.errors.name && (
+                                        <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="displayName">Display Name</Label>
+                                    <Input
+                                        id="displayName"
+                                        placeholder="e.g., Material"
+                                        {...form.register("displayName")}
+                                    />
+                                    {form.formState.errors.displayName && (
+                                        <p className="text-sm text-red-500">{form.formState.errors.displayName.message}</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="description">Description (Optional)</Label>
+                                <Textarea
+                                    id="description"
+                                    placeholder="Describe what this attribute represents..."
+                                    {...form.register("description")}
+                                />
+                            </div>
+                        </div>
+
+                        <Separator />
+
+                        {/* Usage Configuration */}
+                        <div className="space-y-4">
+                            <div>
+                                <Label className="text-base font-medium">Attribute Usage</Label>
+                                <p className="text-sm text-muted-foreground">
+                                    Choose where this attribute will be used
+                                </p>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id="isForProduct"
+                                        checked={form.watch("isForProduct")}
+                                        onCheckedChange={(checked) => form.setValue("isForProduct", !!checked)}
+                                    />
+                                    <Label htmlFor="isForProduct" className="text-sm">
+                                        Use for Product-level attributes
+                                    </Label>
+                                </div>
+                                <p className="text-xs text-muted-foreground ml-6">
+                                    Product-level attributes apply to the entire product (e.g., Brand, Category)
+                                </p>
+
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id="isForInventory"
+                                        checked={form.watch("isForInventory")}
+                                        onCheckedChange={(checked) => form.setValue("isForInventory", !!checked)}
+                                    />
+                                    <Label htmlFor="isForInventory" className="text-sm">
+                                        Use for Inventory-level attributes (variants)
+                                    </Label>
+                                </div>
+                                <p className="text-xs text-muted-foreground ml-6">
+                                    Inventory-level attributes create product variants (e.g., Size, Color, Material)
+                                </p>
+                            </div>
+
+                            {form.formState.errors.isForProduct && (
+                                <p className="text-sm text-red-500">{form.formState.errors.isForProduct.message}</p>
+                            )}
+                        </div>
+
+                        <Separator />
+
+                        {/* Attribute Configuration */}
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="type">Attribute Type</Label>
+                                    <Select value={form.watch("type")} onValueChange={(value) => form.setValue("type", value as AttributeType)}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select attribute type" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={AttributeType.STRING}>Text</SelectItem>
+                                            <SelectItem value={AttributeType.NUMBER}>Number</SelectItem>
+                                            <SelectItem value={AttributeType.BOOLEAN}>Boolean</SelectItem>
+                                            <SelectItem value={AttributeType.SELECT}>Select</SelectItem>
+                                            <SelectItem value={AttributeType.COLOR}>Color (with color picker)</SelectItem>
+                                            <SelectItem value={AttributeType.DIMENSION}>Dimension</SelectItem>
+                                            <SelectItem value={AttributeType.WEIGHT}>Weight</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="flex items-center space-x-2 pt-8">
+                                    <Checkbox
+                                        id="isRequired"
+                                        checked={form.watch("isRequired")}
+                                        onCheckedChange={(checked) => form.setValue("isRequired", !!checked)}
+                                    />
+                                    <Label htmlFor="isRequired">Required</Label>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Options Section */}
+                        {watchedType === AttributeType.SELECT && (
+                            <>
+                                <Separator />
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
                                         <div>
-                                            <FormLabel className="text-base">Attribute Level</FormLabel>
+                                            <Label className="text-base font-medium">Predefined Options</Label>
                                             <p className="text-sm text-muted-foreground">
-                                                {field.value ? "Product-level attribute" : "Inventory-level attribute"}
+                                                Create a list of options with individual pricing and optional images
                                             </p>
                                         </div>
-                                        <FormControl>
-                                            <div className="flex items-center space-x-2">
-                                                <span className={`text-sm ${!field.value ? "font-medium" : "text-muted-foreground"}`}>Inventory</span>
-                                                <Switch
-                                                    checked={field.value}
-                                                    onCheckedChange={field.onChange}
-                                                />
-                                                <span className={`text-sm ${field.value ? "font-medium" : "text-muted-foreground"}`}>Product</span>
-                                            </div>
-                                        </FormControl>
+                                        <Button type="button" variant="outline" size="sm" onClick={addOption}>
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Add Option
+                                        </Button>
                                     </div>
-                                    {getLevelExplanation()}
-                                </FormItem>
-                            )}
-                        />
-                    </CardContent>
-                </Card>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Attribute Name (Internal)</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        placeholder={watchIsForProduct ? "e.g. material" : "e.g. size"}
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormDescription>
-                                    Code name used internally, lowercase with no spaces
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                                    {watchedOptions && watchedOptions.length > 0 && (
+                                        <div className="space-y-4">
+                                            {watchedOptions.map((option, index) => (
+                                                <Card key={index} className="p-4">
+                                                    <div className="space-y-4">
+                                                        {/* Text fields row */}
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                                <div className="space-y-2">
+                                                                    <Label>Value</Label>
+                                                                    <Input
+                                                                        placeholder="e.g., gold"
+                                                                        value={option.value}
+                                                                        onChange={(e) => {
+                                                                            const newOptions = [...(watchedOptions || [])];
+                                                                            newOptions[index] = { ...option, value: e.target.value };
+                                                                            form.setValue("options", newOptions);
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-2">
+                                                                    <Label>Label</Label>
+                                                                    <Input
+                                                                        placeholder="e.g., Gold"
+                                                                        value={option.label}
+                                                                        onChange={(e) => {
+                                                                            const newOptions = [...(watchedOptions || [])];
+                                                                            newOptions[index] = { ...option, label: e.target.value };
+                                                                            form.setValue("options", newOptions);
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-2">
+                                                                    <Label>Extra Cost</Label>
+                                                                    <div className="relative">
+                                                                        <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.01"
+                                                                            min="0"
+                                                                            placeholder="0.00"
+                                                                            className="pl-9"
+                                                                            value={option.extraCost}
+                                                                            onChange={(e) => {
+                                                                                const newOptions = [...(watchedOptions || [])];
+                                                                                newOptions[index] = { ...option, extraCost: parseFloat(e.target.value) || 0 };
+                                                                                form.setValue("options", newOptions);
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                    {option.extraCost > 0 && (
+                                                                        <Badge variant="secondary" className="text-xs">
+                                                                            Total: ${calculateTotalCost(option.extraCost)}
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => removeOption(index)}
+                                                                className="text-red-500 hover:text-red-600"
+                                                            >
+                                                                <X className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
 
-                    <FormField
-                        control={form.control}
-                        name="displayName"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Display Name</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        placeholder={watchIsForProduct ? "e.g. Material" : "e.g. Size"}
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormDescription>
-                                    Shown to customers on the website
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </div>
+                                                        {/* Image upload section */}
+                                                        <div className="border-t pt-4">
+                                                            <div className="flex items-start gap-4">
+                                                                <div className="flex-1">
+                                                                    <Label className="text-sm font-medium flex items-center gap-2 mb-2">
+                                                                        <ImageIcon className="h-4 w-4" />
+                                                                        Option Image (Optional)
+                                                                    </Label>
+                                                                    {option.imageUrl ? (
+                                                                        <div className="space-y-2">
+                                                                            <div className="relative w-24 h-24 rounded-md overflow-hidden border">
+                                                                                <Image
+                                                                                    src={option.imageUrl}
+                                                                                    alt={option.label || "Option image"}
+                                                                                    fill
+                                                                                    className="object-cover"
+                                                                                />
+                                                                            </div>
+                                                                            <div className="flex gap-2">
+                                                                                <Button
+                                                                                    type="button"
+                                                                                    variant="outline"
+                                                                                    size="sm"
+                                                                                    onClick={() => updateOptionImage(index, "")}
+                                                                                >
+                                                                                    Remove Image
+                                                                                </Button>
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <ImageUploader
+                                                                            endpoint="productImage"
+                                                                            onChange={(imageUrl?: string) => {
+                                                                                console.log("ImageUploader onChange called with URL:", imageUrl);
+                                                                                if (imageUrl) {
+                                                                                    updateOptionImage(index, imageUrl);
+                                                                                    toast.success("Image uploaded successfully!");
+                                                                                }
+                                                                            }}
+                                                                            onUploadError={(error: Error) => {
+                                                                                console.error("ImageUploader error:", error);
+                                                                                toast.error(`Upload failed: ${error.message}`);
+                                                                            }}
+                                                                            dropzoneText="Upload option image (drag & drop or click)"
+                                                                            className="w-full"
+                                                                        />
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </Card>
+                                            ))}
+                                        </div>
+                                    )}
 
-                <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Description (Optional)</FormLabel>
-                            <FormControl>
-                                <Textarea
-                                    placeholder="Describe this attribute"
-                                    {...field}
-                                    value={field.value ?? ""}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                        control={form.control}
-                        name="type"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Attribute Type</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value || "TEXT"}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select type" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {attributeTypes.map((type) => (
-                                            <SelectItem key={type.value} value={type.value}>
-                                                {type.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormDescription>
-                                    {getTypeDescription(field.value)}
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="isRequired"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                                <div className="space-y-0.5">
-                                    <FormLabel className="text-base">Required Attribute</FormLabel>
-                                    <FormDescription>
-                                        Make this a required field when creating products
-                                    </FormDescription>
-                                </div>
-                                <FormControl>
-                                    <Switch
-                                        checked={field.value}
-                                        onCheckedChange={field.onChange}
-                                    />
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-                </div>
-
-                {showOptions && (
-                    <FormField
-                        control={form.control}
-                        name="options"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Options</FormLabel>
-                                <FormControl>
-                                    <Textarea
-                                        placeholder={
-                                            watchIsForProduct
-                                                ? "Enter options, one per line:\nCotton\nPolyester\nWool"
-                                                : field.value === "COLOR"
-                                                    ? "Enter color options, one per line:\nRed\nBlue\nGreen\nBlack\nWhite"
-                                                    : "Enter size options, one per line:\nS\nM\nL\nXL\n\nOr for shoe sizes:\n36\n37\n38\n39\n40\n41\n42"
-                                        }
-                                        rows={8}
-                                        {...field}
-                                        value={field.value ?? ""}
-                                    />
-                                </FormControl>
-                                <div className="flex flex-col gap-1 mt-2 p-3 bg-muted/50 rounded-md">
-                                    <div className="flex items-center gap-1">
-                                        <InfoIcon className="h-4 w-4 text-muted-foreground" />
-                                        <p className="text-sm font-medium">Options Guidelines:</p>
-                                    </div>
-                                    <ul className="text-sm text-muted-foreground pl-5 list-disc space-y-1">
-                                        <li>Enter each option on a new line</li>
-                                        <li>Keep option text short and easy to understand</li>
-                                        {!watchIsForProduct && field.value === "SELECT" && (
-                                            <>
-                                                <li><strong>For clothing sizes:</strong> Use standard sizing like S, M, L, XL</li>
-                                                <li><strong>For shoe sizes:</strong> Use numeric sizes like 36, 37, 38, etc.</li>
-                                                <li><strong>For kids&apos; clothing:</strong> Consider age ranges like 2-3Y, 4-5Y</li>
-                                            </>
-                                        )}
-                                        {!watchIsForProduct && field.value === "COLOR" && (
-                                            <li>Use standard color names that customers will recognize</li>
-                                        )}
-                                    </ul>
-                                    {!watchIsForProduct && (
-                                        <div className="mt-2 p-2 bg-yellow-100 rounded-md text-sm">
-                                            <strong>Important:</strong> Inventory-level attributes like Size and Color must be created as &quot;SELECT&quot; type to allow customers to choose options.
+                                    {(!watchedOptions || watchedOptions.length === 0) && (
+                                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
+                                            <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                                            <p className="text-muted-foreground">No options defined yet</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Add options to create predefined choices with individual pricing and images
+                                            </p>
                                         </div>
                                     )}
                                 </div>
-                                <FormDescription className="mt-2">
-                                    Enter each option on a new line or separated by commas.
-                                    Example: S, M, L, XL or Red, Blue, Green
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
+                            </>
                         )}
-                    />
-                )}
 
-                <Button type="submit" disabled={isLoading}>
-                    {isLoading ? "Saving..." : initialData?.id ? "Update Attribute" : "Create Attribute"}
-                </Button>
-            </form>
-        </Form>
+                        <Separator />
+
+                        {/* Form Actions */}
+                        <div className="flex justify-end space-x-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => router.push(`/admin/product-types/${productTypeId}/attributes`)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? "Saving..." : (attribute ? "Update Attribute" : "Create Attribute")}
+                            </Button>
+                        </div>
+                    </form>
+                </CardContent>
+            </Card>
+        </div>
     );
 }

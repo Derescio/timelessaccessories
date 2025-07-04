@@ -1,22 +1,22 @@
 // Tax rates by region
 const TAX_RATES = {
     // Jamaica parishes
-    'Kingston': 0.15, // 15% GCT
-    'St. Andrew': 0.15,
-    'St. Catherine': 0.15,
-    'St. Thomas': 0.15,
-    'Portland': 0.15,
-    'St. Mary': 0.15,
-    'St. Ann': 0.15,
-    'Trelawny': 0.15,
-    'St. James': 0.15,
-    'Hanover': 0.15,
-    'Westmoreland': 0.15,
-    'St. Elizabeth': 0.15,
-    'Manchester': 0.15,
-    'Clarendon': 0.15,
+    'Kingston': 0.13, // 13% tax
+    'St. Andrew': 0.13,
+    'St. Catherine': 0.13,
+    'St. Thomas': 0.13,
+    'Portland': 0.13,
+    'St. Mary': 0.13,
+    'St. Ann': 0.13,
+    'Trelawny': 0.13,
+    'St. James': 0.13,
+    'Hanover': 0.13,
+    'Westmoreland': 0.13,
+    'St. Elizabeth': 0.13,
+    'Manchester': 0.13,
+    'Clarendon': 0.13,
     // Default rate for other regions
-    'DEFAULT': 0.07 // 7% default tax rate
+    'DEFAULT': 0.13 // 13% default tax rate
 } as const;
 
 /**

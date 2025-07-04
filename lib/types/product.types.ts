@@ -26,6 +26,23 @@ export const extendedProductSchema = productSchema.extend({
   stock: z.coerce.number().int().min(0),
   imageUrl: z.string().optional().nullable(),
   images: z.array(z.string()).optional(),
+  // Variant support
+  useVariants: z.boolean().default(false),
+  variants: z.array(z.object({
+    id: z.string(),
+    sku: z.string(),
+    price: z.number(),
+    costPrice: z.number(),
+    compareAtPrice: z.number().optional(),
+    stock: z.number(),
+    attributeCombination: z.record(z.string()),
+    extraCost: z.number().default(0),
+    images: z.array(z.string()).default([]),
+    isDefault: z.boolean().default(false)
+  })).optional(),
+  basePrice: z.coerce.number().min(0).default(0),
+  baseCostPrice: z.coerce.number().min(0).default(0),
+  baseStock: z.coerce.number().int().min(0).default(0),
 });
 
 //export type ProductFormValues = z.infer<typeof productSchema>;
@@ -154,6 +171,18 @@ export interface ClientProduct {
         imageUrl?: string;
         parentId?: string;
     };
+    productAttributes?: {
+        id: string;
+        displayName: string;
+        value: string;
+        attribute: {
+            id: string;
+            name: string;
+            displayName: string;
+            type: string;
+            options?: any;
+        };
+    }[];
     images: {
         id: string;
         url: string;

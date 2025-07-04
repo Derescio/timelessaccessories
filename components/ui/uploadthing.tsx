@@ -131,29 +131,47 @@ export function ImageUploader({
                     </div>
                 </div>
             ) : (
-                <UploadDropzone
-                    endpoint={endpoint}
-                    onClientUploadComplete={(res) => {
-                        onChange?.(getFileUrl(res));
-                        onClientUploadComplete?.(res);
-                    }}
-                    onUploadError={(error: Error) => {
-                        onError?.(error);
-                        onUploadError?.(error);
-                    }}
-                    content={{
-                        label: dropzoneText,
-                    }}
-                    className="
-                        ut-label:text-foreground 
-                        ut-allowed-content:text-foreground 
-                        ut-uploaded-text:text-foreground 
-                        border-dashed border-2 
-                        ut-uploading:border-blue-500 
-                        ut-button:hidden
-                        text-foreground
-                    "
-                />
+                <div
+                    onClick={() => console.log("ImageUploader dropzone clicked!")}
+                    onDrop={() => console.log("ImageUploader dropzone dropped!")}
+                >
+                    <UploadDropzone
+                        endpoint={endpoint}
+                        onBeforeUploadBegin={(files) => {
+                            console.log("🔥 UPLOAD STARTING - ImageUploader", files);
+                            return files;
+                        }}
+                        onUploadBegin={() => {
+                            console.log("🚀 UPLOAD BEGIN - ImageUploader");
+                        }}
+                        onClientUploadComplete={(res) => {
+                            console.log("✅ UPLOAD COMPLETE - ImageUploader:", res);
+                            const url = getFileUrl(res);
+                            console.log("🔗 Extracted URL:", url);
+                            if (url) {
+                                onChange?.(url);
+                                onClientUploadComplete?.(res);
+                            }
+                        }}
+                        onUploadError={(error: Error) => {
+                            console.error("❌ UPLOAD ERROR - ImageUploader:", error);
+                            onError?.(error);
+                            onUploadError?.(error);
+                        }}
+                        content={{
+                            label: dropzoneText,
+                            button: "Choose File",
+                            allowedContent: "Image files up to 4MB"
+                        }}
+                        appearance={{
+                            container: "border-dashed border-2 border-gray-300 rounded-lg p-6 cursor-pointer hover:border-gray-400 transition-colors",
+                            uploadIcon: "text-gray-400",
+                            label: "text-gray-600 font-medium",
+                            allowedContent: "text-gray-400 text-sm",
+                            button: "bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium"
+                        }}
+                    />
+                </div>
             )}
         </div>
     );

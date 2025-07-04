@@ -6,6 +6,8 @@ import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import Stripe from "stripe";
 import { auth } from "@/auth";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Mail, AlertCircle } from "lucide-react";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string)
 
@@ -79,6 +81,16 @@ export default async function StripePaymentSuccessPage(props: {
                 <div className="flex flex-col gap-6 items-center">
                     <h1 className="text-3xl font-bold">Thanks for your purchase!</h1>
                     <p>Your order has been successfully placed and is being processed.</p>
+
+                    {/* Email confirmation alert */}
+                    <Alert className="w-full max-w-md border-blue-200 bg-blue-50">
+                        <Mail className="h-4 w-4 text-blue-600" />
+                        <AlertDescription className="text-blue-800">
+                            <strong>Order confirmation email sent!</strong><br />
+                            Please check your email for order details. If you don't see it in your inbox, be sure to check your spam/junk folder.
+                        </AlertDescription>
+                    </Alert>
+
                     <div className="bg-green-50 p-4 rounded-lg border border-green-200 w-full max-w-md">
                         <h3 className="font-semibold text-green-800 mb-2">Order Details</h3>
                         <p className="text-green-700">Order ID: {order.id}</p>

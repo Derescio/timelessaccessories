@@ -37,8 +37,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create PayPal order
-    const paypalOrder = await paypal.createOrder(amount);
+    // Create PayPal order - Pass orderId as custom_id for webhook processing
+    const paypalOrder = await paypal.createOrder(amount, orderId);
     
     if (!paypalOrder || !paypalOrder.id) {
       throw new Error("Failed to create PayPal order");

@@ -319,14 +319,7 @@ export function InventoryForm({ productId, inventory }: InventoryFormProps) {
                     <div className="mt-4">
                         <ImageUploader
                             endpoint="productImage"
-                            onChange={handleAddImage}
-                            onClientUploadComplete={(res) => {
-                                if (!res || !res.length) return;
-
-                                // Extract URL from the response
-                                const file = res[0] as { url?: string, ufsUrl?: string };
-                                const imageUrl = file.ufsUrl || file.url;
-
+                            onChange={(imageUrl) => {
                                 if (imageUrl) {
                                     handleAddImage(imageUrl);
                                     toast.success("Image uploaded successfully");

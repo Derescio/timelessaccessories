@@ -764,6 +764,7 @@ function formatCartItemResponse(item: Record<string, unknown>): CartItemDetails 
     quantity: number;
     productId: string;
     inventoryId: string;
+    selectedAttributes?: Record<string, string>;
     product: {
       name: string;
       slug: string;
@@ -812,6 +813,8 @@ function formatCartItemResponse(item: Record<string, unknown>): CartItemDetails 
     hasDiscount: Boolean(typedItem.inventory.hasDiscount),
     // Default to 0 if quantity is undefined
     maxQuantity: typedItem.inventory.quantity ?? 0,
+    // Include selected attributes from cart item
+    attributes: typedItem.selectedAttributes || {},
   };
 }
 

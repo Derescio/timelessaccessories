@@ -523,14 +523,14 @@ export async function createPayPalOrder(orderId: string): Promise<{ success: boo
 
     console.log(`Creating PayPal order for order ID ${orderId} with amount ${Number(order.total)}`);
 
-    // Create a PayPal order
-    const paypalOrder = await paypal.createOrder(Number(order.total));
+    // Create a PayPal order - IMPORTANT: Pass the orderId as custom_id for webhook processing
+    const paypalOrder = await paypal.createOrder(Number(order.total), orderId);
 
     if (!paypalOrder || !paypalOrder.id) {
       throw new Error("PayPal order creation failed - no order ID returned");
     }
 
-    console.log(`PayPal order created successfully with ID: ${paypalOrder.id}`);
+    console.log(`PayPal order created successfully with ID: ${paypalOrder.id}, custom_id: ${orderId}`);
 
     // Return the PayPal order ID
     return {
@@ -565,7 +565,7 @@ export async function approvePayPalOrder(
       return {
         success: true,
         message: 'Payment was already processed',
-        redirectTo: `/order-success?orderId=${orderId}`,
+        redirectTo: `/order/${orderId}/paypal-payment-success?payment_id=${data.orderID}`,
       };
     }
 
@@ -619,7 +619,7 @@ export async function approvePayPalOrder(
         });
       }
 
-      // Finally, update inventory quantities for each item in the order
+      // Update inventory quantities for each item in the order
       for (const item of order.items) {
         await tx.productInventory.update({
           where: { id: item.inventoryId },
@@ -633,6 +633,49 @@ export async function approvePayPalOrder(
         console.log(`Decremented inventory for item ${item.inventoryId} by ${item.quantity}`);
       }
     });
+
+    // Reduce reserved stock and cleanup cart (normally done by webhook)
+    console.log(`📦 PayPal Frontend: Reducing reserved stock for order: ${orderId}`);
+    try {
+      // Import the functions we need
+      const { reduceActualStock } = await import('@/lib/actions/inventory.actions');
+      const { cleanupCartAfterSuccessfulPayment } = await import('@/lib/actions/cart.actions');
+      const { sendOrderConfirmationEmail } = await import('@/email');
+      const { recordPromotionUsage } = await import('@/lib/actions/promotions-actions');
+
+      // Reduce reserved stock for each item
+      for (const item of order.items) {
+        const stockResult = await reduceActualStock(item.inventoryId, item.quantity);
+        if (stockResult.success) {
+          console.log(`✅ PayPal Frontend: Reduced reserved stock for ${item.inventoryId}`);
+        } else {
+          console.error(`❌ PayPal Frontend: Failed to reduce reserved stock for ${item.inventoryId}:`, stockResult.error);
+        }
+      }
+
+      // Clean up cart
+      console.log(`🛒 PayPal Frontend: Cleaning up cart for order: ${orderId}`);
+      const cartCleanupResult = await cleanupCartAfterSuccessfulPayment(orderId);
+      if (cartCleanupResult.success) {
+        console.log(`✅ PayPal Frontend: Cart cleaned up successfully for order: ${orderId}`);
+      } else {
+        console.error(`❌ PayPal Frontend: Cart cleanup failed for order ${orderId}:`, cartCleanupResult.error);
+      }
+
+      // Send confirmation email
+      console.log(`📧 PayPal Frontend: Sending confirmation email for order: ${orderId}`);
+      await sendOrderConfirmationEmail(orderId);
+      console.log(`✅ PayPal Frontend: Email sent successfully for order: ${orderId}`);
+
+      // Record promotion usage
+      console.log(`🎯 PayPal Frontend: Recording promotion usage for order: ${orderId}`);
+      await recordPromotionUsage(orderId);
+      console.log(`✅ PayPal Frontend: Promotion usage recorded for order: ${orderId}`);
+
+    } catch (cleanupError) {
+      console.error(`❌ PayPal Frontend: Error in post-payment cleanup for order ${orderId}:`, cleanupError);
+      // Don't fail the payment for cleanup errors
+    }
 
     // Save payment result
     await savePaymentResult({
@@ -653,7 +696,7 @@ export async function approvePayPalOrder(
     return {
       success: true,
       message: 'Payment processed successfully',
-      redirectTo: `/order-success?orderId=${orderId}`,
+      redirectTo: `/order/${orderId}/paypal-payment-success?payment_id=${captureData.id}`,
     };
   } catch (error) {
     console.error("Error approving PayPal payment:", error);
@@ -801,11 +844,26 @@ export async function getOrderWithItems(orderId: string) {
       discountAmount: order.discountAmount ? Number(order.discountAmount) : null,
       // Serialize order items, converting Decimal price to number
       items: order.items.map(item => {
-        // Format attributes for display
+        // Priority: Use order item attributes (user selections) first, then fallback to inventory attributes
         let attributeData: Record<string, string> = {};
         
-        // Get attributes from the inventory's attributeValues
-        if (item.inventory?.attributeValues) {
+        // First, check if the order item has stored attributes (user selections)
+        if (item.attributes) {
+          // Parse the attributes if they're stored as JSON string
+          if (typeof item.attributes === 'string') {
+            try {
+              attributeData = JSON.parse(item.attributes);
+            } catch (e) {
+              console.error('Error parsing order item attributes:', e);
+              attributeData = {};
+            }
+          } else if (typeof item.attributes === 'object' && item.attributes !== null) {
+            attributeData = item.attributes as Record<string, string>;
+          }
+        }
+        
+        // If no stored attributes, fall back to inventory attribute values (for legacy orders)
+        if (Object.keys(attributeData).length === 0 && item.inventory?.attributeValues) {
           item.inventory.attributeValues.forEach(attrValue => {
             attributeData[attrValue.attribute.displayName] = attrValue.value;
           });
@@ -816,7 +874,7 @@ export async function getOrderWithItems(orderId: string) {
           price: Number(item.price),
           // Ensure image is a string or undefined, not null
           image: item.image || undefined,
-          // Add the formatted attributes
+          // Use the processed attributes (prioritizing order item attributes)
           attributes: attributeData,
           // Serialize inventory data
           inventory: item.inventory ? {

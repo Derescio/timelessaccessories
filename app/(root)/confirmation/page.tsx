@@ -16,6 +16,8 @@ import Image from "next/image";
 import PaymentSection from "./PaymentSection";
 import { PaymentStatus, OrderStatus } from "@prisma/client";
 import { useCartPromotions } from "@/hooks/use-cart-promotions";
+import { calculateTax } from "@/lib/utils/tax-calculator";
+import { getAttributeNamesByIds } from "@/lib/actions/product.actions";
 
 
 // Define CartItemDetails interface
@@ -27,6 +29,11 @@ interface CartItemDetails {
     quantity: number;
     image?: string;
     productId: string;
+    inventoryId?: string;
+    slug?: string;
+    discountPercentage?: number | null;
+    hasDiscount?: boolean;
+    maxQuantity?: number;
     inventory?: {
         id: string;
         images: string[];
@@ -165,6 +172,7 @@ export default function ConfirmationPage() {
     const [isOrderCreated, setIsOrderCreated] = useState(false);
     const [orderCreationError, setOrderCreationError] = useState<string | null>(null);
     const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+    const [attributeDisplayNames, setAttributeDisplayNames] = useState<Record<string, string>>({});
 
     // Get market from environment variable
     const MARKET = process.env.NEXT_PUBLIC_MARKET || 'GLOBAL';
@@ -463,16 +471,55 @@ export default function ConfirmationPage() {
             } finally {
                 setIsLoading(false);
             }
+
+            // Debug: Log final cart items with attributes after loading
+            console.log('🏷️ [CONFIRMATION] Final cartItems with attributes:', cartItems?.map(item => ({
+                id: item.id,
+                name: item.name,
+                attributes: item.attributes,
+                hasAttributes: !!(item.attributes && Object.keys(item.attributes).length > 0)
+            })));
         }
 
         loadData();
     }, [searchParams, router, IS_LASCO_MARKET]);
 
+    // Load attribute display names when cart items change
+    useEffect(() => {
+        async function loadAttributeDisplayNames() {
+            if (!cartItems || cartItems.length === 0) return;
+
+            // Collect all attribute IDs from cart items
+            const attributeIds = new Set<string>();
+            cartItems.forEach(item => {
+                if (item.attributes) {
+                    Object.keys(item.attributes).forEach(key => {
+                        // Check if the key looks like an ID (starts with c or cm)
+                        if (key.startsWith('c') && key.length > 5) {
+                            attributeIds.add(key);
+                        }
+                    });
+                }
+            });
+
+            if (attributeIds.size > 0) {
+                try {
+                    const displayNames = await getAttributeNamesByIds(Array.from(attributeIds));
+                    setAttributeDisplayNames(displayNames);
+                    console.log('🏷️ [CONFIRMATION] Loaded attribute display names:', displayNames);
+                } catch (error) {
+                    console.error('Error loading attribute display names:', error);
+                }
+            }
+        }
+
+        loadAttributeDisplayNames();
+    }, [cartItems]);
+
     // Calculate order summary with promotions
     const subtotal = cartItems?.reduce((total, item) => total + (item.price * item.quantity), 0) || 0;
     const promotionDiscount = checkoutData?.discount || getTotalDiscount();
     const discountedSubtotal = Math.max(0, subtotal - promotionDiscount);
-    const estimatedTax = discountedSubtotal * 0.07; // 7% tax rate on discounted amount
 
     // Fix shipping cost calculation with better logging
     const rawShippingCost = checkoutData?.shippingPrice || checkoutData?.shipping || 0;
@@ -497,8 +544,12 @@ export default function ConfirmationPage() {
     //     checkoutData: checkoutData
     // });
 
+    // Calculate tax as 13% of discounted subtotal + shipping
+    const taxableAmount = discountedSubtotal + normalizedShippingCost;
+    const tax = taxableAmount * 0.13; // 13% tax rate on discounted subtotal + shipping
+
     // Calculate total with the correct shipping cost and promotions
-    const total = discountedSubtotal + estimatedTax + normalizedShippingCost;
+    const total = discountedSubtotal + tax + normalizedShippingCost;
 
     // Format price helper
     const formatPrice = (price: number) => {
@@ -826,11 +877,21 @@ export default function ConfirmationPage() {
                                                     <div className="mt-2 text-sm">
                                                         <p className="text-muted-foreground">Product Details:</p>
                                                         <ul className="list-disc list-inside">
-                                                            {Object.entries(item.attributes).map(([key, value]) => (
-                                                                <li key={key} className="text-muted-foreground">
-                                                                    <span className="font-medium">{key}:</span> {value}
-                                                                </li>
-                                                            ))}
+                                                            {Object.entries(item.attributes).map(([key, value]) => {
+                                                                // Use display name if available, otherwise use the key as-is
+                                                                const displayName = attributeDisplayNames[key] || key;
+                                                                console.log('🏷️ [CONFIRMATION] Rendering attribute:', {
+                                                                    originalKey: key,
+                                                                    displayName,
+                                                                    value,
+                                                                    hasDisplayName: !!attributeDisplayNames[key]
+                                                                });
+                                                                return (
+                                                                    <li key={key} className="text-muted-foreground">
+                                                                        <span className="font-medium">{displayName}:</span> {value}
+                                                                    </li>
+                                                                );
+                                                            })}
                                                         </ul>
                                                     </div>
                                                 )}
@@ -880,11 +941,14 @@ export default function ConfirmationPage() {
                                                 <div className="text-xs text-muted-foreground mt-1">
                                                     {Object.entries(item.attributes)
                                                         .slice(0, 2) // Show only first 2 attributes to keep it compact
-                                                        .map(([key, value]) => (
-                                                            <span key={key} className="mr-2">
-                                                                {key}: {value}
-                                                            </span>
-                                                        ))}
+                                                        .map(([key, value]) => {
+                                                            const displayName = attributeDisplayNames[key] || key;
+                                                            return (
+                                                                <span key={key} className="mr-2">
+                                                                    {displayName}: {value}
+                                                                </span>
+                                                            );
+                                                        })}
                                                     {Object.keys(item.attributes).length > 2 && (
                                                         <span className="text-xs text-muted-foreground">
                                                             +{Object.keys(item.attributes).length - 2} more
@@ -915,10 +979,19 @@ export default function ConfirmationPage() {
                                 ))}
 
                                 {promotionDiscount > 0 && (
-                                    <div className="flex justify-between text-green-600 font-medium">
-                                        <span>Total Savings</span>
-                                        <span>-${promotionDiscount.toFixed(2)}</span>
+                                    <div className="flex justify-between flex-col text-green-600 font-medium">
+                                        <div>
+                                            <span className="text-black">Discount Amount : </span>
+                                            <span > ${promotionDiscount.toFixed(2)}</span>
+                                        </div>
+                                        < div>
+                                            <span className="text-black">Pre Tax Total After Discount : </span>
+                                            <span>${(subtotal - promotionDiscount).toFixed(2)}</span>
+                                        </div>
                                     </div>
+                                    // Show the difference between the subtotal and Savings
+
+
                                 )}
 
                                 {((checkoutData?.appliedPromotions?.length || 0) > 0 || appliedPromotions.length > 0) && (
@@ -937,8 +1010,8 @@ export default function ConfirmationPage() {
                                     <span>${normalizedShippingCost.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span>Estimated Tax</span>
-                                    <span>${estimatedTax.toFixed(2)}</span>
+                                    <span>Tax</span>
+                                    <span>${tax.toFixed(2)}</span>
                                 </div>
                             </div>
 

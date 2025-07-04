@@ -99,7 +99,7 @@ model Category {
   id                   String       @id @default(cuid())
   name                 String
   description          String?
-  imageUrl             String?      @default("/placeholder.svg")
+  imageUrl             String?      @default("/images/placeholder.svg")
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
   parentId             String?
@@ -255,10 +255,19 @@ model Address {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   isUserManaged Boolean  @default(false)
+  countryId     Int?
+  stateId       Int?
+  cityId        Int?
   user          User     @relation(fields: [userId], references: [id])
   orders        Order[]
+  countryRef    Country? @relation(fields: [countryId], references: [id])
+  stateRef      State?   @relation(fields: [stateId], references: [id])
+  cityRef       City?    @relation(fields: [cityId], references: [id])
 
   @@index([userId])
+  @@index([countryId])
+  @@index([stateId])
+  @@index([cityId])
 }
 
 model Payment {
@@ -343,7 +352,8 @@ model ProductTypeAttribute {
   type            AttributeType
   isRequired      Boolean                   @default(false)
   options         Json?
-  isForProduct    Boolean                   @default(true)
+  isForProduct    Boolean                   @default(false)
+  isForInventory  Boolean                   @default(false)
   productTypeId   String
   inventoryValues InventoryAttributeValue[]
   productValues   ProductAttributeValue[]
@@ -355,6 +365,7 @@ model ProductAttributeValue {
   productId   String
   attributeId String
   value       String
+  extraCost   Decimal              @default(0.00) @db.Decimal(10, 2)
   attribute   ProductTypeAttribute @relation(fields: [attributeId], references: [id])
   product     Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -366,6 +377,7 @@ model InventoryAttributeValue {
   inventoryId String
   attributeId String
   value       String
+  extraCost   Decimal              @default(0.00) @db.Decimal(10, 2)
   attribute   ProductTypeAttribute @relation(fields: [attributeId], references: [id])
   inventory   ProductInventory     @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
 
@@ -458,6 +470,7 @@ enum AttributeType {
   BOOLEAN
   DATE
   ARRAY
+  SELECT
   COLOR
   DIMENSION
   WEIGHT
@@ -576,4 +589,96 @@ model PromotionUsage {
   @@index([userId])
   @@index([orderId])
   @@index([createdAt])
+}
+
+model ShippingRate {
+  id                    String   @id @default(cuid())
+  countryCode           String   @unique // ISO 2-letter country code (e.g., "US", "CA", "GB")
+  countryName           String // Full country name (e.g., "United States", "Canada", "United Kingdom")
+  rate                  Int // Shipping rate in cents (e.g., 1500 = $15.00)
+  freeShippingThreshold Int // Free shipping threshold in cents (e.g., 40000 = $400.00)
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  countryId             Int?
+  country               Country? @relation(fields: [countryId], references: [id])
+
+  @@index([countryCode])
+  @@index([isActive])
+  @@index([countryId])
+}
+
+model Country {
+  id             Int      @id
+  name           String
+  iso2           String   @unique @db.VarChar(2)
+  iso3           String   @unique @db.VarChar(3)
+  numericCode    String?  @map("numeric_code") @db.VarChar(3)
+  phoneCode      String?  @map("phone_code") @db.VarChar(10)
+  capital        String?
+  currency       String?  @db.VarChar(3)
+  currencyName   String?  @map("currency_name")
+  currencySymbol String?  @map("currency_symbol") @db.VarChar(10)
+  native         String?
+  region         String?  @db.VarChar(100)
+  subregion      String?  @db.VarChar(100)
+  emoji          String?  @db.VarChar(10)
+  tld            String?  @db.VarChar(10)
+  latitude       Decimal? @db.Decimal(10, 8)
+  longitude      Decimal? @db.Decimal(11, 8)
+  hasStates      Boolean  @default(false) @map("has_states")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  states        State[]
+  cities        City[]
+  shippingRates ShippingRate[]
+  addresses     Address[]
+
+  @@map("countries")
+}
+
+model State {
+  id        Int      @id
+  countryId Int      @map("country_id")
+  name      String
+  stateCode String?  @map("state_code") @db.VarChar(10)
+  latitude  Decimal? @db.Decimal(10, 8)
+  longitude Decimal? @db.Decimal(11, 8)
+  hasCities Boolean  @default(false) @map("has_cities")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  country   Country   @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  cities    City[]
+  addresses Address[]
+
+  @@index([countryId])
+  @@index([stateCode])
+  @@map("states")
+}
+
+model City {
+  id        Int      @id
+  countryId Int      @map("country_id")
+  stateId   Int      @map("state_id")
+  name      String
+  latitude  Decimal? @db.Decimal(10, 8)
+  longitude Decimal? @db.Decimal(11, 8)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  country   Country   @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  state     State     @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  addresses Address[]
+
+  @@index([countryId, stateId])
+  @@index([name])
+  @@map("cities")
 }

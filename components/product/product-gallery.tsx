@@ -11,7 +11,7 @@ interface ProductGalleryProps {
 }
 
 export function ProductGallery({ images, mainImage }: ProductGalleryProps) {
-    const defaultImage = images[0]?.url || "/placeholder.svg";
+    const defaultImage = images[0]?.url || "/images/placeholder.svg";
     const [selectedImage, setSelectedImage] = useState(mainImage || defaultImage);
 
     return (

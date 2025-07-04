@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ClientProduct } from "@/lib/types/product.types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,18 +19,149 @@ import Rating from "../rating";
 // Categories that should display attributes as read-only information
 // rather than as selectable options
 const READ_ONLY_ATTRIBUTE_CATEGORIES = [
-    "cm8g42vgu000020us7xb7s28q",
-    "cm8wftyg4000r20yg3d4ph4v0",
-    "cm8g42vkg000420us58yc4vhc"
+    "cm8g42vgu000020us7xb7s28q1",
+    "cm8wftyg4000r20yg3d4ph4v01",
+    "cm8g42vkg000420us58yc4vhc1"
 ];
 
 interface ProductInfoProps {
     product: ClientProduct;
 }
 
+interface AttributeSelectorProps {
+    attributeId: string;
+    attributeName: string;
+    values: string[];
+    selectedValue: string;
+    onValueChange: (value: string) => void;
+    product: ClientProduct;
+}
+
+// Helper function to get attribute options with images from product type
+async function fetchAttributeOptions(productTypeId: string): Promise<Array<{ id: string; options: any }>> {
+    if (!productTypeId) return [];
+
+    try {
+        const response = await fetch(`/api/product-types/${productTypeId}/attributes`);
+        if (!response.ok) throw new Error('Failed to fetch attributes');
+
+        const result = await response.json();
+        return result.success ? result.data : [];
+    } catch (error) {
+        console.error('Error fetching attribute options:', error);
+        return [];
+    }
+}
+
+function parseAttributeOptions(attributeOptions: string | null): Array<{ value: string; label: string; imageUrl?: string; extraCost?: number }> {
+    if (!attributeOptions) return [];
+
+    try {
+        const parsedOptions = JSON.parse(attributeOptions);
+        if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
+            if (typeof parsedOptions[0] === 'object' && parsedOptions[0].label) {
+                // New structure with images and pricing
+                return parsedOptions;
+            } else {
+                // Old structure: simple strings
+                return parsedOptions.map((value: string) => ({ value, label: value }));
+            }
+        }
+    } catch (e) {
+        console.error("Failed to parse attribute options:", e);
+    }
+
+    return [];
+}
+
+function AttributeSelector({ attributeId, attributeName, values, selectedValue, onValueChange, product }: AttributeSelectorProps) {
+    // For now, use fallback to radio buttons until we implement full API integration
+    // TODO: Implement proper API integration to fetch attribute options with images
+    const attributeOptions: Array<{ value: string; label: string; imageUrl?: string; extraCost?: number }> = [];
+    const hasImages = false; // Will be true when API integration is complete
+
+    // If we have image-enabled options, show them with images
+    if (hasImages) {
+        return (
+            <div className="space-y-3">
+                <Label className="text-sm font-medium">{attributeName}:</Label>
+                <div className="flex flex-wrap gap-3">
+                    {values.map((value) => {
+                        const option = attributeOptions.find(opt => opt.value === value || opt.label === value);
+                        const isSelected = selectedValue === value;
+
+                        return (
+                            <div
+                                key={value}
+                                className={`
+                                    relative cursor-pointer rounded-lg border-2 p-2 transition-all
+                                    ${isSelected
+                                        ? 'border-primary bg-primary/5 shadow-md'
+                                        : 'border-muted hover:border-primary/50'
+                                    }
+                                `}
+                                onClick={() => onValueChange(value)}
+                            >
+                                {option?.imageUrl && (
+                                    <div className="relative w-16 h-16 mb-2 rounded-md overflow-hidden">
+                                        <Image
+                                            src={option.imageUrl}
+                                            alt={option.label || value}
+                                            fill
+                                            className="object-cover"
+                                        />
+                                    </div>
+                                )}
+                                <div className="text-center">
+                                    <span className={`text-sm ${isSelected ? 'font-medium' : ''}`}>
+                                        {option?.label || value}
+                                    </span>
+                                </div>
+                                {isSelected && (
+                                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                                        <div className="w-2 h-2 bg-white rounded-full" />
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    // Fallback to radio buttons for text-only attributes
+    return (
+        <div className="space-y-2">
+            <Label className="text-sm font-medium">{attributeName}:</Label>
+            <RadioGroup
+                value={selectedValue}
+                onValueChange={onValueChange}
+                className="flex flex-wrap gap-2"
+            >
+                {values.map((value) => (
+                    <div key={value} className="flex items-center space-x-2">
+                        <RadioGroupItem
+                            value={value}
+                            id={`${attributeId}-${value}`}
+                        />
+                        <Label
+                            htmlFor={`${attributeId}-${value}`}
+                            className={`text-sm cursor-pointer ${selectedValue === value ? "font-bold" : ""}`}
+                        >
+                            {value}
+                        </Label>
+                    </div>
+                ))}
+            </RadioGroup>
+        </div>
+    );
+}
+
 export function ProductInfo({ product }: ProductInfoProps) {
     const [selectedInventory, setSelectedInventory] = useState(product.inventories[0]);
     const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
+    const [selectedProductAttributes, setSelectedProductAttributes] = useState<Record<string, string>>({});
     const [attributeNames, setAttributeNames] = useState<Record<string, string>>({});
     const [inCart, setInCart] = useState(false);
     const [cartItemId, setCartItemId] = useState<string | null>(null);
@@ -39,6 +171,17 @@ export function ProductInfo({ product }: ProductInfoProps) {
     // Check if this product's category should display attributes as read-only
     const isReadOnlyAttributes = READ_ONLY_ATTRIBUTE_CATEGORIES.includes(product.categoryId);
     console.log('Inventory', selectedInventory);
+    // Initialize product attributes on mount
+    useEffect(() => {
+        if (product.productAttributes) {
+            const initialProductSelections: Record<string, string> = {};
+            product.productAttributes.forEach(attr => {
+                initialProductSelections[attr.attribute.id] = attr.value;
+            });
+            setSelectedProductAttributes(initialProductSelections);
+        }
+    }, [product.productAttributes]);
+
     // Auto-select first attribute values on mount
     useEffect(() => {
         // Group inventories by their attributes
@@ -382,39 +525,22 @@ export function ProductInfo({ product }: ProductInfoProps) {
             <Rating value={product.rating ?? 0} />
             <span className="text-sm text-muted-foreground font-semibold">Reviews: ({product.numReviews})</span>
 
-            {/* Attribute Display or Selection */}
+            {/* Product-Level Attributes - Hidden to prevent duplication with inventory attributes */}
+            {/* Note: Dual-purpose attributes are handled in the inventory section below */}
+
+            {/* Inventory-Level Attribute Display or Selection */}
             {!isReadOnlyAttributes ? (
                 // Display attributes as selectable options
                 Object.entries(attributeGroups).map(([attributeId, values]) => (
-                    <div key={attributeId} className="space-y-2">
-                        <Label className="text-sm font-medium">
-                            {attributeNames[attributeId] || attributeId}:
-                            <span className="font-bold ml-2">
-                                {selectedAttributes[attributeId] || "Not selected"}
-                            </span>
-                        </Label>
-                        <RadioGroup
-                            value={selectedAttributes[attributeId] || ""}
-                            onValueChange={(value) => handleAttributeChange(attributeId, value)}
-                            className="flex flex-wrap gap-2"
-                        >
-                            {Array.from(values).map((value) => (
-                                <div key={value} className="flex items-center space-x-2">
-                                    <RadioGroupItem
-                                        value={value}
-                                        id={`${attributeId}-${value}`}
-                                    />
-                                    <Label
-                                        htmlFor={`${attributeId}-${value}`}
-                                        className={`text-sm cursor-pointer ${selectedAttributes[attributeId] === value ? "font-bold" : ""
-                                            }`}
-                                    >
-                                        {value}
-                                    </Label>
-                                </div>
-                            ))}
-                        </RadioGroup>
-                    </div>
+                    <AttributeSelector
+                        key={attributeId}
+                        attributeId={attributeId}
+                        attributeName={attributeNames[attributeId] || attributeId}
+                        values={Array.from(values)}
+                        selectedValue={selectedAttributes[attributeId] || ""}
+                        onValueChange={(value) => handleAttributeChange(attributeId, value)}
+                        product={product}
+                    />
                 ))
             ) : (
                 // Display attributes as read-only information

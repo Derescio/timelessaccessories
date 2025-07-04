@@ -23,7 +23,7 @@ export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
 
     return (
         <div className="space-y-4">
-            {value && value !== "/placeholder.svg" && (
+            {value && value !== "/images/placeholder.svg" && (
                 <div className="relative aspect-square rounded-md overflow-hidden border">
                     <Image
                         src={value}

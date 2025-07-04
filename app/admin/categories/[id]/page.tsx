@@ -62,7 +62,7 @@ export default function EditCategoryPage({ params }: EditCategoryPageProps) {
                 ...data,
                 parentId: data.parentId === "none" ? null : data.parentId,
                 description: data.description || undefined,
-                imageUrl: data.imageUrl || "/placeholder.svg",
+                imageUrl: data.imageUrl || "/images/placeholder.svg",
             });
 
             if (result.success) {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { getOrderById, updateOrderStatus } from "@/lib/actions/order.actions";
+import { getAttributeNamesByIds } from "@/lib/actions/product.actions";
 import { OrderStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -76,6 +77,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
     const [order, setOrder] = useState<Order | null>(null);
     const [loading, setLoading] = useState(true);
     const [trackingNumber, setTrackingNumber] = useState("");
+    const [attributeDisplayNames, setAttributeDisplayNames] = useState<Record<string, string>>({});
 
     useEffect(() => {
         const fetchOrder = async () => {
@@ -88,6 +90,24 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                     setOrder(orderData);
                     // Set tracking number if it exists
                     setTrackingNumber(orderData.trackingNumber || "");
+
+                    // Extract all unique attribute IDs from order items
+                    const attributeIds: string[] = [];
+                    orderData.items.forEach(item => {
+                        if (item.attributes) {
+                            Object.keys(item.attributes).forEach(attributeId => {
+                                if (!attributeIds.includes(attributeId)) {
+                                    attributeIds.push(attributeId);
+                                }
+                            });
+                        }
+                    });
+
+                    // Fetch display names for the attribute IDs
+                    if (attributeIds.length > 0) {
+                        const displayNames = await getAttributeNamesByIds(attributeIds);
+                        setAttributeDisplayNames(displayNames);
+                    }
                 } else {
                     toast.error(response.error || "Failed to fetch order");
                 }
@@ -323,7 +343,9 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                                             <div className="mt-1 text-xs text-muted-foreground">
                                                 {Object.entries(item.attributes).map(([key, value]) => (
                                                     <div key={key}>
-                                                        <span className="font-medium">{key}:</span> {value}
+                                                        <span className="font-medium">
+                                                            {attributeDisplayNames[key] || key}:
+                                                        </span> {value}
                                                     </div>
                                                 ))}
                                             </div>

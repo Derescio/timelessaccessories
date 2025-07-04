@@ -1707,7 +1707,7 @@ export async function getUserWishlist() {
             id: item.id,
             productId: item.product.id,
             userId: item.userId,
-            mainImage: item.product.inventories[0]?.images[0] || "/placeholder.svg",
+            mainImage: item.product.inventories[0]?.images[0] || "/images/placeholder.svg",
             name: item.product.name,
             slug: item.product.slug,
             price: item.product.inventories[0]?.retailPrice?.toString() || "0",
@@ -1716,7 +1716,7 @@ export async function getUserWishlist() {
             hasDiscount: item.product.inventories[0]?.hasDiscount || false,
             category: item.product.category.name,
             originalPrice: item.product.inventories[0]?.compareAtPrice?.toString() || null,
-            image: item.product.inventories[0]?.images[0] || "/placeholder.svg"
+            image: item.product.inventories[0]?.images[0] || "/images/placeholder.svg"
         }));
     } catch (error) {
         console.error("Error fetching user wishlist:", error);

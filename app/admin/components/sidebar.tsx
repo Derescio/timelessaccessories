@@ -13,7 +13,8 @@ import {
     LayersIcon,
     PlusCircleIcon,
     Printer,
-    Ticket
+    Ticket,
+    Truck
 } from "lucide-react";
 
 interface SidebarProps {
@@ -46,6 +47,11 @@ const navItems = [
         title: "Promotions",
         href: "/admin/promotions",
         icon: Ticket
+    },
+    {
+        title: "Shipping Rates",
+        href: "/admin/shipping-rates",
+        icon: Truck
     },
     {
         title: "Users",
