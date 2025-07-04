@@ -5,10 +5,10 @@ import useEmblaCarousel from 'embla-carousel-react';
 import { useEffect } from "react";
 
 const heroImages = [
-    'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiR3Q5xQQJX6UoxhqFlyRAOsfW1gkrMPacHi5BL',
-    // 'https://z8rvk24gry.ufs.sh/f/wfxchweshiC1PCBPRxu2EVdFl8QfPj4iurKYba1Z5myznSRJ',
-    'https://s.alicdn.com/@sc04/kf/H04596a5df74242fc93e20a8d53c67184S.jpg_720x720q50.jpg',
-    '/images/picture2_Edit.jpg'
+    'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiROYYzSOqZLgabNo2fAHZI63EtDwVQdKWSX0uJ',
+    'https://utfs.io/f/wfxchweshiC1cLKofk35Ska3Zos40UOhv6q8fbKenMVgryxN',
+    'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRvrqPc5LOV4fyCpK1mnsagwZY9Nkc5MzQxGUA',
+    // 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRt8XbhJjUHP9u7v1CQnfGKjwTmWOI40pLJr2i'
 ];
 
 const Hero = () => {
@@ -29,10 +29,10 @@ const Hero = () => {
 
 
     return (
-        <section className="relative h-[50vh] md:h-[65vh] lg:h-[80vh] flex items-center justify-center mt-0.5">
+        <section className="relative h-[50vh] md:h-[65vh] lg:h-[80vh] flex items-center justify-center mt-0.5 ">
             {/* Embla Carousel */}
-            <div className="absolute inset-0 overflow-hidden">
-                <div ref={emblaRef} className="embla h-full">
+            <div className="absolute inset-0 overflow-hidden opacity-90 ">
+                <div ref={emblaRef} className="embla h-full ">
                     <div className="embla__container h-full flex">
                         {heroImages.map((img, idx) => (
                             <div className="embla__slide relative min-w-full h-full" key={idx}>
@@ -59,7 +59,7 @@ const Hero = () => {
                         <div className="w-8 h-px bg-white/70 ml-3"></div>
                     </div>
                     <h1 className="text-4xl md:text-6xl lg:text-7xl font-extralight mb-6">Timeless Elegance Redefined</h1>
-                    <p className="text-lg md:text-xl text-white/90 mb-8 max-w-xl font-light">
+                    <p className="text-lg md:text-xl text-white/90 mb-8 max-w-xl font-normal">
                         Discover our exclusive collection of handcrafted jewelry, where luxury meets artistry.
                     </p>
                     <Link
