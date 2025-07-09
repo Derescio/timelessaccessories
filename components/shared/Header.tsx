@@ -35,8 +35,8 @@ const mainNavItems = [
         href: "/about",
     },
     {
-        title: "Sale",
-        href: "/sale",
+        title: "Amazon Merch",
+        href: "/amazon-merch",
     },
 ];
 
