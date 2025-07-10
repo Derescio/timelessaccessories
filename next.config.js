@@ -66,6 +66,11 @@ const nextConfig = {
         hostname: "files.stripe.com",
         pathname: "**",
       },
+      {
+        protocol: "https",
+        hostname: "cdn.sanity.io",
+        pathname: "**",
+      },
     ],
   },
   experimental: {
