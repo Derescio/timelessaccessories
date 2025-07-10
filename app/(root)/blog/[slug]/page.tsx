@@ -1,129 +1,235 @@
-import Image from "next/image"
-import Link from "next/link"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { Metadata } from 'next'
+import { notFound } from 'next/navigation'
+import Image from 'next/image'
+import Link from 'next/link'
+import { format } from 'date-fns'
+import { Calendar, Clock, User, ArrowLeft, Share2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
+import PortableText from '@/components/blog/PortableText'
+import BlogCard from '@/components/blog/BlogCard'
+import { getPostBySlug, getAllPosts, urlFor } from '@/lib/sanity'
 
-import BlogPostCard from "@/components/blogcard"
+interface BlogPostPageProps {
+    params: Promise<{
+        slug: string
+    }>
+}
 
-export default function BlogPostPage() {
+export async function generateMetadata({ params }: BlogPostPageProps): Promise<Metadata> {
+    const resolvedParams = await params
+    const post = await getPostBySlug(resolvedParams.slug)
+
+    if (!post) {
+        return {
+            title: 'Post Not Found',
+        }
+    }
+
+    const seoTitle = post.seo?.metaTitle || post.title
+    const seoDescription = post.seo?.metaDescription || post.excerpt
+    const imageUrl = post.mainImage ? urlFor(post.mainImage).width(1200).height(630).url() : undefined
+
+    return {
+        title: `${seoTitle} | Timeless Accessories Blog`,
+        description: seoDescription,
+        keywords: post.seo?.keywords?.join(', ') || post.tags?.join(', '),
+        authors: [{ name: post.author.name }],
+        openGraph: {
+            title: seoTitle,
+            description: seoDescription,
+            type: 'article',
+            authors: [post.author.name],
+            images: imageUrl ? [imageUrl] : undefined,
+            url: `/blog/${post.slug.current}`,
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: seoTitle,
+            description: seoDescription,
+            images: imageUrl ? [imageUrl] : undefined,
+        },
+    }
+}
+
+export async function generateStaticParams() {
+    const posts = await getAllPosts()
+    return posts.map((post) => ({
+        slug: post.slug.current,
+    }))
+}
+
+export default async function BlogPostPage({ params }: BlogPostPageProps) {
+    const resolvedParams = await params
+    const post = await getPostBySlug(resolvedParams.slug)
+
+    if (!post) {
+        notFound()
+    }
+
+    // Get related posts (same category, excluding current post)
+    const allPosts = await getAllPosts()
+    const relatedPosts = allPosts
+        .filter(p => p._id !== post._id)
+        .filter(p => p.categories?.some(cat =>
+            post.categories?.some(postCat => postCat._id === cat._id)
+        ))
+        .slice(0, 3)
+
+    const shareUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/blog/${resolvedParams.slug}`
+
     return (
-        <article className="min-h-screen">
-            {/* Header */}
-            <header className="text-center py-16 container mx-auto px-4">
-                <div className="max-w-4xl mx-auto">
-                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-light mb-6">5 Tips to Increase Your Online Sales</h1>
-                    <div className="flex items-center justify-center gap-3 text-sm text-gray-500">
-                        <span>BY ADMIN</span>
-                        <span>•</span>
-                        <time dateTime="2023-04-05">APRIL 05, 2023</time>
-                        <span>•</span>
-                        <Link href="/blog?category=TRENDS" className="hover:text-primary">
-                            TRENDS
-                        </Link>
-                    </div>
-                </div>
-            </header>
-
-            {/* Featured Image */}
-            <div className="relative aspect-[21/9] mb-16">
-                <Image
-                    src="/images/RingImage.jpg"
-                    alt="Blog post header image"
-                    fill
-                    sizes="(min-width: 1024px) 1024px, 100vw"
-                    className="object-cover"
-                    priority
-                />
+        <div className="min-h-screen">
+            {/* Navigation */}
+            <div className="container mx-auto px-4 py-4">
+                <Link href="/blog" className="inline-block">
+                    <Button variant="ghost" className="mb-4">
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Back to Blog
+                    </Button>
+                </Link>
             </div>
 
-            {/* Content */}
-            <div className="container mx-auto px-4 pb-16">
-                <div className="max-w-4xl mx-auto">
-                    <div className="prose prose-lg">
-                        <p className="lead">
-                            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Amet sapien dignissim a elementum. Sociis lectus
-                            dictum id viverra vivamus feugiat vestibulum velit.
-                        </p>
-
-                        <h2>Sed do eiusmod tempor incididunt ut labore</h2>
-                        <p>
-                            Saw whales fruitful good days image them, midst waters open, saw. Stars lights seasons. Fruit forth rule
-                            Evening Creepeth own lesser years shall set seed multiply bring had cattle right multiply him to upon
-                            they are void fish. Brought second Made. Be. Under male male, firmament, beast had light after fifth forth
-                            darkness thing hath.
-                        </p>
-
-                        <h3>Why choose product?</h3>
-                        <ul>
-                            <li>Created by cotton fibers with soft and smooth</li>
-                            <li>Simple, Configurable (eg. size, color, etc.), bundled</li>
-                            <li>Downloadable/Digital Products, Virtual Products</li>
-                        </ul>
-
-                        <h3>Sample Number List</h3>
-                        <ol>
-                            <li>Create Store with specific attributes on the fly</li>
-                            <li>Simple, Configurable (eg. size, color, etc.), bundled</li>
-                            <li>Downloadable/Digital Products, Virtual Products</li>
-                        </ol>
-                    </div>
-
-                    {/* Tags */}
-                    <div className="flex flex-wrap gap-2 mt-8">
-                        <Link
-                            href="/blog?tag=fashion"
-                            className="px-4 py-2 bg-gray-100 text-sm hover:bg-primary hover:text-white transition-colors rounded-full"
-                        >
-                            Fashion
-                        </Link>
-                        <Link
-                            href="/blog?tag=lifestyle"
-                            className="px-4 py-2 bg-gray-100 text-sm hover:bg-primary hover:text-white transition-colors rounded-full"
-                        >
-                            Lifestyle
-                        </Link>
-                    </div>
-
-                    {/* Navigation */}
-                    <div className="flex items-center justify-between mt-16 pt-8 border-t">
-                        <Link href="/blog/prev-post" className="flex items-center gap-2 text-sm hover:text-primary">
-                            <ChevronLeft size={20} />
-                            <div>
-                                <div className="text-xs text-gray-500">Previous Post</div>
-                                <span>Heaven upon heaven moveth every have</span>
-                            </div>
-                        </Link>
-                        <Link href="/blog/next-post" className="flex items-center gap-2 text-sm hover:text-primary text-right">
-                            <div>
-                                <div className="text-xs text-gray-500">Next Post</div>
-                                <span>Woman with good shoes is never be ugly place</span>
-                            </div>
-                            <ChevronRight size={20} />
-                        </Link>
-                    </div>
-                </div>
-            </div>
-
-            {/* Related Posts */}
-            <div className="bg-gray-50 py-16">
-                <div className="container mx-auto px-4">
-                    <h2 className="text-2xl font-light text-center mb-8">Related Posts</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {[1, 2, 3].map((i) => (
-                            <BlogPostCard
-                                key={i}
-                                slug="sample-post"
-                                title="Sample Blog Post Title"
-                                excerpt="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
-                                image="/images/placeholder.svg?height=400&width=600&text=Related+Post"
-                                author="Admin"
-                                date="APRIL 05, 2023"
-                            // category="TRENDS"
-                            />
+            {/* Article Header */}
+            <article className="container mx-auto px-4 max-w-4xl">
+                <header className="mb-8">
+                    {/* Categories */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        {post.categories?.map((category) => (
+                            <Badge key={category._id} variant="secondary">
+                                {category.title}
+                            </Badge>
                         ))}
                     </div>
+
+                    {/* Title */}
+                    <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
+                        {post.title}
+                    </h1>
+
+                    {/* Meta Information */}
+                    <div className="flex flex-wrap items-center gap-6 text-gray-600 mb-6">
+                        <div className="flex items-center gap-2">
+                            <User className="h-5 w-5" />
+                            <Link
+                                href={`/blog/author/${post.author.slug.current}`}
+                                className="hover:text-blue-600 font-medium transition-colors"
+                            >
+                                {post.author.name}
+                            </Link>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <Calendar className="h-5 w-5" />
+                            <time dateTime={post.publishedAt}>
+                                {format(new Date(post.publishedAt), 'MMMM d, yyyy')}
+                            </time>
+                        </div>
+
+                        {post.readingTime && (
+                            <div className="flex items-center gap-2">
+                                <Clock className="h-5 w-5" />
+                                <span>{post.readingTime} min read</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Share Button - Note: This needs to be moved to a client component for onClick functionality */}
+                    <div className="flex items-center gap-4 mb-8">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                        >
+                            <Share2 className="h-4 w-4 mr-2" />
+                            Share
+                        </Button>
+                    </div>
+
+                    {/* Featured Image */}
+                    {post.mainImage && (
+                        <div className="mb-8 rounded-lg overflow-hidden">
+                            <Image
+                                src={urlFor(post.mainImage).width(800).height(600).url()}
+                                alt={post.mainImage.alt || post.title}
+                                width={800}
+                                height={600}
+                                className="w-full h-auto"
+                                priority
+                            />
+                        </div>
+                    )}
+                </header>
+
+                {/* Article Content */}
+                <div className="mb-12">
+                    <PortableText value={post.body} className="prose prose-lg max-w-none" />
                 </div>
-            </div>
-        </article>
+
+                {/* Tags */}
+                {post.tags && post.tags.length > 0 && (
+                    <div className="mb-8">
+                        <h3 className="text-lg font-semibold mb-4">Tags</h3>
+                        <div className="flex flex-wrap gap-2">
+                            {post.tags.map((tag, index) => (
+                                <Badge key={index} variant="outline">
+                                    #{tag}
+                                </Badge>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                <Separator className="my-8" />
+
+                {/* Author Bio */}
+                <div className="mb-12">
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center gap-4">
+                                {post.author.image && (
+                                    <Image
+                                        src={urlFor(post.author.image).width(80).height(80).url()}
+                                        alt={post.author.name}
+                                        width={80}
+                                        height={80}
+                                        className="rounded-full"
+                                    />
+                                )}
+                                <div>
+                                    <h3 className="text-xl font-semibold">{post.author.name}</h3>
+                                    <Link
+                                        href={`/blog/author/${post.author.slug.current}`}
+                                        className="text-blue-600 hover:text-blue-800 transition-colors"
+                                    >
+                                        View all posts by {post.author.name}
+                                    </Link>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        {post.author.bio && (
+                            <CardContent>
+                                <PortableText value={post.author.bio} className="text-gray-600" />
+                            </CardContent>
+                        )}
+                    </Card>
+                </div>
+
+                {/* Related Posts */}
+                {relatedPosts.length > 0 && (
+                    <div className="mb-12">
+                        <h2 className="text-2xl font-bold mb-6">Related Posts</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {relatedPosts.map((relatedPost) => (
+                                <BlogCard key={relatedPost._id} post={relatedPost} />
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </article>
+        </div>
     )
 }
 

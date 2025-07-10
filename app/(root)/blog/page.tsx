@@ -1,48 +1,46 @@
-"use client"
+import { Suspense } from 'react'
+import { Metadata } from 'next'
+import BlogListClient from '@/components/blog/BlogListClient'
+import { getAllPosts, getFeaturedPosts, getAllCategories } from '@/lib/sanity'
+import { Skeleton } from '@/components/ui/skeleton'
 
-import { useState } from "react"
-import BlogPostCard from "@/components/blogcard"
-
-const categories = ["ALL", "COMPANY", "FASHION", "STYLE", "TRENDS", "BEAUTY"]
-
-const blogPosts = [
-    {
-        slug: "5-tips-to-increase-your-online-sales",
-        title: "5 Tips to Increase Your Online Sales",
-        excerpt:
-            "Midst one brought greater also morning green saying had good. Open stars day let over gathered, grass face one every light of under.",
-        image: "/images/Blog_Image_1.jpg",
-        author: "Admin",
-        date: "APRIL 05, 2023",
-        category: "COMPANY",
+export const metadata: Metadata = {
+    title: 'Blog | Timeless Accessories',
+    description: 'Discover the latest trends, style tips, and insights about timeless accessories. From jewelry care to fashion guides, find everything you need to elevate your style.',
+    keywords: ['fashion blog', 'accessory trends', 'jewelry care', 'style tips', 'fashion accessories', 'timeless style'],
+    openGraph: {
+        title: 'Blog | Timeless Accessories',
+        description: 'Discover the latest trends, style tips, and insights about timeless accessories.',
+        type: 'website',
+        url: '/blog',
     },
-    {
-        slug: "woman-with-good-shoes",
-        title: "Woman with good shoes is never be ugly place",
-        excerpt:
-            "Midst one brought greater also morning green saying had good. Open stars day let over gathered, grass face one every light of under.",
-        image: "/images/Blog_Image.jpg",
-        author: "Admin",
-        date: "APRIL 05, 2023",
-        category: "FASHION",
-    },
-    {
-        slug: "heaven-upon-heaven",
-        title: "Heaven upon heaven moveth every have",
-        excerpt:
-            "Midst one brought greater also morning green saying had good. Open stars day let over gathered, grass face one every light of under.",
-        image: "/images/Blog_Image_1.jpg",
-        author: "Admin",
-        date: "APRIL 05, 2023",
-        category: "STYLE",
-    },
-]
+}
 
-export default function BlogPage() {
-    const [activeCategory, setActiveCategory] = useState("ALL")
+function BlogSkeleton() {
+    return (
+        <div className="container mx-auto px-4 py-16">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {[...Array(6)].map((_, i) => (
+                    <div key={i} className="space-y-4">
+                        <Skeleton className="h-48 w-full" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-3/4" />
+                            <Skeleton className="h-4 w-1/2" />
+                        </div>
+                        <Skeleton className="h-20 w-full" />
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
+}
 
-    const filteredPosts =
-        activeCategory === "ALL" ? blogPosts : blogPosts.filter((post) => post.category === activeCategory)
+export default async function BlogPage() {
+    const [posts, featuredPosts, categories] = await Promise.all([
+        getAllPosts(),
+        getFeaturedPosts(),
+        getAllCategories(),
+    ])
 
     return (
         <div>
@@ -50,30 +48,21 @@ export default function BlogPage() {
             <div className="relative bg-cover bg-center py-16 md:py-24" style={{ backgroundImage: "url('/images/Ringimage.jpg')" }}>
                 <div className="absolute inset-0 bg-black opacity-50"></div>
                 <div className="relative container mx-auto px-4 text-center text-white">
-                    <h1 className="text-4xl md:text-5xl font-light mb-8">SHOP-DW BLOG</h1>
-                    <nav className="flex flex-wrap justify-center gap-6">
-                        {categories.map((category) => (
-                            <button
-                                key={category}
-                                onClick={() => setActiveCategory(category)}
-                                className={`text-sm hover:text-primary transition-colors ${activeCategory === category ? "text-primary underline underline-offset-8" : "text-gray-300"
-                                    }`}
-                            >
-                                {category}
-                            </button>
-                        ))}
-                    </nav>
+                    <h1 className="text-4xl md:text-5xl font-light mb-4">TIMELESS BLOG</h1>
+                    <p className="text-lg md:text-xl mb-8 max-w-2xl mx-auto">
+                        Discover the latest trends, style tips, and insights about timeless accessories
+                    </p>
                 </div>
             </div>
 
-            {/* Blog Posts Grid */}
-            <div className="container mx-auto px-4 py-16">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {filteredPosts.map((post) => (
-                        <BlogPostCard key={post.slug} {...post} />
-                    ))}
-                </div>
-            </div>
+            {/* Blog Content */}
+            <Suspense fallback={<BlogSkeleton />}>
+                <BlogListClient
+                    posts={posts}
+                    featuredPosts={featuredPosts}
+                    categories={categories}
+                />
+            </Suspense>
         </div>
     )
 }
