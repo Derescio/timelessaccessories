@@ -8,16 +8,16 @@ export default function FAQPage() {
                 {
                     question: "How do I track my order?",
                     answer:
-                        "Once your order is shipped, you will receive a confirmation email with a tracking number. You can use this number to track your package on our website or the carrier's website.",
+                        "Once your order is Shipped, you will receive a confirmation email with a tracking number. You can use this number to track your package on the carrier's website.",
                 },
                 {
                     question: "What payment methods do you accept?",
-                    answer: "We accept all major credit cards (Visa, MasterCard, American Express), PayPal, and Apple Pay.",
+                    answer: "We accept all major credit cards via Stripe, we also accept PayPal.",
                 },
                 {
                     question: "Can I modify or cancel my order?",
                     answer:
-                        "Orders can be modified or cancelled within 1 hour of placing them. Please contact our customer service team for assistance.",
+                        "Unfortunately, we do not offer the ability to modify or cancel orders once they have been placed. Please consult our terms and conditions for more information.",
                 },
             ],
         },
@@ -27,7 +27,7 @@ export default function FAQPage() {
                 {
                     question: "What are your shipping options?",
                     answer:
-                        "We offer free standard shipping on orders over $50, flat rate shipping for $49, and local pickup for $8.",
+                        "We offer standard shipping with Canada Post, this allows us to ship to most countries worldwide. Shipping costs and delivery times vary by location.",
                 },
                 {
                     question: "Do you ship internationally?",
@@ -36,7 +36,7 @@ export default function FAQPage() {
                 {
                     question: "How long will it take to receive my order?",
                     answer:
-                        "Standard shipping typically takes 3-5 business days within the US. International shipping can take 7-14 business days.",
+                        "Standard shipping typically takes 3-5 business days within the Canada. International shipping can take 7-14 business days.",
                 },
             ],
         },

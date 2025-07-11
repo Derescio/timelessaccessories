@@ -1,8 +1,13 @@
-'use client'
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import StudioClient from "./studio-client";
 
-import { NextStudio } from 'next-sanity/studio'
-import config from '../../../sanity.config'
+export default async function StudioPage() {
+    const session = await auth();
 
-export default function StudioPage() {
-    return <NextStudio config={config} />
+    if (!session || session.user.role !== "ADMIN") {
+        redirect("/sign-in?message=Admin access required");
+    }
+
+    return <StudioClient />;
 } 

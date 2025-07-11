@@ -43,15 +43,15 @@ export default function ContactPage() {
                                     <div>
                                         <p className="font-medium">Email</p>
                                         <a
-                                            href="mailto:info@shopdw.com"
+                                            href="mailto:info@shop-dw.com"
                                             className="text-blue-600 hover:underline"
                                         >
-                                            info@shopdw.com
+                                            info@shop-dw.com
                                         </a>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-3">
+                                {/* <div className="flex items-center gap-3">
                                     <Phone className="h-4 w-4 text-muted-foreground" />
                                     <div>
                                         <p className="font-medium">Phone</p>
@@ -62,9 +62,9 @@ export default function ContactPage() {
                                             (123) 456-7890
                                         </a>
                                     </div>
-                                </div>
+                                </div> */}
 
-                                <div className="flex items-center gap-3">
+                                {/* <div className="flex items-center gap-3">
                                     <MapPin className="h-4 w-4 text-muted-foreground" />
                                     <div>
                                         <p className="font-medium">Address</p>
@@ -74,16 +74,16 @@ export default function ContactPage() {
                                             Canada
                                         </p>
                                     </div>
-                                </div>
+                                </div> */}
 
                                 <div className="flex items-center gap-3">
                                     <Clock className="h-4 w-4 text-muted-foreground" />
                                     <div>
                                         <p className="font-medium">Business Hours</p>
                                         <p className="text-sm text-muted-foreground">
-                                            Monday - Friday: 9:00 AM - 6:00 PM<br />
-                                            Saturday: 10:00 AM - 4:00 PM<br />
-                                            Sunday: Closed
+                                            9:00 AM - 6:00 PM<br />
+                                            <br />
+
                                         </p>
                                     </div>
                                 </div>
@@ -91,7 +91,7 @@ export default function ContactPage() {
                         </Card>
 
                         {/* Social Media */}
-                        <Card>
+                        {/* <Card>
                             <CardHeader>
                                 <CardTitle>Follow Us</CardTitle>
                             </CardHeader>
@@ -123,7 +123,7 @@ export default function ContactPage() {
                                     </Link>
                                 </div>
                             </CardContent>
-                        </Card>
+                        </Card> */}
 
                         {/* Quick Info */}
                         <Card>
@@ -137,13 +137,13 @@ export default function ContactPage() {
                                         We typically respond within 24 hours
                                     </p>
                                 </div>
-                                <Separator />
+                                {/* <Separator />
                                 <div>
                                     <p className="font-medium">Order Support</p>
                                     <p className="text-sm text-muted-foreground">
                                         For order-related inquiries, please include your order number
                                     </p>
-                                </div>
+                                </div> */}
                                 <Separator />
                                 <div>
                                     <p className="font-medium">Returns & Exchanges</p>
