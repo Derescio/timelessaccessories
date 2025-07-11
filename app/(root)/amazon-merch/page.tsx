@@ -29,7 +29,7 @@ const products: Product[] = [
         id: 'pbc-tshirt',
         name: 'PBC T-Shirt',
         description: 'Premium quality cotton t-shirt with unique PBC design. Comfortable fit and durable print.',
-        image: '/images/PBC_T-Shirt.png',
+        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRe1QJ6CE6gJctEQmypDOwv4rWUTY9fhVi0on8',
         price: {
             us: '$19.99',
             uk: '£16.99'
@@ -43,7 +43,7 @@ const products: Product[] = [
         id: 'always-tshirt',
         name: 'Premium Pullover',
         description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
-        image: '/images/T-Shirt.png',
+        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiR8c5AEZaynJRpkYjLvsQxZV3AmTiGWr6PXMdO',
         price: {
             us: '$29.99',
             uk: '£24.99'
@@ -57,7 +57,35 @@ const products: Product[] = [
         id: 'pullover',
         name: 'Premium Pullover',
         description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
-        image: '/images/Pullover.png',
+        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRfR8u6p79CFSdEtbAj5NHWgTKMRkcGLDaPYVw',
+        price: {
+            us: '$29.99',
+            uk: '£24.99'
+        },
+        links: {
+            us: 'https://amazon.com', // Replace with actual Amazon US link
+            uk: 'https://amazon.com'  // Replace with actual Amazon UK link
+        }
+    },
+    {
+        id: 'pullover1',
+        name: 'Premium Pullover',
+        description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
+        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRfR8u6p79CFSdEtbAj5NHWgTKMRkcGLDaPYVw',
+        price: {
+            us: '$29.99',
+            uk: '£24.99'
+        },
+        links: {
+            us: 'https://amazon.com', // Replace with actual Amazon US link
+            uk: 'https://amazon.com'  // Replace with actual Amazon UK link
+        }
+    },
+    {
+        id: 'pullover2',
+        name: 'Premium Pullover',
+        description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
+        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRfR8u6p79CFSdEtbAj5NHWgTKMRkcGLDaPYVw',
         price: {
             us: '$29.99',
             uk: '£24.99'
@@ -180,12 +208,13 @@ const Amazon = () => {
 
     const renderProductCard = (product: Product) => (
         <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
-            <div className="relative aspect-square">
+            <div className="aspect-square overflow-hidden -mt-6">
                 <Image
                     src={product.image}
                     alt={product.name}
-                    fill
-                    className="object-cover"
+                    width={400}
+                    height={400}
+                    className="w-full h-full object-cover"
                 />
             </div>
             <CardHeader>

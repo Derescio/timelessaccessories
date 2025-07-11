@@ -13,14 +13,12 @@ const footerLinks = {
     support: [
         { title: "Contact Us", href: "/contact" },
         { title: "FAQs", href: "/faq" },
-        { title: "Shipping", href: "/shipping" },
-        { title: "Returns", href: "/returns" },
-        { title: "Size Guide", href: "/size-guide" },
+
+
     ],
     company: [
         { title: "About Us", href: "/about" },
         { title: "Blog", href: "/blog" },
-        { title: "Careers", href: "/careers" },
         { title: "Privacy Policy", href: "/privacy" },
         { title: "Terms of Service", href: "/terms" },
     ],
@@ -109,7 +107,7 @@ export function Footer() {
 
                 {/* Bottom Bar */}
                 <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-                    <p>© {new Date().getFullYear()} Timeless. All rights reserved.</p>
+                    <p>© {new Date().getFullYear()} Shop-DW. All rights reserved.</p>
                 </div>
             </div>
         </footer>

@@ -75,7 +75,7 @@ export async function sendContactEmail(data: ContactFormData) {
     // Email options
     const mailOptions = {
       from: process.env.MAIL_USER,
-      to: 'ddw.web.dev.services@gmail.com',
+      to: 'info@shop-dw.com',
       subject: `Contact Form: ${validatedData.subject}`,
       html: generateEmailHTML(validatedData),
       replyTo: validatedData.email,
