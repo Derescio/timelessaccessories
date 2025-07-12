@@ -68,10 +68,10 @@ const products: Product[] = [
         }
     },
     {
-        id: 'pullover1',
+        id: 'gymlife',
         name: 'Premium Pullover',
         description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
-        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRfR8u6p79CFSdEtbAj5NHWgTKMRkcGLDaPYVw',
+        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRl23i1JTWAEhTzr5quwHZJYo3dnL69NmvsB1U',
         price: {
             us: '$29.99',
             uk: '£24.99'

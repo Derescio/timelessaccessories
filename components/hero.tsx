@@ -55,18 +55,18 @@ const Hero = () => {
                 <div className="max-w-3xl text-left text-white">
                     <div className="flex items-center mb-4">
                         <div className="w-8 h-px bg-white/70 mr-3"></div>
-                        <span className="text-white/90 uppercase tracking-wider text-sm font-light">LUXURY COLLECTION</span>
+                        <span className="text-white/90 uppercase tracking-wider text-sm font-light">PREMIUM FASHION ACCESSORIES</span>
                         <div className="w-8 h-px bg-white/70 ml-3"></div>
                     </div>
-                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-extralight mb-6">Timeless Elegance Redefined</h1>
+                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-extralight mb-6">Accessories For A Modern World</h1>
                     <p className="text-lg md:text-xl text-white/90 mb-8 max-w-xl font-normal">
-                        Discover our exclusive collection of handcrafted jewelry, where luxury meets artistry.
+                        Shop luxury jewelry, quality chains, and elegant bracelets. Handcrafted quality accessories that elevate your style.
                     </p>
                     <Link
                         href="/products"
                         className="inline-block bg-transparent text-white border-2 border-white/70 px-8 py-3 rounded-full text-sm uppercase tracking-wider font-normal hover:bg-white hover:text-gray-900 transition-all duration-300"
                     >
-                        Shop Collection
+                        Shop All Accessories
                     </Link>
                 </div>
             </div>
