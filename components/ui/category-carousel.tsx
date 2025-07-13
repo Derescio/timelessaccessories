@@ -57,9 +57,13 @@ export function CategoryCarousel({ categories }: CategoryCarouselProps) {
                     //     hasCategoryImage: !!category.imageUrl
                     // });
 
+                    // Check if this is the Amazon merch category
+                    const isAmazonMerch = category.id === 'cmd0hzaiz0001201kbufh63uu';
+                    const linkHref = isAmazonMerch ? '/amazon-merch' : `/products?category=${category.id}`;
+
                     return (
                         <CarouselItem key={category.id} className="sm:basis-1/2 lg:basis-1/3">
-                            <Link href={`/products?category=${category.id}`}>
+                            <Link href={linkHref}>
                                 <Card className="overflow-hidden group border-0">
                                     <div className="aspect-[4/3] relative bg-muted">
                                         <Image
