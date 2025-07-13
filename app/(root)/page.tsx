@@ -6,6 +6,7 @@
 import Hero from "@/components/hero";
 import CategorySection from "@/components/productCategories";
 import FeaturedProducts from "@/components/featuredProducts";
+import AmazonMerch from "@/components/amazon-merch";
 import BlogSection from "@/components/blogs";
 
 //import ProductCarousel from "@/components/shared/product/product-carousel";
@@ -28,6 +29,7 @@ const HomePage = async () => {
       <Hero />
       <CategorySection />
       <FeaturedProducts />
+      <AmazonMerch />
       <BlogSection />
 
       {/* <div className="flex  items-center justify-center mb-6">

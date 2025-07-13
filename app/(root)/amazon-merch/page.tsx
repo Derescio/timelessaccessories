@@ -82,10 +82,10 @@ const products: Product[] = [
         }
     },
     {
-        id: 'pullover2',
-        name: 'Premium Pullover',
+        id: 'cat-tshirt',
+        name: 'Cat T-Shirt',
         description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
-        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRfR8u6p79CFSdEtbAj5NHWgTKMRkcGLDaPYVw',
+        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRtb3BIujUHP9u7v1CQnfGKjwTmWOI40pLJr2i',
         price: {
             us: '$29.99',
             uk: '£24.99'
