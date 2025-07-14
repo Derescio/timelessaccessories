@@ -3,6 +3,9 @@ import Image from "next/image";
 import Link from "next/link";
 import useEmblaCarousel from 'embla-carousel-react';
 import { useEffect } from "react";
+import ShinyText from '@/components/ui/reactbits/shiny-text';
+import BlurText from '@/components/ui/reactbits/blur-text';
+import TypingText from '@/components/ui/reactbits/typing-text';
 
 const heroImages = [
     'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiROYYzSOqZLgabNo2fAHZI63EtDwVQdKWSX0uJ',
@@ -55,12 +58,35 @@ const Hero = () => {
                 <div className="max-w-3xl text-left text-white">
                     <div className="flex items-center mb-4">
                         <div className="w-8 h-px bg-white/70 mr-3"></div>
-                        <span className="text-white/90 uppercase tracking-wider text-sm font-light">PREMIUM FASHION ACCESSORIES</span>
+                        <BlurText
+                            text="PREMIUM FASHION ACCESSORIES"
+                            className="text-white/90 uppercase tracking-wider text-sm font-light"
+                            delay={50}
+                        />
                         <div className="w-8 h-px bg-white/70 ml-3"></div>
                     </div>
-                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-extralight mb-6">Accessories For A Modern World</h1>
+                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-extralight mb-6">
+                        <ShinyText
+                            text="Accessories For A Modern World"
+                            className="text-4xl md:text-6xl lg:text-7xl font-extralight text-white"
+                            animationDuration="3s"
+                        />
+                    </h1>
                     <p className="text-lg md:text-xl text-white/90 mb-8 max-w-xl font-normal">
-                        Shop luxury jewelry, quality chains, and elegant bracelets. Handcrafted quality accessories that elevate your style.
+                        <TypingText
+                            text={[
+                                "Shop luxury jewelry, quality chains, and elegant bracelets.",
+                                "Handcrafted quality accessories that elevate your style.",
+                                "Discover timeless pieces for the modern individual."
+                            ]}
+                            className="text-lg md:text-xl text-white/90 font-normal"
+                            speed={80}
+                            deleteSpeed={40}
+                            delayBetween={3000}
+                            repeat={true}
+                            showCursor={true}
+                            cursorChar="✨"
+                        />
                     </p>
                     <Link
                         href="/products"
