@@ -1,0 +1,5 @@
+export { default as SplitText } from './hellotext'
+export { default as ShinyText } from './shiny-text'
+export { default as BlurText } from './blur-text'
+export { default as TypingText } from './typing-text'
+export { default as CircularText } from './circular-text' 
