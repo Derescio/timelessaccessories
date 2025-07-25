@@ -82,22 +82,22 @@ export function ProductCard({ product }: ProductCardProps) {
     }, [hasDiscount, compareAtPrice]);
 
     return (
-        <Card className="group overflow-hidden transition-all duration-300 hover:shadow-lg">
+        <Card className="group overflow-hidden transition-all duration-300 hover:shadow-lg p-0">
             <div className="relative">
                 <Link href={`/products/${slug}`} className="block">
-                    <div className="aspect-square relative overflow-hidden">
+                    <div className="aspect-square relative overflow-hidden border-b border-gray-200 shadow-md">
                         <Image
                             src={mainImage}
                             alt={name}
                             width={500}
                             height={500}
-                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                            className="object-contain transition-transform duration-300 group-hover:scale-105"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                         <button
                             onClick={handleWishlistToggle}
                             disabled={isLoading}
-                            className="absolute top-2 left-2 p-2 rounded-full bg-white/90 hover:bg-white transition-colors duration-200 shadow-sm"
+                            className="absolute top-2 left-2 p-2 rounded-full bg-white/90 hover:bg-white transition-colors duration-200 shadow-lg"
                         >
                             <Heart
                                 className={`w-5 h-5 transition-colors duration-200 ${isInWishlist ? "fill-red-500 text-red-500" : "text-gray-600"
@@ -138,9 +138,8 @@ export function ProductCard({ product }: ProductCardProps) {
                 </Link>
                 <div className="px-4 pb-4">
                     <Button
-                        variant="outline"
                         size="sm"
-                        className="w-full group-hover:border-primary group-hover:text-primary transition-colors"
+                        className="w-full bg-black text-white hover:bg-gray-800 transition-colors"
                         asChild
                     >
                         <Link href={`/products/${slug}`}>

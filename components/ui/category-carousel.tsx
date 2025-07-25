@@ -76,12 +76,12 @@ export function CategoryCarousel({ categories }: CategoryCarouselProps) {
                                         />
                                     </div>
                                     <CardContent className="flex flex-col items-center justify-center p-4 border-t">
-                                        <h3 className="text-lg font-semibold mb-1 group-hover:text-primary transition-colors">
+                                        <h3 className="text-lg font-normal mb-1 group-hover:text-primary transition-colors">
                                             {category.name}
                                         </h3>
-                                        <p className="text-sm text-muted-foreground">
+                                        {/* <p className="text-sm text-muted-foreground">
                                             {category.productCount} Products
-                                        </p>
+                                        </p> */}
                                     </CardContent>
                                 </Card>
                             </Link>

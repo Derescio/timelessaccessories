@@ -27,6 +27,10 @@ const mainNavItems = [
         href: "/products",
     },
     {
+        title: "Merch Store",
+        href: "/amazon-merch",
+    },
+    {
         title: "Blog",
         href: "/blog",
     },
@@ -34,10 +38,7 @@ const mainNavItems = [
         title: "About",
         href: "/about",
     },
-    {
-        title: "Amazon Merch",
-        href: "/amazon-merch",
-    },
+
 ];
 
 export function Header() {

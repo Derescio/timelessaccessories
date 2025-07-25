@@ -86,8 +86,8 @@ const AmazonMerch = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
                     {featuredProducts.map((product) => (
                         <Link key={product.id} href="/amazon-merch" className="group">
-                            <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group-hover:scale-105">
-                                <div className="aspect-square overflow-hidden">
+                            <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group-hover:scale-105 p-0">
+                                <div className="aspect-square overflow-hidden border-b border-gray-200 shadow-md">
                                     <Image
                                         src={product.image}
                                         alt={product.name}

@@ -7,8 +7,8 @@ const footerLinks = {
         { title: "Rings", href: "/products?category=cm8g42vkg000420us58yc4vhc" },
         { title: "Bracelets", href: "/products?category=cm8g42vld000620usw2uzntme" },
         { title: "Necklaces", href: "/products?category=cm8g42vis000220uspq6fi4uv" },
-        { title: "Jewelry", href: "/products?category=cm8wftyg4000r20yg3d4ph4v0" },
-        { title: "Electronics", href: "/products?category=cm8p9azze00172050qfw19hgj" },
+        { title: "Earrings", href: "/products?category=cmdi1i5m2000120ioqxw07q4r" },
+        { title: "T-Shirts", href: "/amazon-merch" },
     ],
     support: [
         { title: "Contact Us", href: "/contact" },
