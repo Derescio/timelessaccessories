@@ -10,7 +10,7 @@ export async function toggleWishlist(productId: string) {
         if (!session?.user?.id) {
             return { 
                 success: false, 
-                error: "Please log in to add items to your wishlist",
+                error: "You need to be logged in to add items to your wishlist",
                 requiresAuth: true,
                 isInWishlist: false 
             };

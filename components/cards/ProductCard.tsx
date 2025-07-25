@@ -53,8 +53,8 @@ export function ProductCard({ product }: ProductCardProps) {
                 setIsInWishlist(result.isInWishlist);
                 toast.success(result.isInWishlist ? "Added to wishlist" : "Removed from wishlist");
             } else if (result.requiresAuth) {
-                toast.error(result.error);
-                router.push("/auth/login");
+                toast.success(result.error);
+                //router.push("/sign-in");
             } else {
                 toast.error(result.error);
             }
