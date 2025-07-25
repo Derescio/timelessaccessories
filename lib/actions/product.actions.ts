@@ -34,7 +34,7 @@ export async function getProducts() {
             images: true,
             hasDiscount: true,
             discountPercentage: true,
-            compareAtPrice: true
+            compareAtPrice: true,
           }
         },
         reviews: {

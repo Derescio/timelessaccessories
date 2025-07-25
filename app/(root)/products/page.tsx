@@ -127,6 +127,9 @@ function ProductsPageContent() {
     useEffect(() => {
         let filtered = products;
 
+        // First, filter out inactive products
+        filtered = filtered.filter(product => product.isActive === true);
+
         // Apply category filter if present
         if (categoryId) {
             filtered = filtered.filter(product => product.categoryId === categoryId);

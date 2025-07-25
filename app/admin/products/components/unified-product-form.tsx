@@ -553,7 +553,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
 
             //console.log('Submitting product with JSON inventory attributes:', inventoryAttributeValues);
             const result = await createProductWithAttributes(extendedValues);
-
+            console.log("Result:", result);
             if (!result.success) {
                 throw new Error(result.error || "Failed to create product");
             }
