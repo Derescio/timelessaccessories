@@ -786,7 +786,7 @@ export default function ShippingPage() {
                             city: formData.city || "",
                             state: formData.state || "",
                             postalCode: formData.postalCode || "",
-                            country: formData.parish || "",
+                            country: formData.country || "",
                             isUserManaged: true // Explicitly mark as not user-managed so it won't appear in address book
                         });
                         //  console.log("Address save response:", addressResult);
