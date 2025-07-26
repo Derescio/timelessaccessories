@@ -107,7 +107,7 @@ export function Footer() {
 
                 {/* Bottom Bar */}
                 <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-                    <p>© {new Date().getFullYear()} Shop-DW. All rights reserved.</p>
+                    <p>© {new Date().getFullYear()} Shop-DW. All rights reserved. <span className="text-blue-500"> | Powered by</span>  <Link href="https://www.opsedsolutions.com" className="text-blue-500 hover:underline">OPSED SOLUTIONS</Link></p>
                 </div>
             </div>
         </footer>

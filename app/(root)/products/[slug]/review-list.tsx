@@ -5,6 +5,20 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react'
 import { getAllReviews, getVerifiedReviews } from '@/lib/actions/review.actions';
 import Rating from '@/components/rating';
+import { useSession } from 'next-auth/react';
+
+
+
+interface ReviewFromAPI {
+    id: string;
+    content: string;
+    rating: number;
+    title: string | null;
+    user: { name: string | null };
+    createdAt: Date;
+    productId: string;
+    userId: string;
+}
 
 
 const ReviewList = ({ userId, productId, productSlug }
@@ -12,30 +26,59 @@ const ReviewList = ({ userId, productId, productSlug }
 
     const [reviews, setReviews] = useState<Review[]>([]);
     const [hasPurchased, setHasPurchased] = useState<boolean>(false);
+    const { data: session } = useSession(); // Get session data for email
 
     useEffect(() => {
         const fetchReviews = async () => {
-            const reviewsFromApi = await getAllReviews({ productId });
-            const reviews = reviewsFromApi.map((r: any) => ({
-                ...r,
-                description: r.content // map content to description
-            }));
-            setReviews(reviews);
-            const hasPurchased = await getVerifiedReviews({ productId })
-            setHasPurchased(hasPurchased)
+            try {
+                const [reviewsFromApi, hasPurchased] = await Promise.all([
+                    getAllReviews({ productId }),
+                    getVerifiedReviews({
+                        productId,
+                        userId: userId,
+                        userEmail: session?.user?.email ?? undefined
+                    })
+                ]);
+
+                const reviews = reviewsFromApi.map((r: ReviewFromAPI): Review => ({
+                    id: r.id,
+                    title: r.title || 'No Title',
+                    description: r.content,
+                    productId: r.productId,
+                    userId: r.userId,
+                    rating: r.rating,
+                    createdAt: r.createdAt,
+                    user: { name: r.user?.name || 'Anonymous' }
+                }));
+
+                setReviews(reviews);
+                setHasPurchased(hasPurchased);
+            } catch (error) {
+                console.error('Error fetching reviews:', error);
+                // You might want to set an error state here
+            }
         }
         fetchReviews()
-    }, [productId])
+    }, [productId, userId, session?.user?.email])
     //Reload the page when a review is submitted
     const reload = async () => {
-        const res = await getAllReviews({ productId })
-        //set the reviews to the new reviews
-        const reviews = res.map((r: any) => ({
-            ...r,
-            description: r.content // map content to description
-        }));
-        setReviews(reviews);
-
+        try {
+            const res = await getAllReviews({ productId });
+            //set the reviews to the new reviews
+            const reviews = res.map((r: ReviewFromAPI): Review => ({
+                id: r.id,
+                title: r.title || 'No Title',
+                description: r.content,
+                productId: r.productId,
+                userId: r.userId,
+                rating: r.rating,
+                createdAt: r.createdAt,
+                user: { name: r.user?.name || 'Anonymous' }
+            }));
+            setReviews(reviews);
+        } catch (error) {
+            console.error('Error reloading reviews:', error);
+        }
     }
 
     return (
