@@ -1,11 +1,12 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { getProductBySlug } from '@/lib/actions/product.actions';
+import { getProductBySlug, getRandomProducts } from '@/lib/actions/product.actions';
 import ReviewList from './review-list';
 // import { ClientProduct } from "@/lib/types/product.types";
 import { ProductGallery } from "@/components/product/product-gallery";
 import { ProductInfo } from "@/components/product/product-info";
 // import { ProductReviews } from "@/components/product/product-reviews";
+import { ProductCard } from "@/components/cards/ProductCard";
 import { Metadata } from 'next';
 import { auth } from '@/auth';
 
@@ -46,6 +47,9 @@ export default async function ProductPage({
         notFound();
     }
 
+    // Fetch random products for recommendations
+    const recommendedProducts = await getRandomProducts(product.id, 4);
+
     // Calculate average rating and review count
     // const averageRating = product.reviews.length > 0
     //     ? product.reviews.reduce((acc: number, review: { rating: number }) => acc + review.rating, 0) / product.reviews.length
@@ -74,7 +78,25 @@ export default async function ProductPage({
                     mainImage={product.mainImage}
                 />
                 <ProductInfo product={product} />
+
             </div>
+            {/* Recommendations Section */}
+            {recommendedProducts.length > 0 && (
+                <div className="mt-16">
+                    <div className="text-center mb-8">
+                        <h2 className="text-2xl font-light mb-2">May we also recommend</h2>
+                        <div className="w-16 h-px bg-gray-300 mx-auto"></div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {recommendedProducts.map((recommendedProduct) => (
+                            <ProductCard
+                                key={recommendedProduct.id}
+                                product={recommendedProduct}
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
             <div className="mt-12">
                 {/* <ProductReviews
                     reviews={product.reviews}
@@ -83,6 +105,8 @@ export default async function ProductPage({
                 /> */}
                 <ReviewList userId={userId ?? ''} productId={product.id} productSlug={product.slug} />
             </div>
+
+
         </div>
     );
 }

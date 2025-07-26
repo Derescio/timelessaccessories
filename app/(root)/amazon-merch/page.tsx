@@ -5,8 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ExternalLink, MapPin, Heart, ShoppingCart, AlertCircle, Globe } from 'lucide-react'
+import { ExternalLink, Heart, ShoppingCart, AlertCircle, Globe } from 'lucide-react'
 import Image from 'next/image'
 
 interface Product {
@@ -95,20 +94,20 @@ const products: Product[] = [
             uk: 'https://amazon.com'  // Replace with actual Amazon UK link
         }
     },
-    {
-        id: 'time-tshirt',
-        name: 'Have Fun T-Shirt',
-        description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
-        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiR2fRlyB13QkbvWgU2Gs4wl85IKV7AqXo1HNZj',
-        price: {
-            us: 'USD $18.99',
-            uk: '£24.99'
-        },
-        links: {
-            us: 'https://amazon.com', // Replace with actual Amazon US link
-            uk: 'https://amazon.com'  // Replace with actual Amazon UK link
-        }
-    }
+    // {
+    //     id: 'time-tshirt',
+    //     name: 'Have Fun T-Shirt',
+    //     description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
+    //     image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiR2fRlyB13QkbvWgU2Gs4wl85IKV7AqXo1HNZj',
+    //     price: {
+    //         us: 'USD $18.99',
+    //         uk: '£24.99'
+    //     },
+    //     links: {
+    //         us: 'https://amazon.com', // Replace with actual Amazon US link
+    //         uk: 'https://amazon.com'  // Replace with actual Amazon UK link
+    //     }
+    // }
 ]
 
 type Region = 'us' | 'uk' | 'canada'
@@ -206,15 +205,16 @@ const Amazon = () => {
         <Alert className="mb-8 border-yellow-200 bg-yellow-50">
             <AlertCircle className="h-4 w-4 text-yellow-600" />
             <AlertDescription className="text-yellow-800">
-                <strong>Canadian Customers:</strong> Unfortunately, Amazon Merch is not available in Canada.
-                However, you can still support our small business by purchasing similar designs from our TeePublic store!
+                <strong>Thank you, Canadian friends!</strong> While Amazon Merch isn't available in Canada,
+                you can still be part of my recovery journey by supporting our designs on TeePublic.
+                Every purchase, no matter the platform, helps me rebuild and creates meaningful impact.
                 <Button
                     variant="link"
                     className="p-0 h-auto ml-2 text-yellow-700 underline"
                     onClick={() => window.open('https://www.teepublic.com/user/shopdw', '_blank')}
                 >
                     <Heart className="h-4 w-4 mr-1" />
-                    Shop Our TeePublic Store
+                    Support on TeePublic
                 </Button>
             </AlertDescription>
         </Alert>
@@ -291,65 +291,36 @@ const Amazon = () => {
         <div className="container mx-auto px-4 py-8">
             {/* Header Section */}
             <div className="text-center mb-12">
-                <h1 className="text-4xl font-bold mb-4">Amazon Merch Collection</h1>
-                <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-6">
-                    Support our small business with premium quality apparel available on Amazon.
-                    Each purchase helps us continue creating unique designs and growing our brand.
+                <h1 className="text-4xl font-bold mb-4">Support Small Business Collection</h1>
+                <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-6">
+                    Every t-shirt and design you see here represents more than just apparel—it's part of my journey to rebuild
+                    after a life-changing accident. Your support helps me create passive income and continue my path to independence
+                    through resilience and creativity.
                 </p>
-
-                {/* Region Selector */}
-                <div className="flex items-center justify-center gap-4 mb-8">
-                    <MapPin className="h-5 w-5 text-gray-500" />
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Select your region:</span>
-                        <Select value={selectedRegion} onValueChange={(value: Region) => setSelectedRegion(value)}>
-                            <SelectTrigger className="w-40">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="us">🇺🇸 United States</SelectItem>
-                                <SelectItem value="uk">🇬🇧 United Kingdom</SelectItem>
-                                <SelectItem value="canada">🇨🇦 Canada</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                <div className="flex items-center justify-center gap-2 mb-8">
+                    <Heart className="h-5 w-5 text-red-500" />
+                    <span className="text-sm font-medium text-gray-700">
+                        Supporting recovery, one design at a time
+                    </span>
                 </div>
-
-                {detectedRegion && (
-                    <p className="text-sm text-gray-500 mb-6">
-                        <Globe className="h-4 w-4 inline mr-1" />
-                        Auto-detected region: {detectedRegion === 'us' ? 'United States' : detectedRegion === 'uk' ? 'United Kingdom' : 'Canada'}
-                        {selectedRegion === detectedRegion && (
-                            <Badge variant="outline" className="ml-2 text-xs">
-                                Auto-selected
-                            </Badge>
-                        )}
-                    </p>
-                )}
             </div>
 
             {/* Canadian Customer Message */}
             {selectedRegion === 'canada' && renderCanadianMessage()}
 
-            {/* Small Business Support Message */}
+            {/* Personal Support Message */}
             {selectedRegion !== 'canada' && (
                 <Alert className="mb-8 border-blue-200 bg-blue-50">
                     <Heart className="h-4 w-4 text-blue-600" />
                     <AlertDescription className="text-blue-800">
-                        <strong>Supporting Small Business:</strong> Every purchase through Amazon helps support our small business.
-                        We appreciate your support in helping us grow and create more unique designs!
+                        <strong>Your Support Makes a Difference:</strong> Each purchase helps fund my recovery journey and
+                        path to financial independence. When you buy these designs, you're directly contributing to someone
+                        rebuilding their life after a life-changing accident. Thank you for being part of my story.
                     </AlertDescription>
                 </Alert>
             )}
 
-            {/* Available Regions Notice */}
-            {selectedRegion !== 'canada' && (
-                <div className="text-center mb-8">
-                    <Badge variant="outline" className="text-sm px-4 py-2">
-                        Available in United States & United Kingdom only
-                    </Badge>
-                </div>
-            )}
+
 
             {/* Products Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
@@ -358,36 +329,40 @@ const Amazon = () => {
 
             {/* Footer Message */}
             <div className="text-center p-8 bg-gray-50 rounded-lg">
-                <h3 className="text-xl font-semibold mb-4">Why Choose Our Merch?</h3>
+                <h3 className="text-xl font-semibold mb-4">The Impact of Your Support</h3>
+                <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+                    When you purchase from this collection, you're not just buying apparel—you're investing in someone's
+                    recovery journey and helping turn adversity into opportunity through creativity and determination.
+                </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
                     <div className="flex flex-col items-center">
                         <Heart className="h-8 w-8 text-red-500 mb-2" />
-                        <h4 className="font-medium">Small Business</h4>
-                        <p className="text-gray-600">Supporting independent creators and entrepreneurs</p>
+                        <h4 className="font-medium">Personal Journey</h4>
+                        <p className="text-gray-600">Every purchase directly supports recovery and independence after a life-changing accident</p>
                     </div>
                     <div className="flex flex-col items-center">
                         <ShoppingCart className="h-8 w-8 text-blue-500 mb-2" />
-                        <h4 className="font-medium">Quality Products</h4>
-                        <p className="text-gray-600">Premium materials and printing through Amazon and teePublic</p>
+                        <h4 className="font-medium">Quality Designs</h4>
+                        <p className="text-gray-600">Each design is created with care and printed on premium materials through trusted platforms</p>
                     </div>
                     <div className="flex flex-col items-center">
                         <Globe className="h-8 w-8 text-green-500 mb-2" />
-                        <h4 className="font-medium">Global Reach</h4>
-                        <p className="text-gray-600">Available in US & UK with Amazon's reliable shipping</p>
+                        <h4 className="font-medium">Meaningful Impact</h4>
+                        <p className="text-gray-600">Your support helps create passive income and financial stability during recovery</p>
                     </div>
                 </div>
 
                 {selectedRegion === 'canada' && (
                     <div className="mt-6 p-4 bg-yellow-100 rounded-lg">
                         <p className="text-sm text-yellow-800">
-                            <strong>Canadian customers:</strong> While Amazon Merch isn't available in Canada,
-                            you can still support our small business through our TeePublic store with Canadian shipping options!
+                            <strong>Canadian supporters:</strong> While Amazon Merch isn't available in Canada,
+                            you can still be part of my recovery journey through our TeePublic store with Canadian shipping!
                             <Button
                                 variant="link"
                                 className="p-0 h-auto ml-2 text-yellow-700 underline text-sm"
                                 onClick={() => window.open('https://www.teepublic.com/user/shopdw', '_blank')}
                             >
-                                Visit TeePublic Store
+                                Support on TeePublic
                                 <ExternalLink className="h-3 w-3 ml-1" />
                             </Button>
                         </p>

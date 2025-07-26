@@ -1188,6 +1188,18 @@ export async function getOrderById(orderId: string) {
                         country: true,
                     }
                 },
+                promotionUsage: {
+                    include: {
+                        promotion: {
+                            select: {
+                                id: true,
+                                name: true,
+                                description: true,
+                                promotionType: true,
+                            }
+                        }
+                    }
+                },
             },
         });
 
@@ -1357,6 +1369,19 @@ export async function getOrderById(orderId: string) {
                 postalCode: order.address.postalCode,
                 country: order.address.country,
             } : null,
+            promotionUsage: order.promotionUsage.length > 0 ? order.promotionUsage.map(pu => ({
+                id: pu.id,
+                couponCode: pu.couponCode,
+                discountAmount: pu.discountAmount.toString(),
+                originalAmount: pu.originalAmount.toString(),
+                finalAmount: pu.finalAmount.toString(),
+                promotion: pu.promotion ? {
+                    id: pu.promotion.id,
+                    name: pu.promotion.name,
+                    description: pu.promotion.description,
+                    promotionType: pu.promotion.promotionType,
+                } : null,
+            })) : [],
         };
 
         // At the very end, before the return statement

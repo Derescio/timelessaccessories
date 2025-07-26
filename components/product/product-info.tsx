@@ -562,8 +562,11 @@ export function ProductInfo({ product }: ProductInfoProps) {
                 {(() => {
                     const availableStock = selectedInventory.quantity - (selectedInventory.reservedStock || 0);
                     return (
-                        <Badge variant={availableStock > 0 ? "secondary" : "destructive"}>
-                            {availableStock > 0 ? `In Stock (${availableStock} available)` : "Out of Stock"}
+                        <Badge
+                            variant={availableStock > 0 ? "default" : "destructive"}
+                            className={availableStock > 0 ? "bg-yellow-400 hover:bg-yellow-600 text-black font-medium" : ""}
+                        >
+                            {availableStock > 0 ? "IN STOCK" : "OUT OF STOCK"}
                         </Badge>
                     );
                 })()}
