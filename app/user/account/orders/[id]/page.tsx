@@ -53,6 +53,20 @@ interface Payment {
 // }
 
 
+interface PromotionUsage {
+    id: string;
+    couponCode: string | null;
+    discountAmount: string;
+    originalAmount: string;
+    finalAmount: string;
+    promotion: {
+        id: string;
+        name: string;
+        description: string | null;
+        promotionType: string;
+    } | null;
+}
+
 interface Order {
     id: string;
     status: string;
@@ -64,6 +78,7 @@ interface Order {
     shipping: string | number;
     tax: string | number;
     total: string | number;
+    promotionUsage?: PromotionUsage[];
 }
 
 export default function OrderDetailPage() {
@@ -106,7 +121,8 @@ export default function OrderDetailPage() {
                         subtotal: result.data.subtotal,
                         shipping: result.data.shipping,
                         tax: result.data.tax,
-                        total: result.data.total
+                        total: result.data.total,
+                        promotionUsage: result.data.promotionUsage
                     };
 
                     // Log detailed information about attributes in order items
@@ -304,7 +320,7 @@ export default function OrderDetailPage() {
     }
 
     //const shippingAddress = getUserAddress();
-    //console.log("Shipping address:", shippingAddress)
+    console.log("Shipping address:", shippingAddress)
     // const newShippingAddress = result?.data?.shippingAddress
 
 
@@ -466,6 +482,22 @@ export default function OrderDetailPage() {
                                     <span className="text-gray-500">Tax:</span>
                                     <span>{formatPrice(Number(order.tax))}</span>
                                 </div>
+
+                                {/* Display promotion usage if available */}
+                                {order.promotionUsage && order.promotionUsage.length > 0 && (
+                                    order.promotionUsage.map((promo) => (
+                                        <div key={promo.id} className="flex justify-between text-sm text-green-600">
+                                            <span className="flex items-center">
+                                                <Badge variant="outline" className="mr-2 text-xs bg-green-50 text-green-700 border-green-200">
+                                                    {promo.couponCode || 'PROMO'}
+                                                </Badge>
+                                                Discount Applied:
+                                            </span>
+                                            <span>-{formatPrice(Number(promo.discountAmount))}</span>
+                                        </div>
+                                    ))
+                                )}
+
                                 <Separator className="my-2" />
                                 <div className="flex justify-between font-medium text-base">
                                     <span>Total:</span>

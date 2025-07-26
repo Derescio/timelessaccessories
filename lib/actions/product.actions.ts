@@ -743,3 +743,80 @@ export async function getAttributeNamesByIds(attributeIds: string[]) {
     return {};
   }
 }
+
+// Get random products for recommendations (excluding current product)
+export async function getRandomProducts(excludeProductId?: string, limit: number = 4) {
+  try {
+    const products = await db.product.findMany({
+      where: {
+        isActive: true,
+        ...(excludeProductId && { id: { not: excludeProductId } })
+      },
+      include: {
+        category: {
+          select: { 
+            id: true,
+            name: true,
+            slug: true
+          }
+        },
+        inventories: {
+          where: { isDefault: true },
+          select: {
+            id: true,
+            retailPrice: true,
+            quantity: true,
+            sku: true,
+            images: true,
+            hasDiscount: true,
+            discountPercentage: true,
+            compareAtPrice: true,
+          }
+        },
+        reviews: {
+          select: {
+            rating: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    // Shuffle array and take the requested number
+    const shuffled = products.sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, limit);
+
+    // Transform the data to match ProductCardProduct interface
+    return selected.map(product => {
+      const defaultInventory = product.inventories[0]; // Get the default inventory
+      const averageRating = product.reviews.length > 0
+        ? product.reviews.reduce((acc, review) => acc + review.rating, 0) / product.reviews.length
+        : 0;
+
+      return {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        mainImage: defaultInventory?.images?.[0] || "/images/placeholder.svg",
+        images: defaultInventory?.images?.map(url => ({ url })) || [],
+        price: defaultInventory ? Number(defaultInventory.retailPrice) : 0,
+        compareAtPrice: defaultInventory?.compareAtPrice ? Number(defaultInventory.compareAtPrice) : null,
+        hasDiscount: defaultInventory?.hasDiscount || false,
+        discountPercentage: defaultInventory?.discountPercentage || null,
+        category: {
+          name: product.category.name,
+          slug: product.category.slug
+        },
+        rating: averageRating,
+        numReviews: product.reviews.length,
+        quantity: defaultInventory?.quantity || 0,
+        sku: defaultInventory?.sku || null
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching random products:", error);
+    return [];
+  }
+}
