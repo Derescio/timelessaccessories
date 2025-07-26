@@ -9,6 +9,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type ClientProduct } from "@/lib/types/product.types";
+import AmazonMerch from "@/components/amazon-merch";
 
 const DEFAULT_PER_PAGE = 8;
 
@@ -223,6 +224,7 @@ function ProductsPageContent() {
                     />
                 </div>
             )}
+            <AmazonMerch />
         </main>
     );
 }

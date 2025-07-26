@@ -25,7 +25,7 @@ interface Product {
 
 const products: Product[] = [
     {
-        id: 'pbc-tshirt',
+        id: 'Prayer Breaks Chains',
         name: 'PBC T-Shirt',
         description: 'Premium quality cotton t-shirt with unique PBC design. Comfortable fit and durable print.',
         image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRe1QJ6CE6gJctEQmypDOwv4rWUTY9fhVi0on8',
@@ -39,8 +39,22 @@ const products: Product[] = [
         }
     },
     {
-        id: 'always-tshirt',
-        name: 'Premium Pullover',
+        id: 'dog',
+        name: 'Love Dogs',
+        description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
+        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRVN10kcyBdP3vs0fu5XoLRbpl8ZTkhF6rDqIS',
+        price: {
+            us: 'USD $18.99',
+            uk: '£24.99'
+        },
+        links: {
+            us: 'https://amazon.com', // Replace with actual Amazon US link
+            uk: 'https://amazon.com'  // Replace with actual Amazon UK link
+        }
+    },
+    {
+        id: 'apg',
+        name: 'Put God First',
         description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
         image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiR8c5AEZaynJRpkYjLvsQxZV3AmTiGWr6PXMdO',
         price: {
@@ -52,9 +66,10 @@ const products: Product[] = [
             uk: 'https://amazon.com'  // Replace with actual Amazon UK link
         }
     },
+
     {
         id: 'pullover',
-        name: 'Premium Pullover',
+        name: 'Put God First Hoodie',
         description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
         image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRfR8u6p79CFSdEtbAj5NHWgTKMRkcGLDaPYVw',
         price: {
@@ -68,7 +83,7 @@ const products: Product[] = [
     },
     {
         id: 'gymlife',
-        name: 'Premium Pullover',
+        name: 'Gym Life',
         description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
         image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRl23i1JTWAEhTzr5quwHZJYo3dnL69NmvsB1U',
         price: {
@@ -94,20 +109,7 @@ const products: Product[] = [
             uk: 'https://amazon.com'  // Replace with actual Amazon UK link
         }
     },
-    // {
-    //     id: 'time-tshirt',
-    //     name: 'Have Fun T-Shirt',
-    //     description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
-    //     image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiR2fRlyB13QkbvWgU2Gs4wl85IKV7AqXo1HNZj',
-    //     price: {
-    //         us: 'USD $18.99',
-    //         uk: '£24.99'
-    //     },
-    //     links: {
-    //         us: 'https://amazon.com', // Replace with actual Amazon US link
-    //         uk: 'https://amazon.com'  // Replace with actual Amazon UK link
-    //     }
-    // }
+
 ]
 
 type Region = 'us' | 'uk' | 'canada'

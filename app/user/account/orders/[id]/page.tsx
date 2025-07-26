@@ -187,7 +187,6 @@ export default function OrderDetailPage() {
                 setIsLoadingAddress(false); // Stop the loading state
             }
         }
-
         fetchShippingAddress();
     }, []);
 
