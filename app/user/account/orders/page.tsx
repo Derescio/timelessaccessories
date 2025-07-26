@@ -115,7 +115,7 @@ export default function OrdersPage() {
                                     <div className="text-sm text-gray-600">{formatDate(order.createdAt)}</div>
                                     <div className="text-sm text-gray-600">{formatStatus(order.status)}</div>
                                     <div className="text-sm">
-                                        {formatPrice(Number(order.total))} for {getTotalItems(order.items)} items
+                                        {formatPrice(Number(order.total))} for {getTotalItems(order.items)} {getTotalItems(order.items) > 1 ? 'items' : 'item'}
                                     </div>
                                     <div>
                                         <Button
