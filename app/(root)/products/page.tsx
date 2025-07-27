@@ -181,6 +181,35 @@ function ProductsPageContent() {
     const endIndex = startIndex + perPage;
     const currentProducts = filteredProducts.slice(startIndex, endIndex);
 
+    // Scroll to top when page changes using useCallback and useEffect. 185-211
+    const handlePageChange = useCallback((page: number) => {
+        setCurrentPage(page);
+    }, []);
+
+    // Separate useEffect to handle scrolling when page changes
+    useEffect(() => {
+        // Skip scroll on initial mount
+        if (currentPage === 1 && products.length === 0) return;
+
+        // Use a combination of techniques to ensure reliable scrolling
+        const scrollToTop = () => {
+            // First try immediate scroll
+            window.scrollTo({ top: 0, behavior: "smooth" });
+
+            // Backup: Force scroll after a delay
+            setTimeout(() => {
+                if (window.pageYOffset > 100) {
+                    window.scrollTo({ top: 0, behavior: "auto" });
+                }
+            }, 200);
+        };
+
+        // Use requestAnimationFrame to wait for DOM updates
+        requestAnimationFrame(() => {
+            requestAnimationFrame(scrollToTop);
+        });
+    }, [currentPage, products.length]);
+
     return (
         <main className="flex flex-col gap-6 max-w-6xl mx-auto px-4 py-10">
             <div className="flex flex-col gap-4">
@@ -220,7 +249,7 @@ function ProductsPageContent() {
                     <Pagination
                         currentPage={currentPage}
                         totalPages={totalPages}
-                        onPageChange={setCurrentPage}
+                        onPageChange={handlePageChange}
                     />
                 </div>
             )}
