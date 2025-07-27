@@ -35,7 +35,7 @@ const products: Product[] = [
         },
         links: {
             us: 'https://a.co/d/7VNUOBV', // Replace with actual Amazon US link
-            uk: 'https://a.co/d/7VNUOBV'  // Replace with actual Amazon UK link
+            uk: 'https://www.amazon.com'  // Replace with actual Amazon UK link
         }
     },
     {
@@ -49,7 +49,7 @@ const products: Product[] = [
         },
         links: {
             us: 'https://amazon.com', // Replace with actual Amazon US link
-            uk: 'https://amazon.com'  // Replace with actual Amazon UK link
+            uk: 'https://www.amazon.com'  // Replace with actual Amazon UK link
         }
     },
     {
@@ -62,8 +62,8 @@ const products: Product[] = [
             uk: '£24.99'
         },
         links: {
-            us: 'https://amazon.com', // Replace with actual Amazon US link
-            uk: 'https://amazon.com'  // Replace with actual Amazon UK link
+            us: 'https://a.co/d/g0lt1yw', // Replace with actual Amazon US link
+            uk: 'https://www.amazon.com' // Replace with actual Amazon UK link
         }
     },
 
@@ -78,7 +78,7 @@ const products: Product[] = [
         },
         links: {
             us: 'https://a.co/d/bmriH68', // Replace with actual Amazon US link
-            uk: 'https://a.co/d/bmriH68'  // Replace with actual Amazon UK link
+            uk: 'https://www.amazon.com'  // Replace with actual Amazon UK link
         }
     },
     {
@@ -91,7 +91,7 @@ const products: Product[] = [
             uk: '£24.99'
         },
         links: {
-            us: 'https://amazon.com', // Replace with actual Amazon US link
+            us: ' https://a.co/d/648VpXP', // Replace with actual Amazon US link
             uk: 'https://amazon.com'  // Replace with actual Amazon UK link
         }
     },
@@ -106,7 +106,7 @@ const products: Product[] = [
         },
         links: {
             us: 'https://a.co/d/9PRSc58', // Replace with actual Amazon US link
-            uk: 'https://a.co/d/9PRSc58'  // Replace with actual Amazon UK link
+            uk: 'https://www.amazon.com'  // Replace with actual Amazon UK link
         }
     },
 
@@ -124,6 +124,10 @@ const Amazon = () => {
             const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
             const locale = navigator.language
 
+            // Add debug logging to help troubleshoot
+            console.log('Debug - Timezone:', timezone)
+            console.log('Debug - Locale:', locale)
+
             // Enhanced timezone-based detection
             const canadianTimezones = [
                 'America/Toronto', 'America/Vancouver', 'America/Montreal', 'America/Halifax',
@@ -138,63 +142,39 @@ const Amazon = () => {
                 'Europe/Cardiff', 'Atlantic/Reykjavik'
             ]
 
-            const usTimezones = [
-                'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
-                'America/Phoenix', 'America/Anchorage', 'Pacific/Honolulu', 'America/Detroit',
-                'America/Indianapolis', 'America/Kentucky/Louisville', 'America/Kentucky/Monticello',
-                'America/North_Dakota/Center', 'America/North_Dakota/New_Salem', 'America/North_Dakota/Beulah'
-            ]
-
             // Check exact timezone matches first
             if (canadianTimezones.includes(timezone)) {
+                console.log('Detected: Canada (exact timezone match)')
                 return 'canada'
             }
             if (ukTimezones.includes(timezone)) {
+                console.log('Detected: UK (exact timezone match)')
                 return 'uk'
-            }
-            if (usTimezones.includes(timezone)) {
-                return 'us'
             }
 
             // Fallback to locale-based detection
             if (locale.includes('en-CA') || locale.includes('fr-CA')) {
+                console.log('Detected: Canada (locale match)')
                 return 'canada'
             }
             if (locale.includes('en-GB') || locale.includes('en-IE')) {
+                console.log('Detected: UK (locale match)')
                 return 'uk'
             }
 
             // Check broader timezone patterns
-            if (timezone.includes('America/')) {
-                // Check if it's likely Canada based on locale or other indicators
-                if (locale.includes('CA') || timezone.includes('Montreal') || timezone.includes('Toronto')) {
-                    return 'canada'
-                }
-                return 'us'
-            }
             if (timezone.includes('Europe/')) {
+                console.log('Detected: UK (Europe timezone pattern)')
                 return 'uk'
             }
 
-            // Final fallback - try to detect based on currency/number formatting
-            try {
-                const currencyFormatter = new Intl.NumberFormat(locale, {
-                    style: 'currency',
-                    currency: 'USD'
-                })
-                const formatted = currencyFormatter.format(1)
-
-                if (formatted.includes('CA$') || formatted.includes('C$')) {
-                    return 'canada'
-                }
-                if (formatted.includes('£')) {
-                    return 'uk'
-                }
-            } catch (error) {
-                // Ignore formatting errors
-            }
-
-            // Default to US if nothing else matches
+            // IMPORTANT: For ALL other locations (including Jamaica, Caribbean, etc.)
+            // Default to US - this covers:
+            // - Jamaica (America/Jamaica)
+            // - All other Caribbean islands
+            // - All other American countries
+            // - All other worldwide locations
+            console.log('Detected: US (default for all other locations)')
             return 'us'
         }
 
