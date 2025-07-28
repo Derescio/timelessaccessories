@@ -68,11 +68,18 @@ export default async function AdminPages() {
         );
     }
 
-    // Calculate totals
+    // FIXED: Use the correct data from analytics
     const totalSales = data.revenue.reduce((sum, item) => sum + parseFloat(item.value), 0);
     const totalOrders = data.sales.reduce((sum, item) => sum + item.value, 0);
-    const totalProducts = data.topProducts.length;
-    const totalCustomers = 0; // This will need to be added to the analytics endpoint
+
+    // Add debug logging to see what the frontend receives
+    console.log('Frontend Debug:', {
+        revenue: data.revenue,
+        sales: data.sales,
+        totalSales,
+        totalOrders,
+        averageOrderValue: data.averageOrderValue
+    });
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
@@ -89,7 +96,10 @@ export default async function AdminPages() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{formatCurrency(totalSales)}</div>
-                        <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+                        <p className="text-xs text-muted-foreground">
+                            {data.growthMetrics.revenueGrowth > 0 ? '+' : ''}
+                            {data.growthMetrics.revenueGrowth}% from last month
+                        </p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -98,7 +108,10 @@ export default async function AdminPages() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{totalOrders}</div>
-                        <p className="text-xs text-muted-foreground">+15% from last month</p>
+                        <p className="text-xs text-muted-foreground">
+                            {data.growthMetrics.orderGrowth > 0 ? '+' : ''}
+                            {data.growthMetrics.orderGrowth}% from last month
+                        </p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -106,20 +119,25 @@ export default async function AdminPages() {
                         <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{totalCustomers}</div>
-                        <p className="text-xs text-muted-foreground">+180.1% from last month</p>
+                        <div className="text-2xl font-bold">{data.totalCustomers}</div>
+                        <p className="text-xs text-muted-foreground">
+                            {data.growthMetrics.customerGrowth > 0 ? '+' : ''}
+                            {data.growthMetrics.customerGrowth}% from last month
+                        </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+                        <CardTitle className="text-sm font-medium">Avg Order Value</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{totalProducts}</div>
-                        <p className="text-xs text-muted-foreground">+19% from last month</p>
+                        <div className="text-2xl font-bold">{formatCurrency(data.averageOrderValue)}</div>
+                        <p className="text-xs text-muted-foreground">Based on recent orders</p>
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Charts and recent sales section */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 <div className="col-span-4">
                     <Card className="h-full">
@@ -143,24 +161,24 @@ export default async function AdminPages() {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                    <div className="flex items-center gap-4" key={i}>
+                                {data.recentSales.map((sale) => (
+                                    <div className="flex items-center gap-4" key={sale.id}>
                                         <Avatar className="hidden h-9 w-9 sm:flex">
-                                            <AvatarImage src={`https://avatar.vercel.sh/${i}.png`} alt="Avatar" />
                                             <AvatarFallback>
-                                                {String.fromCharCode(65 + i)}
-                                                {String.fromCharCode(90 - i)}
+                                                {sale.customerName.split(' ').map(n => n[0]).join('')}
                                             </AvatarFallback>
                                         </Avatar>
                                         <div className="flex-1 space-y-1">
                                             <p className="text-sm font-medium leading-none">
-                                                Customer {i + 1}
+                                                {sale.customerName}
                                             </p>
                                             <p className="text-sm text-muted-foreground">
-                                                customer{i + 1}@example.com
+                                                {sale.customerEmail}
                                             </p>
                                         </div>
-                                        <div className="font-medium">+${(i + 1) * 125}.00</div>
+                                        <div className="font-medium">
+                                            {formatCurrency(sale.amount)}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -173,6 +191,8 @@ export default async function AdminPages() {
                     </Card>
                 </div>
             </div>
+
+            {/* Management cards section */}
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 <Card>
                     <CardHeader>
@@ -185,11 +205,11 @@ export default async function AdminPages() {
                         <div className="flex flex-col space-y-2">
                             <div className="flex items-center gap-2">
                                 <Package className="h-5 w-5 text-muted-foreground" />
-                                <span>Total Products: <strong>{totalProducts}</strong></span>
+                                <span>Total Products: <strong>{data.totalProducts}</strong></span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <Tags className="h-5 w-5 text-muted-foreground" />
-                                <span>Categories: <strong>{totalProducts}</strong></span>
+                                <span>Categories: <strong>{data.totalCategories}</strong></span>
                             </div>
                         </div>
                     </CardContent>
@@ -213,7 +233,7 @@ export default async function AdminPages() {
                         <div className="flex flex-col space-y-2">
                             <div className="flex items-center gap-2">
                                 <Tags className="h-5 w-5 text-muted-foreground" />
-                                <span>Total Categories: <strong>{totalProducts}</strong></span>
+                                <span>Total Categories: <strong>{data.totalCategories}</strong></span>
                             </div>
                         </div>
                     </CardContent>
@@ -247,11 +267,11 @@ export default async function AdminPages() {
                     </CardContent>
                     <CardFooter>
                         <Button asChild className="w-full">
-                            <Link href="/admin/orders">Manage Orders</Link>
+                            <Link href="/admin/orders">View All Orders</Link>
                         </Button>
                     </CardFooter>
                 </Card>
             </div>
         </div>
     );
-} 
+}
