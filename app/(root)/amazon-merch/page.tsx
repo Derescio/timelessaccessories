@@ -48,8 +48,8 @@ const products: Product[] = [
             uk: '£24.99'
         },
         links: {
-            us: 'https://amazon.com', // Replace with actual Amazon US link
-            uk: 'https://www.amazon.com'  // Replace with actual Amazon UK link
+            us: ' https://a.co/d/7H08nyC', // Replace with actual Amazon US link
+            uk: ' https://a.co/d/7H08nyC'  // Replace with actual Amazon UK link
         }
     },
     {
