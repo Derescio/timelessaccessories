@@ -59,7 +59,7 @@ const Hero = () => {
                     <div className="flex items-center mb-4">
                         <div className="w-8 h-px bg-white/70 mr-3"></div>
                         <BlurText
-                            text="PREMIUM FASHION ACCESSORIES"
+                            text="PREMIUM ACCESSORIES"
                             className="text-white/90 uppercase tracking-wider text-sm font-light"
                             delay={50}
                         />
