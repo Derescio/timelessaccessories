@@ -37,6 +37,7 @@ function ProductsPageContent() {
     const [currentPage, setCurrentPage] = useState(1);
     const [perPage, setPerPage] = useState(DEFAULT_PER_PAGE);
     const [searchQuery, setSearchQuery] = useState(urlSearchQuery);
+    const [genderFilter, setGenderFilter] = useState("all");
     const [sortOrder, setSortOrder] = useState("name_asc");
     const [isLoading, setIsLoading] = useState(true);
 
@@ -142,6 +143,23 @@ function ProductsPageContent() {
             product.description.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
+        // Apply gender filter (using attributes system)
+        if (genderFilter !== "all") {
+            filtered = filtered.filter(product => {
+                // Check if product has gender attribute that matches filter
+                // This assumes you have gender stored in product attributes
+                const hasGenderAttribute = product.metadata &&
+                    typeof product.metadata === 'object' &&
+                    'gender' in product.metadata;
+
+                if (hasGenderAttribute) {
+                    return (product.metadata as any).gender === genderFilter;
+                }
+                // If no gender attribute, include in "Unisex" or exclude based on your preference
+                return genderFilter === "Unisex";
+            });
+        }
+
         // Apply sorting
         filtered = [...filtered].sort((a, b) => {
             switch (sortOrder) {
@@ -160,7 +178,7 @@ function ProductsPageContent() {
 
         setFilteredProducts(filtered);
         setCurrentPage(1); // Reset to first page when filtering or sorting
-    }, [products, searchQuery, sortOrder, categoryId]);
+    }, [products, searchQuery, sortOrder, categoryId, genderFilter]);
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value);
@@ -173,6 +191,10 @@ function ProductsPageContent() {
 
     const handleSortChange = useCallback((value: string) => {
         setSortOrder(value);
+    }, []);
+
+    const handleGenderChange = useCallback((value: string) => {
+        setGenderFilter(value);
     }, []);
 
     // Pagination calculations
@@ -223,6 +245,7 @@ function ProductsPageContent() {
                     onSearch={handleSearch}
                     onPerPageChange={handlePerPageChange}
                     onSortChange={handleSortChange}
+                    onGenderChange={handleGenderChange}
                 />
             </div>
 
