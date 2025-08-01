@@ -77,9 +77,10 @@ export interface ProductFormValues {
   slug: string;
   categoryId: string;
   isActive: boolean;
-  metadata?: Record<string, any>;
+  metadata?: any; // Allow any JsonValue from Prisma
   isFeatured?: boolean;
   productTypeId?: string | null;
+  gender?: "Men" | "Women" | "Children" | "Unisex";
 }
 
 export type ProductInventoryFormValues = z.infer<typeof productInventorySchema>;

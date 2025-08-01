@@ -35,6 +35,7 @@ const formSchema = z.object({
     description: z.string().min(10, { message: "Description must be at least 10 characters" }),
     slug: z.string().min(2, { message: "Slug must be at least 2 characters" }),
     categoryId: z.string({ required_error: "Please select a category" }),
+    gender: z.enum(["Men", "Women", "Children", "Unisex"]).optional(),
     isActive: z.boolean().default(true),
     isFeatured: z.boolean().default(false),
 });
@@ -47,6 +48,7 @@ interface ProductFormProps {
             retailPrice: number;
             images?: string[];
         }[];
+        metadata?: any; // Allow any JsonValue from Prisma
     };
     categories: { id: string; name: string }[];
 }
@@ -62,11 +64,21 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
 
     const form = useForm<ProductFormValues>({
         resolver: zodResolver(formSchema),
-        defaultValues: initialData || {
+        defaultValues: initialData ? {
+            ...initialData,
+            gender: (initialData.metadata &&
+                typeof initialData.metadata === 'object' &&
+                initialData.metadata !== null &&
+                'gender' in initialData.metadata &&
+                typeof initialData.metadata.gender === 'string')
+                ? initialData.metadata.gender as "Men" | "Women" | "Children" | "Unisex"
+                : undefined,
+        } : {
             name: "",
             description: "",
             slug: "",
             categoryId: "",
+            gender: undefined,
             isActive: true,
             isFeatured: false,
         },
@@ -84,7 +96,8 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
 
                 const result = await updateProduct({
                     ...data,
-                    id: data.id // Explicitly include id to satisfy TypeScript
+                    id: data.id, // Explicitly include id to satisfy TypeScript
+                    metadata: data.gender ? { gender: data.gender } : {}
                 });
 
                 if (result.success) {
@@ -95,7 +108,10 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
                     toast.error(result.error || "Failed to update product");
                 }
             } else {
-                const result = await createProduct(data);
+                const result = await createProduct({
+                    ...data,
+                    metadata: data.gender ? { gender: data.gender } : {}
+                });
                 if (result.success) {
                     toast.success("Product created successfully");
                     router.push("/admin/products");
@@ -238,6 +254,35 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
                                             {category.name}
                                         </SelectItem>
                                     ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="gender"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Gender</FormLabel>
+                            <Select
+                                disabled={loading}
+                                onValueChange={field.onChange}
+                                value={field.value}
+                                defaultValue={field.value}
+                            >
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select gender" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Men">Men</SelectItem>
+                                    <SelectItem value="Women">Women</SelectItem>
+                                    <SelectItem value="Children">Children</SelectItem>
+                                    <SelectItem value="Unisex">Unisex</SelectItem>
                                 </SelectContent>
                             </Select>
                             <FormMessage />

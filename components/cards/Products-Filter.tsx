@@ -19,17 +19,20 @@ interface ProductsFilterProps {
     onSearch: (value: string) => void;
     onPerPageChange: (value: number) => void;
     onSortChange: (value: string) => void;
+    onGenderChange?: (value: string) => void;
 }
 
 export default function ProductsFilter({
     onSearch,
     onPerPageChange,
     onSortChange,
+    onGenderChange,
 }: ProductsFilterProps) {
 
     const searchParams = useSearchParams();
 
     const [search, setSearch] = useState(searchParams.get("search") || "");
+    const [gender, setGender] = useState(searchParams.get("gender") || "all");
     const debouncedSearch = useDebounce(search, 300);
 
     useEffect(() => {
@@ -38,6 +41,11 @@ export default function ProductsFilter({
 
     const handlePerPageChange = (value: string) => {
         onPerPageChange(Number(value));
+    };
+
+    const handleGenderChange = (value: string) => {
+        setGender(value);
+        onGenderChange?.(value);
     };
 
     return (
@@ -58,6 +66,27 @@ export default function ProductsFilter({
 
                 {/* Filter Controls - Side by side on all screens, closer together on large screens */}
                 <div className="flex flex-row gap-2 w-full lg:w-auto">
+                    {/* Gender Filter */}
+                    {onGenderChange && (
+                        <div className="flex-1 lg:flex-none lg:min-w-[140px]">
+                            <Select
+                                value={gender}
+                                onValueChange={handleGenderChange}
+                            >
+                                <SelectTrigger className="h-10 w-full">
+                                    <SelectValue placeholder="Gender" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Genders</SelectItem>
+                                    <SelectItem value="Men">Men</SelectItem>
+                                    <SelectItem value="Women">Women</SelectItem>
+                                    <SelectItem value="Children">Children</SelectItem>
+                                    <SelectItem value="Unisex">Unisex</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+
                     {/* Sort Dropdown */}
                     <div className="flex-1 lg:flex-none lg:min-w-[160px]">
                         <Select

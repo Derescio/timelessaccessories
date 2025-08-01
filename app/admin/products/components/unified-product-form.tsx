@@ -34,6 +34,7 @@ const productSchema = z.object({
     slug: z.string().min(1, "Slug is required"),
     categoryId: z.string().min(1, "Category is required"),
     productTypeId: z.string().optional(),
+    gender: z.enum(["Men", "Women", "Children", "Unisex"]).optional(),
     isFeatured: z.boolean().default(false),
     isActive: z.boolean().default(true),
     price: z.number().min(0, "Price cannot be negative").default(0),
@@ -113,6 +114,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
             hasDiscount: initialData?.hasDiscount !== undefined ? initialData.hasDiscount : false,
             categoryId: initialData?.categoryId || "",
             productTypeId: initialData?.productTypeId || "",
+            gender: initialData?.metadata?.gender || undefined,
             sku: initialData?.sku || "",
             stock: initialData?.stock || 0,
             isActive: initialData?.isActive !== undefined ? initialData.isActive : true,
@@ -541,6 +543,8 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                 ...values,
                 productTypeId: values.productTypeId || undefined,
                 isFeatured: values.isFeatured || false,
+                // Add metadata with gender
+                metadata: values.gender ? { gender: values.gender } : {},
                 // Original approach (for backward compatibility)
                 attributeValues: processedAttributeValues,
                 // New approach with separated values
@@ -640,7 +644,7 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                     )}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                     <FormField
                         control={form.control}
                         name="categoryId"
@@ -692,6 +696,33 @@ export function UnifiedProductForm({ initialData }: UnifiedProductFormProps) {
                                                 {type.name}
                                             </SelectItem>
                                         ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    <FormField
+                        control={form.control}
+                        name="gender"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Gender</FormLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                >
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select gender" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Men">Men</SelectItem>
+                                        <SelectItem value="Women">Women</SelectItem>
+                                        <SelectItem value="Children">Children</SelectItem>
+                                        <SelectItem value="Unisex">Unisex</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
