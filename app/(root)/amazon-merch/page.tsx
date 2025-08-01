@@ -240,7 +240,7 @@ const Amazon = () => {
                 <CardTitle className="flex items-center justify-between">
                     {product.name}
                     <Badge variant="secondary">
-                        {selectedRegion === 'us' || selectedRegion === 'canada' ? product.price.us : product.price.uk}
+                        {selectedRegion === 'uk' ? product.price.uk : product.price.us}
                     </Badge>
                 </CardTitle>
                 <CardDescription className="text-sm text-gray-600">
@@ -253,12 +253,12 @@ const Amazon = () => {
                         <Button
                             className="w-full"
                             onClick={() => window.open(
-                                selectedRegion === 'us' ? product.links.us : product.links.uk,
+                                selectedRegion === 'uk' ? product.links.uk : product.links.us,
                                 '_blank'
                             )}
                         >
                             <ShoppingCart className="h-4 w-4 mr-2" />
-                            Buy on Amazon {selectedRegion === 'us' ? 'US' : 'UK'}
+                            Buy on Amazon {selectedRegion === 'uk' ? 'UK' : 'US'}
                             <ExternalLink className="h-4 w-4 ml-2" />
                         </Button>
                     ) : (
