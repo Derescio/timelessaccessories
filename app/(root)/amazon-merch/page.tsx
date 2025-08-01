@@ -27,7 +27,7 @@ const products: Product[] = [
     {
         id: 'Prayer Breaks Chains',
         name: 'PBC T-Shirt',
-        description: 'Premium quality cotton t-shirt with unique PBC design. Comfortable fit and durable print.',
+        description: 'Make a bold statement with the “Prayer Breaks Chains” tee. Featuring a powerful message and striking imagery, this shirt serves as both a spiritual reminder and a fashion piece. Crafted from premium cotton for durability and comfort,  perfect for those who walk in faith daily.',
         image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRe1QJ6CE6gJctEQmypDOwv4rWUTY9fhVi0on8',
         price: {
             us: 'USD $18.99',
@@ -41,7 +41,7 @@ const products: Product[] = [
     {
         id: 'dog',
         name: 'Love Dogs',
-        description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
+        description: 'Celebrate your love for dogs with this witty and heartwarming shirt. Featuring a heartbeat graphic and the message “Don’t Make Me Choose,”  perfect for dog lovers who consider their pup part of the family. Soft, breathable, and fun—just like your best friend.',
         image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRVN10kcyBdP3vs0fu5XoLRbpl8ZTkhF6rDqIS',
         price: {
             us: 'USD $18.99',
@@ -55,7 +55,7 @@ const products: Product[] = [
     {
         id: 'apg',
         name: 'Put God First',
-        description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
+        description: 'Keep your faith at the forefront with this “Always Put God at the Center” tee. The elegant globe design represents God’s presence in every part of your life. Made with soft, high-quality fabric, it’s ideal for Sunday service or everyday wear.',
         image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiR8c5AEZaynJRpkYjLvsQxZV3AmTiGWr6PXMdO',
         price: {
             us: 'USD $18.99',
@@ -70,11 +70,11 @@ const products: Product[] = [
     {
         id: 'pullover',
         name: 'Put God First Hoodie',
-        description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
+        description: 'Stay warm and grounded in faith with this cozy “Put God at the Center” hoodie. Featuring a celestial earth design and a clean spiritual message,  perfect for cool days, prayer walks, or quiet reflection. A must-have for anyone who leads with faith.',
         image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRfR8u6p79CFSdEtbAj5NHWgTKMRkcGLDaPYVw',
         price: {
-            us: 'USD $18.99',
-            uk: '£24.99'
+            us: 'USD $34.99',
+            uk: '£34.99'
         },
         links: {
             us: 'https://a.co/d/bmriH68', // Replace with actual Amazon US link
@@ -84,7 +84,7 @@ const products: Product[] = [
     {
         id: 'gymlife',
         name: 'Gym Life',
-        description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
+        description: 'For those who feel at home under the barbell, this “Gym Life - I Love It Here” tee is your perfect workout companion. The bold red and black color scheme makes a strong statement while the soft cotton keeps you moving comfortably—whether lifting or lounging.',
         image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRl23i1JTWAEhTzr5quwHZJYo3dnL69NmvsB1U',
         price: {
             us: 'USD $18.99',
@@ -98,7 +98,7 @@ const products: Product[] = [
     {
         id: 'cat-tshirt',
         name: 'Cat T-Shirt',
-        description: 'Cozy pullover perfect for casual wear. Soft fabric with a modern design that fits any style.',
+        description: 'Cat lovers rejoice! This shirt says it all with a heartbeat graphic and the clever message, “Don’t Make Me Choose.” Whether you’re curling up with your feline or heading out for a casual day, this tee brings charm, comfort, and a dash of sass.',
         image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRtb3BIujUHP9u7v1CQnfGKjwTmWOI40pLJr2i',
         price: {
             us: 'USD $18.99',
