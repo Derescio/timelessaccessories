@@ -147,15 +147,26 @@ function ProductsPageContent() {
         if (genderFilter !== "all") {
             filtered = filtered.filter(product => {
                 // Check if product has gender attribute that matches filter
-                // This assumes you have gender stored in product attributes
                 const hasGenderAttribute = product.metadata &&
                     typeof product.metadata === 'object' &&
                     'gender' in product.metadata;
 
                 if (hasGenderAttribute) {
-                    return (product.metadata as any).gender === genderFilter;
+                    const productGender = (product.metadata as any).gender;
+
+                    // If filtering for specific gender, also include Unisex items
+                    if (genderFilter === "Men" || genderFilter === "Women" || genderFilter === "Children") {
+                        return productGender === genderFilter || productGender === "Unisex";
+                    }
+
+                    // If filtering for Unisex specifically, only show Unisex items
+                    if (genderFilter === "Unisex") {
+                        return productGender === "Unisex";
+                    }
+
+                    return productGender === genderFilter;
                 }
-                // If no gender attribute, include in "Unisex" or exclude based on your preference
+                // If no gender attribute, include in "Unisex" filter only
                 return genderFilter === "Unisex";
             });
         }

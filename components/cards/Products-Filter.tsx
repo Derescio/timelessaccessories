@@ -64,11 +64,11 @@ export default function ProductsFilter({
                     </div>
                 </div>
 
-                {/* Filter Controls - Side by side on all screens, closer together on large screens */}
-                <div className="flex flex-row gap-2 w-full lg:w-auto">
+                {/* Filter Controls - Stack on mobile, row on larger screens */}
+                <div className="flex flex-col sm:flex-row gap-2 w-full">
                     {/* Gender Filter */}
                     {onGenderChange && (
-                        <div className="flex-1 lg:flex-none lg:min-w-[140px]">
+                        <div className="w-full sm:flex-1 sm:max-w-[140px]">
                             <Select
                                 value={gender}
                                 onValueChange={handleGenderChange}
@@ -88,7 +88,7 @@ export default function ProductsFilter({
                     )}
 
                     {/* Sort Dropdown */}
-                    <div className="flex-1 lg:flex-none lg:min-w-[160px]">
+                    <div className="w-full sm:flex-1 sm:max-w-[160px]">
                         <Select
                             defaultValue="name_asc"
                             onValueChange={onSortChange}
@@ -106,7 +106,7 @@ export default function ProductsFilter({
                     </div>
 
                     {/* Items Per Page Dropdown */}
-                    <div className="flex-1 lg:flex-none lg:min-w-[140px]">
+                    <div className="w-full sm:flex-1 sm:max-w-[140px]">
                         <Select
                             defaultValue="8"
                             onValueChange={handlePerPageChange}
