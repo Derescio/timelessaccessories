@@ -37,9 +37,9 @@ jobs:
         uses: treosh/lighthouse-ci-action@v10
         with:
           urls: |
-            ${{ github.event_name == 'pull_request' && steps.waitForVercel.outputs.url || 'https://yourdomain.com' }}
-            ${{ github.event_name == 'pull_request' && steps.waitForVercel.outputs.url || 'https://yourdomain.com' }}/products
-            ${{ github.event_name == 'pull_request' && steps.waitForVercel.outputs.url || 'https://yourdomain.com' }}/categories
+            ${{ github.event_name == 'pull_request' && steps.waitForVercel.outputs.url || 'https://www.shop-dw.com' }}
+            ${{ github.event_name == 'pull_request' && steps.waitForVercel.outputs.url || 'https://www.shop-dw.com' }}/products
+            ${{ github.event_name == 'pull_request' && steps.waitForVercel.outputs.url || 'https://www.shop-dw.com' }}/categories
           uploadArtifacts: true
           temporaryPublicStorage: true
           configPath: .github/lighthouse/budget.json
