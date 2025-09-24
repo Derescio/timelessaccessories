@@ -120,7 +120,7 @@ const products: Product[] = [
         spreadshopLink: 'https://shop-dw.myspreadshop.ca/prayer+breaks+chains-A68a23259415e485ba7fb6c8d?productType=512&sellable=EmAaG1N8dOTzJDnVe097-512-27&appearance=1',
         spreadshopLink2: 'https://shop-dw.myspreadshop.ca/prayer+breaks+chains?idea=68a23259415e485ba7fb6c8d',
         features: ['Cozy hoodie design', 'Celestial earth graphic', 'Perfect for prayer walks', 'Warm and comfortable'],
-        materials: ['80% Cotton, 20% Polyester', 'Fleece-lined hood', 'Kangaroo pocket', 'Ribbed cuffs and hem'],
+        materials: ['80% Cotton, 20% Polyester', 'Fleece-lined hood', 'Ribbed cuffs and hem'],
         sizes: ['S', 'M', 'L', 'XL', 'XXL', '3XL'],
         colors: ['Black', 'Navy', 'Dark Gray', 'Maroon']
     },
@@ -134,7 +134,7 @@ const products: Product[] = [
         spreadshopLink: 'https://shop-dw.myspreadshop.ca/always+put+god+at+the+center-A68a2168943e5e7595330bf94?productType=512&sellable=doQBnO7DDQf97dxw0lqv-512-26&appearance=2',
         spreadshopLink2: 'https://shop-dw.myspreadshop.ca/always+put+god+at+the+center?idea=68a2168943e5e7595330bf94',
         features: ['Cozy hoodie design', 'Celestial earth graphic', 'Perfect for prayer walks', 'Warm and comfortable'],
-        materials: ['80% Cotton, 20% Polyester', 'Fleece-lined hood', 'Kangaroo pocket', 'Ribbed cuffs and hem'],
+        materials: ['80% Cotton, 20% Polyester', 'Fleece-lined hood', 'Ribbed cuffs and hem'],
         sizes: ['S', 'M', 'L', 'XL', 'XXL', '3XL'],
         colors: ['Black', 'Navy', 'Dark Gray', 'Maroon']
     },
@@ -148,7 +148,7 @@ const products: Product[] = [
         spreadshopLink: 'https://shop-dw.myspreadshop.ca/dog+lover+top-A68a21b07d8225447c222f19d?productType=512&sellable=G7d4xxMw8gskEVGN5g4a-512-27&appearance=1',
         spreadshopLink2: 'https://shop-dw.myspreadshop.ca/dog+lover+top?idea=68a21b07d8225447c222f19d',
         features: ['Cozy hoodie design', 'Celestial earth graphic', 'Perfect for prayer walks', 'Warm and comfortable'],
-        materials: ['80% Cotton, 20% Polyester', 'Fleece-lined hood', 'Kangaroo pocket', 'Ribbed cuffs and hem'],
+        materials: ['80% Cotton, 20% Polyester', 'Fleece-lined hood', 'Ribbed cuffs and hem'],
         sizes: ['S', 'M', 'L', 'XL', 'XXL', '3XL'],
         colors: ['Black', 'Navy', 'Dark Gray', 'Maroon']
     },
@@ -162,7 +162,7 @@ const products: Product[] = [
         spreadshopLink: 'https://shop-dw.myspreadshop.ca/cat+love-A68a145cfd8225447c2df1d94?productType=512&sellable=G7d4nMOwnzfkEVGBpEn0-512-27&appearance=1',
         spreadshopLink2: 'https://shop-dw.myspreadshop.ca/cat+love?idea=68a145cfd8225447c2df1d94',
         features: ['Cozy hoodie design', 'Celestial earth graphic', 'Perfect for prayer walks', 'Warm and comfortable'],
-        materials: ['80% Cotton, 20% Polyester', 'Fleece-lined hood', 'Kangaroo pocket', 'Ribbed cuffs and hem'],
+        materials: ['80% Cotton, 20% Polyester', 'Fleece-lined hood', 'Ribbed cuffs and hem'],
         sizes: ['S', 'M', 'L', 'XL', 'XXL', '3XL'],
         colors: ['Black', 'Navy', 'Dark Gray', 'Maroon']
     },
