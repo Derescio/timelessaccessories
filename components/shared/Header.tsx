@@ -28,7 +28,7 @@ const mainNavItems = [
     },
     {
         title: "Merch Store",
-        href: "/amazon-merch",
+        href: "/shopdw-merch",
     },
     {
         title: "Blog",

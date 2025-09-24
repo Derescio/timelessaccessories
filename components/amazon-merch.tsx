@@ -14,44 +14,42 @@ interface Product {
     name: string
     description: string
     image: string
-    price: {
-        us: string
-        uk: string
-    }
+    price: string
+    spreadshopLink: string,
+    spreadshopLink2: string
 }
 
 // Featured products for home page preview
 const featuredProducts: Product[] = [
+    //https://shop-dw.myspreadshop.ca/prayer+breaks+chains-A68a23259415e485ba7fb6c8d?productType=812&sellable=EmAaG1N8dOTzJDnVe097-812-7&appearance=2
+    //https://shop-dw.myspreadshop.ca/prayer+breaks+chains-A68a23259415e485ba7fb6c8d?productType=813&sellable=EmAaG1N8dOTzJDnVe097-813-8&appearance=648
     {
-        id: 'pbc-tshirt',
-        name: 'PBC T-Shirt',
-        description: 'Premium quality cotton t-shirt with unique PBC design.',
-        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRe1QJ6CE6gJctEQmypDOwv4rWUTY9fhVi0on8',
-        price: {
-            us: 'USD $18.99',
-            uk: '£16.99'
-        }
+        id: 'love-dogs',
+        name: 'Love Dogs T-Shirt',
+        description: 'Celebrate your love for dogs with this witty and heartwarming shirt. Featuring a heartbeat graphic and the message "Don\'t Make Me Choose," perfect for dog lovers who consider their pup part of the family. Soft, breathable, and fun—just like your best friend.',
+        image: 'https://z8rvk24gry.ufs.sh/f/wfxchweshiC1zSWYvxZGMipIkaYwoR457lqtWbcZxu3ASgC8',
+        price: '$27.99',
+        spreadshopLink: 'https://shop-dw.myspreadshop.ca/dog+lover+top-A68a21b07d8225447c222f19d?productType=210&sellable=G7d4xxMw8gskEVGN5g4a-210-7&appearance=231',
+        spreadshopLink2: 'https://shop-dw.myspreadshop.ca/dog+lover+top?idea=68a21b07d8225447c222f19d'
     },
     {
-        id: 'always-tshirt',
-        name: 'Premium Pullover',
-        description: 'Cozy pullover perfect for casual wear.',
-        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiR8c5AEZaynJRpkYjLvsQxZV3AmTiGWr6PXMdO',
-        price: {
-            us: 'USD $18.99',
-            uk: '£24.99'
-        }
+        id: 'put-god-first-crewneck',
+        name: 'Put God First Crewneck',
+        description: 'Keep your faith at the forefront with this "Always Put God at the Center" crewneck. The elegant globe design represents God\'s presence in every part of your life. Made with soft, high-quality fabric, it\'s ideal for Sunday service or everyday wear.',
+        image: 'https://z8rvk24gry.ufs.sh/f/wfxchweshiC1zNCoKoZGMipIkaYwoR457lqtWbcZxu3ASgC8',
+        price: '$48.99',
+        spreadshopLink: 'https://shop-dw.myspreadshop.ca/always+put+god+at+the+center-A68a2168943e5e7595330bf94?productType=512&sellable=doQBnO7DDQf97dxw0lqv-512-26&appearance=2',
+        spreadshopLink2: 'https://shop-dw.myspreadshop.ca/always+put+god+at+the+center?idea=68a2168943e5e7595330bf94'
     },
     {
-        id: 'gymlife',
-        name: 'Gym Life Tee',
-        description: 'Perfect for your workout sessions.',
-        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRl23i1JTWAEhTzr5quwHZJYo3dnL69NmvsB1U',
-        price: {
-            us: 'USD $18.99',
-            uk: '£19.99'
-        }
-    }
+        id: 'gym-life',
+        name: 'Gym Life T-Shirt',
+        description: 'For those who feel at home under the barbell, this "Gym Life - I Love It Here" tee is your perfect workout companion. The bold red and black color scheme makes a strong statement while the soft cotton keeps you moving comfortably—whether lifting or lounging.',
+        image: 'https://z8rvk24gry.ufs.sh/f/wfxchweshiC114OR9dDNn3QraJ1hwmUyzgZlFTjeRdAEW6IO',
+        price: '$27.99',
+        spreadshopLink: 'https://shop-dw.myspreadshop.ca/gym+t-shirt-A68a211bd415e485ba72d692f?productType=210&sellable=84nm9mr8v1Upw41AyDbD-210-7&appearance=1368',
+        spreadshopLink2: 'https://shop-dw.myspreadshop.ca/gym+t-shirt?idea=68a211bd415e485ba72d692f'
+    },
 ]
 
 const AmazonMerch = () => {
@@ -85,7 +83,7 @@ const AmazonMerch = () => {
                 {/* Products Preview Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
                     {featuredProducts.map((product) => (
-                        <Link key={product.id} href="/amazon-merch" className="group">
+                        <div key={product.id}>
                             <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group-hover:scale-105 p-0">
                                 <div className="aspect-square overflow-hidden border-b border-gray-200 shadow-md">
                                     <Image
@@ -100,7 +98,7 @@ const AmazonMerch = () => {
                                     <CardTitle className="flex items-center justify-between">
                                         {product.name}
                                         <Badge variant="secondary">
-                                            {product.price.us}
+                                            {product.price}
                                         </Badge>
                                     </CardTitle>
                                     <CardDescription className="text-sm text-gray-600">
@@ -108,19 +106,22 @@ const AmazonMerch = () => {
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-500">View More</span>
-                                        <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-primary transition-colors" />
-                                    </div>
+                                    <Link href={`/shopdw-merch/${product.id}`} className="group">
+                                        <div className="flex items-center justify-center">
+                                            <span className="text-sm w-full mb-6 bg-gray-800 text-white px-2 py-1 rounded-md text-center">View More</span>
+                                            <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-primary transition-colors" />
+                                        </div>
+                                    </Link>
                                 </CardContent>
                             </Card>
-                        </Link>
+                        </div>
+
                     ))}
                 </div>
 
                 {/* Call to Action */}
                 <div className="text-center">
-                    <Link href="/amazon-merch">
+                    <Link href="/shopdw-merch">
                         <Button size="lg" className="bg-primary hover:bg-primary/90 text-white px-8 py-3">
                             {/* <ShoppingCart className="h-5 w-5 mr-2" /> */}
                             View Full Collection

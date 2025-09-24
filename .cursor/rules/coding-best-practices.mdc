@@ -1,23 +1,47 @@
 ---
-description: 
+description: Coding Best Practices for Cursor
 globs: 
 alwaysApply: true
 ---
-## Coding Best Practices
-- **Do not modify code or UI elements that already work**, unless explicitly instructed.
-- Avoid duplicating existing functionality; reuse working components whenever possible.
-- Write comprehensive tests for all new or modified functionality.
-- **Never unintentionally delete data or code**; confirm explicitly before destructive actions.
-- Commit frequently to maintain a reliable project history.
-- Always ask clarifying questions if tasks or requirements are unclear.
 
-## User Interface (UI)
-- **Never change or affect the UI unintentionally.** Only alter UI components if explicitly instructed or clearly part of the assigned task.
-- Always ensure UI changes are fully tested and validated.
+## General Principles
+- **Do not modify working code or UI unless explicitly instructed.**
+- Confirm before making any destructive changes (e.g., deleting code/data).
+- Ask clarifying questions if requirements are unclear.
+- Follow DRY (Don’t Repeat Yourself) and KISS (Keep It Simple, Stupid) principles.
+- Strive for production-grade, maintainable, and modern code with zero technical debt.
+
+## Commit & Workflow
+- Commit frequently to maintain clear project history.
+- Kill all terminals/sessions before running a new build.
+- Provide plain-English explanations for technical decisions.
+- Remove unused code instead of leaving it “just in case.”
+
+## Testing
+- Write comprehensive tests for all new or modified functionality.
+- Validate all UI changes thoroughly before merging.
 
 ## Lessons
-- **Always check the lessons.md file.** Check the lessons.md file for guidance whevener trying to solve issues.
+- Always check the `lessons.md` file for guidance before solving issues.
 
-## Build
-- **Always kill all terminals/session before build.** Always kill all terminals prior to running the build command after each major change.
+## User Interface (UI)
+- Only change UI components if explicitly required or clearly part of the task.
+- Ensure UI modifications are tested across relevant devices and states.
 
+## Build & Tools
+- Always use **TailwindCSS v4 syntax** (refer to official v4 docs).
+- Use TypeScript (not JavaScript) for all React/Next.js projects.
+- Do not suppress or ignore TypeScript errors — fix them immediately.
+- Never use `any` unless absolutely necessary, with documented justification.
+- Centralize all types in a `.utils/types/index.ts` file, with clear comments.
+
+## Code Style
+- Write self-documenting code with descriptive naming.
+- Prioritize readability and developer experience.
+- Use consistent, clean formatting and follow project conventions.
+- Add small plain-English comments if something is non-obvious.
+
+## Quality & Maintainability
+- Eliminate redundant or speculative code.
+- Identify potential issues early and suggest actionable fixes.
+- Follow established design patterns appropriate for the language and framework.
