@@ -28,20 +28,20 @@ jobs:
 
       - name: Setup Environment Variables
         run: |
-          if [[ $GITHUB_REF == refs/heads/main ]]; then
+         if [[ $GITHUB_REF == refs/heads/main ]]; then
             echo "NODE_ENV=production" >> $GITHUB_ENV
             echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
           elif [[ $GITHUB_REF == refs/heads/development ]]; then
             # Create a new branch from main for staging
             BRANCH_ID="staging-$(date +%Y%m%d-%H%M%S)"
-            echo "Creating staging branch: $BRANCH_ID"
             echo "NODE_ENV=staging" >> $GITHUB_ENV
+            echo "BRANCH_ID=$BRANCH_ID" >> $GITHUB_ENV
             echo "DATABASE_URL=${{ secrets.DATABASE_URL }}?branch=$BRANCH_ID" >> $GITHUB_ENV
           else
             # For PR testing, create a temporary branch
             BRANCH_ID="pr-${{ github.event.pull_request.number }}-$(date +%Y%m%d-%H%M%S)"
-            echo "Creating PR test branch: $BRANCH_ID"
             echo "NODE_ENV=development" >> $GITHUB_ENV
+            echo "BRANCH_ID=$BRANCH_ID" >> $GITHUB_ENV
             echo "DATABASE_URL=${{ secrets.DATABASE_URL }}?branch=$BRANCH_ID" >> $GITHUB_ENV
           fi
 
