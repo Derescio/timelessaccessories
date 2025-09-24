@@ -302,8 +302,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                     <Alert className="border-green-200 bg-green-50">
                         <Heart className="h-4 w-4 text-green-600" />
                         <AlertDescription className="text-green-800">
-                            <strong>Supporting Recovery:</strong> Your purchase directly supports my recovery journey
-                            and helps create financial independence through creativity and determination.
+                            <strong>Supporting Small Businesses:</strong> Your purchase directly supports small businesses and their creativity. Thank you for supporting us!
                         </AlertDescription>
                     </Alert>
                 </div>

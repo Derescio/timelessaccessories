@@ -199,7 +199,7 @@ const SpreadshopMerch = () => {
             <div className="text-center mb-12">
                 <h1 className="text-4xl font-bold mb-4">Shop-DW Merch Collection</h1>
                 <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-6">
-                    Every t-shirt and design you see here represents more than just apparel, it represents creativity. Wear your ideas. Each design in the collection isn’t just clothing, it’s a statement of creativity, individuality, and community. Now available worldwide through Spreadshop!
+                    Every t-shirt and design you see here represents more than just apparel, it represents creativity. Wear your ideas. Each design in the collection isn’t just clothing, it’s a statement of creativity, individuality, and community. Select any merch or two, and purchase them on Spreadshop!
                 </p>
                 <div className="flex items-center justify-center gap-2 mb-8">
                     <Heart className="h-5 w-5 text-red-500" />
@@ -207,6 +207,7 @@ const SpreadshopMerch = () => {
                         Support small businesses, one design at a time.
                     </span>
                 </div>
+
             </div>
 
             {/* Spreadshop Benefits Message */}
