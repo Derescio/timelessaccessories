@@ -39,7 +39,7 @@ jobs:
           urls: |
             ${{ github.event_name == 'pull_request' && steps.waitForVercel.outputs.url || 'https://www.shop-dw.com' }}
             ${{ github.event_name == 'pull_request' && steps.waitForVercel.outputs.url || 'https://www.shop-dw.com' }}/products
-            ${{ github.event_name == 'pull_request' && steps.waitForVercel.outputs.url || 'https://www.shop-dw.com' }}/categories
+            ${{ github.event_name == 'pull_request' && steps.waitForVercel.outputs.url || 'https://www.shop-dw.com' }}/shopdw-merch
           uploadArtifacts: true
           temporaryPublicStorage: true
           configPath: .github/lighthouse/budget.json
