@@ -30,17 +30,33 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
         
+      - name: Check pending migrations (Development)
+        if: github.ref == 'refs/heads/development'
+        run: npx prisma migrate status
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_DEVELOPMENT }}
+
+
       - name: Run migrations (Development)
         if: github.ref == 'refs/heads/development'
         run: npx prisma migrate deploy
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_DEVELOPMENT }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL_DEVELOPMENT }}  
+
+
+      - name: Check pending migrations (Production)
+        if: github.ref == 'refs/heads/main'
+        run: npx prisma migrate status
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
           
       - name: Run migrations (Production)
         if: github.ref == 'refs/heads/main'
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
+
+      
           
       - name: Comment PR
         if: github.event_name == 'pull_request'
