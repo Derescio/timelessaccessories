@@ -48,13 +48,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: npx prisma migrate status
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           
       - name: Run migrations (Production)
         if: github.ref == 'refs/heads/main'
         run: npx prisma migrate deploy
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       
           
