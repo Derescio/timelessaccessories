@@ -5,7 +5,8 @@ import { NavigationMenu, NavigationMenuItem, NavigationMenuLink, NavigationMenuL
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "./MobileNav";
-import Logo from '/public/images/logo/SHOPDDWLogo.png'
+//import Logo from '/public/images/logo/SHOPDDWLogo.png'
+import Logo from '@/public/images/logo/SHOPDDWLogo.png'
 import Image from "next/image";
 // import ModeToggle from "./mode-toggle";
 import { useSession, signOut } from "next-auth/react";
