@@ -45,7 +45,7 @@ const featuredProducts: Product[] = [
         id: 'gym-life',
         name: 'Gym Life T-Shirt',
         description: 'For those who feel at home under the barbell, this "Gym Life - I Love It Here" tee is your perfect workout companion. The bold red and black color scheme makes a strong statement while the soft cotton keeps you moving comfortably—whether lifting or lounging.',
-        image: 'https://z8rvk24gry.ufs.sh/f/wfxchweshiC114OR9dDNn3QraJ1hwmUyzgZlFTjeRdAEW6IO',
+        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRCaBtJuwwksW79zbgyLlJmSCdjXAfZDYKFIVG',
         price: '$27.99',
         spreadshopLink: 'https://shop-dw.myspreadshop.ca/gym+t-shirt-A68a211bd415e485ba72d692f?productType=210&sellable=84nm9mr8v1Upw41AyDbD-210-7&appearance=1368',
         spreadshopLink2: 'https://shop-dw.myspreadshop.ca/gym+t-shirt?idea=68a211bd415e485ba72d692f'

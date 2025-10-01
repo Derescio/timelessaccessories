@@ -58,9 +58,9 @@ const products: Product[] = [
         id: 'gym-life',
         name: 'Gym Life T-Shirt',
         description: 'For those who love the grind. Bold red and black graphics declare “Gym Life – I Love It Here” while soft, durable cotton keeps you comfortable through every rep. A perfect mix of strength and style.',
-        image: 'https://z8rvk24gry.ufs.sh/f/wfxchweshiC114OR9dDNn3QraJ1hwmUyzgZlFTjeRdAEW6IO',
+        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiRCaBtJuwwksW79zbgyLlJmSCdjXAfZDYKFIVG',
         price: '$27.99',
-        spreadshopLink: 'https://shop-dw.myspreadshop.ca/gym+t-shirt-A68a211bd415e485ba72d692f?productType=210&sellable=84nm9mr8v1Upw41AyDbD-210-7&appearance=1368',
+        spreadshopLink: 'https://shop-dw.myspreadshop.ca/gym+life+t-shirt-A68dd7dbad468d755a5fa2ee6?productType=347&sellable=BvJbRzdQ9ef58gNN90BR-347-8&appearance=17',
         spreadshopLink2: 'https://shop-dw.myspreadshop.ca/gym+t-shirt?idea=68a211bd415e485ba72d692f'
     },
     {
@@ -132,10 +132,10 @@ const products: Product[] = [
         id: 'gym-life-hoodie',
         name: 'Gym Life Hoodie',
         description: 'Level up your gym fit. The “Gym Life – I Love It Here” design pairs bold style with lasting comfort. Perfect for pre-workout warmth, post-training chill, or just repping your love for the grind.',
-        image: 'https://z8rvk24gry.ufs.sh/f/wfxchweshiC1xkXKTc4H6p1rXkOC8woNvYdiBHjesI0qfmP2',
+        image: 'https://6qve25pmkn.ufs.sh/f/kHBAST0eCUiR28pwCd613QkbvWgU2Gs4wl85IKV7AqXo1HNZ',
         price: '$53.99',
-        spreadshopLink: 'https://shop-dw.myspreadshop.ca/gym+t-shirt-A68a211bd415e485ba72d692f?productType=111&sellable=84nm9mr8v1Upw41AyDbD-111-22&appearance=8',
-        spreadshopLink2: 'https://shop-dw.myspreadshop.ca/gym+t-shirt?idea=68a211bd415e485ba72d692f'
+        spreadshopLink: 'https://shop-dw.myspreadshop.ca/gym+life+t-shirt-A68dd7dbad468d755a5fa2ee6?productType=111&sellable=BvJbRzdQ9ef58gNN90BR-111-22&appearance=8',
+        spreadshopLink2: 'https://shop-dw.myspreadshop.ca/gym+life+t-shirt-A68dd7dbad468d755a5fa2ee6?productType=111&sellable=BvJbRzdQ9ef58gNN90BR-111-22&appearance=8'
     },
 ]
 
