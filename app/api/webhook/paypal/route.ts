@@ -200,6 +200,18 @@ export async function POST(request: Request) {
 
       if (customId) {
         try {
+          // Check if payment was already processed (to avoid double stock reduction)
+          const existingPayment = await prisma.payment.findFirst({
+            where: { orderId: customId },
+            select: { status: true }
+          });
+
+          const alreadyProcessed = existingPayment?.status === PaymentStatus.COMPLETED;
+          
+          if (alreadyProcessed) {
+            console.log(`ℹ️ PAYPAL WEBHOOK [${timestamp}]: Payment already processed for order ${customId}, skipping stock reduction to avoid duplicates`);
+          }
+
           // Update order and payment status
           console.log(`📦 PAYPAL WEBHOOK [${timestamp}]: Updating order payment status: ${customId}`);
           const updateResult = await updateOrderPaymentStatus({
@@ -215,21 +227,26 @@ export async function POST(request: Request) {
           }
           console.log(`✅ PAYPAL WEBHOOK [${timestamp}]: Order payment status updated successfully: ${customId}`);
 
-          // Reduce actual stock after payment confirmation
-          console.log(`📦 PAYPAL WEBHOOK [${timestamp}]: About to reduce stock for confirmed order: ${customId}`);
-          const stockResult = await reduceOrderStock(customId);
+          // Reduce actual stock after payment confirmation (only if not already processed)
+          let stockResult: { success: boolean; error?: string; reducedItems?: number } | null = null;
+          if (!alreadyProcessed) {
+            console.log(`📦 PAYPAL WEBHOOK [${timestamp}]: About to reduce stock for confirmed order: ${customId}`);
+            stockResult = await reduceOrderStock(customId);
           
-          console.log(`📊 PAYPAL WEBHOOK [${timestamp}]: Stock reduction result for order ${customId}:`, {
-            success: stockResult.success,
-            error: stockResult.error,
-            reducedItems: stockResult.reducedItems || 0
-          });
-          
-          if (!stockResult.success) {
-            console.error(`❌ PAYPAL WEBHOOK [${timestamp}]: Stock reduction failed for order ${customId}:`, stockResult.error);
-            // Log the error but don't fail the webhook - payment was successful
+            console.log(`📊 PAYPAL WEBHOOK [${timestamp}]: Stock reduction result for order ${customId}:`, {
+              success: stockResult.success,
+              error: stockResult.error,
+              reducedItems: stockResult.reducedItems || 0
+            });
+            
+            if (!stockResult.success) {
+              console.error(`❌ PAYPAL WEBHOOK [${timestamp}]: Stock reduction failed for order ${customId}:`, stockResult.error);
+              // Log the error but don't fail the webhook - payment was successful
+            } else {
+              console.log(`✅ PAYPAL WEBHOOK [${timestamp}]: Stock reduced successfully for order: ${customId}`);
+            }
           } else {
-            console.log(`✅ PAYPAL WEBHOOK [${timestamp}]: Stock reduced successfully for order: ${customId}`);
+            console.log(`ℹ️ PAYPAL WEBHOOK [${timestamp}]: Skipping stock reduction for order ${customId} (already processed by frontend)`);
           }
 
           // Clean up cart
@@ -270,7 +287,7 @@ export async function POST(request: Request) {
           return NextResponse.json({ 
             received: true,
             message: 'PayPal payment processed successfully',
-            stockReduction: stockResult.success ? 'completed' : 'failed',
+            stockReduction: alreadyProcessed ? 'skipped' : (stockResult?.success ? 'completed' : 'failed'),
             orderId: customId,
             timestamp: timestamp
           });

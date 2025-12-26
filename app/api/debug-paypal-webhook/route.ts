@@ -1,8 +1,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/utils/auth-helpers';
 
 export async function GET() {
   try {
+    // Only allow in development/staging, require admin in production
+    if (process.env.NODE_ENV === 'production') {
+      const authResult = await requireAdmin();
+      if (authResult.error) {
+        return authResult.error;
+      }
+    }
+
     // Get recent orders to see their status
     const recentOrders = await prisma.order.findMany({
       take: 5,

@@ -205,6 +205,7 @@ export async function getUserById(id: string): Promise<GetUserByIdResponse> {
                 tax: order.tax.toString(),
                 shipping: order.shipping.toString(),
                 total: order.total.toString(),
+                discountAmount: order.discountAmount ? order.discountAmount.toString() : null,
                 items: order.items.map(item => ({
                     ...item,
                     price: item.price.toString(),
@@ -405,6 +406,7 @@ export async function getUsers({
                 tax: order.tax.toString(),
                 shipping: order.shipping.toString(),
                 total: order.total.toString(),
+                discountAmount: order.discountAmount ? order.discountAmount.toString() : null,
                 items: order.items.map(item => ({
                     ...item,
                     price: item.price.toString(),

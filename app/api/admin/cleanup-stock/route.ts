@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireAdmin } from '@/lib/utils/auth-helpers';
 import { cleanupExpiredReservations } from '@/lib/actions/inventory.actions';
 
 export async function POST(req: NextRequest) {
   try {
-    // Check if user is admin (for manual triggers)
-    const session = await auth();
-    
     // Allow cron jobs with special header or admin users
     const cronSecret = req.headers.get('x-cron-secret');
     const isValidCron = cronSecret === process.env.CRON_SECRET;
-    const isAdmin = session?.user?.role === 'ADMIN';
     
-    if (!isValidCron && !isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // If not a valid cron request, require admin authentication
+    if (!isValidCron) {
+      const authResult = await requireAdmin();
+      if (authResult.error) {
+        return authResult.error;
+      }
     }
 
     // Get hours parameter (default to 2 hours)

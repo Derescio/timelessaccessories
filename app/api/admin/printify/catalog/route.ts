@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPrintifyClient } from '@/lib/services/printify';
+import { requireAdmin } from '@/lib/utils/auth-helpers';
 
 export async function GET(request: NextRequest) {
   try {
+    // Require admin authentication
+    const authResult = await requireAdmin();
+    if (authResult.error) {
+      return authResult.error;
+    }
+
     // Check if required environment variables are set
     if (!process.env.PRINTIFY_ACCESS_TOKEN) {
       return NextResponse.json(

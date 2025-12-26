@@ -619,22 +619,11 @@ export async function approvePayPalOrder(
         });
       }
 
-      // Update inventory quantities for each item in the order
-      for (const item of order.items) {
-        await tx.productInventory.update({
-          where: { id: item.inventoryId },
-          data: {
-            quantity: {
-              decrement: item.quantity
-            }
-          }
-        });
-
-        console.log(`Decremented inventory for item ${item.inventoryId} by ${item.quantity}`);
-      }
+      // Note: Stock reduction is handled by reduceActualStock() below
+      // which properly handles both quantity and reservedStock
     });
 
-    // Reduce reserved stock and cleanup cart (normally done by webhook)
+    // Reduce actual stock and cleanup cart (normally done by webhook)
     console.log(`📦 PayPal Frontend: Reducing reserved stock for order: ${orderId}`);
     try {
       // Import the functions we need

@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.1] - 2025-12-26
+
+### Fixed
+- **Double Stock Reduction Bug (PayPal)** - Fixed critical issue where inventory quantity was being reduced twice after PayPal payment completion
+  - Removed duplicate direct Prisma decrement in `approvePayPalOrder` function
+  - Added payment status check in PayPal webhook to prevent double stock reduction
+  - Stock reduction now handled exclusively by `reduceActualStock()` function which properly manages both `quantity` and `reservedStock`
+- **Double Stock Reduction Protection (Stripe)** - Added safeguards to prevent duplicate stock reduction in Stripe webhook handlers
+  - Added payment status check before stock reduction in both `checkout.session.completed` and `charge.succeeded` event handlers
+  - Webhook now skips stock reduction if payment was already processed by frontend
+- **TypeScript Compilation Errors** - Fixed scope issues with `stockResult` variable in webhook handlers
+  - Declared `stockResult` with proper typing outside conditional blocks
+  - Updated return statements to safely handle both processed and unprocessed payment scenarios
+- **Authentication & Authorization Issues** - Fixed multiple auth-related issues affecting admin dashboard access
+  - **Admin Page Redirection**: Fixed admin page not redirecting unauthenticated users on Vercel deployment by adding proper middleware matcher configuration
+  - **User Role in Middleware**: Implemented workaround for NextAuth v5 middleware limitation where custom fields (role) aren't available in middleware auth object
+    - Added comprehensive logging to debug auth object structure
+    - Enhanced middleware to allow authenticated users through and rely on server-side check in `app/admin/layout.tsx` for definitive role verification
+  - **Decimal Serialization Error**: Fixed "Only plain objects can be passed to Client Components. Decimal objects are not supported" error when accessing admin users page
+    - Added `discountAmount` field serialization in `getUsers` and `getUserById` functions in `lib/actions/user.actions.ts`
+
+### Technical Details
+- Modified `lib/actions/order.actions.ts` to remove duplicate stock decrement logic
+- Enhanced `app/api/webhook/paypal/route.ts` with payment status validation
+- Enhanced `app/api/webhook/stripe/route.ts` with payment status validation for both event types
+- All stock reductions now go through centralized `reduceActualStock()` function ensuring consistent behavior
+- Enhanced `middleware.ts` with proper NextAuth matcher configuration
+- Updated `auth.config.ts` with comprehensive admin role checking and logging
+- Enhanced `auth.ts` JWT and session callbacks with explicit role setting and logging
+- Fixed Decimal serialization in `lib/actions/user.actions.ts` for `discountAmount` field
+
+### Impact
+- **Critical Fix**: Prevents inventory from being incorrectly reduced by 2x the ordered quantity
+- **Improved Reliability**: Webhook handlers now handle race conditions and duplicate events gracefully
+- **Better Logging**: Added comprehensive logging to track stock reduction operations
+
+---
+
 ## [1.4.0] - 2025-01-25
 
 ### Added - Promotions System

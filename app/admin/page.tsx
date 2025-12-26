@@ -8,7 +8,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-    title: "1Dashboard",
+    title: "Dashboard",
     description: "Overview of your store's performance",
 };
 

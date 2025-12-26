@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/utils/auth-helpers';
 
 interface RouteParams {
   params: Promise<{
@@ -9,6 +10,12 @@ interface RouteParams {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    // Require admin authentication
+    const authResult = await requireAdmin();
+    if (authResult.error) {
+      return authResult.error;
+    }
+
     const resolvedParams = await params;
     const { id } = resolvedParams;
 
@@ -114,6 +121,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 // Optional: Add a PATCH endpoint for archiving instead of deleting
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    // Require admin authentication
+    const authResult = await requireAdmin();
+    if (authResult.error) {
+      return authResult.error;
+    }
+
     const resolvedParams = await params;
     const { id } = resolvedParams;
     const body = await request.json();
