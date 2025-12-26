@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
+import { requireAdmin } from '@/lib/utils/auth-helpers';
 
 export async function POST(req: NextRequest) {
   try {
-    // Check if user is admin
-    const session = await auth();
-    if (!session?.user || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Require admin authentication
+    const authResult = await requireAdmin();
+    if (authResult.error) {
+      return authResult.error;
     }
 
     const { action, orderId } = await req.json();
@@ -159,6 +159,12 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   try {
+    // Require admin authentication
+    const authResult = await requireAdmin();
+    if (authResult.error) {
+      return authResult.error;
+    }
+
     // Get all inventory with reserved stock > 0
     const inventoryWithReservedStock = await prisma.productInventory.findMany({
       where: {

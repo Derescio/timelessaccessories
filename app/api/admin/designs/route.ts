@@ -1,20 +1,13 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireAdmin } from '@/lib/utils/auth-helpers';
 import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id }
-    });
-
-    if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Require admin authentication
+    const authResult = await requireAdmin();
+    if (authResult.error) {
+      return authResult.error;
     }
 
     const designs = await prisma.design.findMany({

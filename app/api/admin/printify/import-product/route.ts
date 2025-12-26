@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createPrintifyClient } from '@/lib/services/printify';
+import { requireAdmin } from '@/lib/utils/auth-helpers';
 
 export async function POST(request: NextRequest) {
   try {
+    // Require admin authentication
+    const authResult = await requireAdmin();
+    if (authResult.error) {
+      return authResult.error;
+    }
+
     const body = await request.json();
     console.log('🔄 Starting product import from Printify...');
 

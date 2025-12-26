@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProductById, updateProductWithAttributes } from "@/lib/actions/product.actions";
+import { requireAdmin } from "@/lib/utils/auth-helpers";
 
 export async function GET(
     request: Request,
@@ -33,6 +34,12 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        // Require admin authentication
+        const authResult = await requireAdmin();
+        if (authResult.error) {
+            return authResult.error;
+        }
+
         const resolvedParams = await params;
         const productId = resolvedParams.id;
         const body = await request.json();

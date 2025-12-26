@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/utils/auth-helpers';
 
 export async function GET() {
   try {
+    // Require admin authentication
+    const authResult = await requireAdmin();
+    if (authResult.error) {
+      return authResult.error;
+    }
+
     console.log('🔄 Fetching Printify products...');
 
     // Fetch products from database that have Printify integration

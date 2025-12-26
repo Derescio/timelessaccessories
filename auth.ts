@@ -78,6 +78,14 @@ export const config = {
             session.user.id = token.sub
             session.user.name = token.name;
             session.user.role = token.role;
+            
+            console.log('📋 Session Callback - Token:', JSON.stringify({
+                sub: token.sub,
+                name: token.name,
+                role: token.role,
+            }, null, 2));
+            console.log('📋 Session Callback - Session user role set to:', session.user.role);
+            
             //If there is an update, set the user name
             if (trigger === 'update') {
                 session.user.name = user.name
@@ -87,9 +95,23 @@ export const config = {
         async jwt({ token, user, trigger, session }: any) {
             if (user) {
                 // Assign user properties to the token
-                //token.id = user.id;
+                token.sub = user.id; // Ensure sub is set to user ID
                 token.role = user.role;
-               console.log(user)
+                token.name = user.name;
+                token.email = user.email;
+                // IMPORTANT: Also set role on the token's user property for middleware access
+                if (!token.user) {
+                    token.user = {};
+                }
+                token.user.role = user.role;
+                token.user.id = user.id;
+                token.user.name = user.name;
+                token.user.email = user.email;
+                console.log('🔑 JWT Callback - User object:', JSON.stringify(user, null, 2));
+                console.log('🔑 JWT Callback - User role:', user.role);
+                console.log('🔑 JWT Callback - Token role set to:', token.role);
+                console.log('🔑 JWT Callback - Token user role set to:', token.user?.role);
+                console.log('🔑 JWT Callback - Full token:', JSON.stringify({ sub: token.sub, role: token.role, name: token.name, email: token.email, user: token.user }, null, 2));
                 if (trigger === 'signIn' || trigger === 'signUp') {
                     const cookiesObject = await cookies();
                     const sessionCartId = cookiesObject.get('sessionCartId')?.value;

@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/utils/auth-helpers';
 
 export async function POST() {
   try {
+    // Require admin authentication
+    const authResult = await requireAdmin();
+    if (authResult.error) {
+      return authResult.error;
+    }
+
     console.log('🔄 Testing Printify API connection...');
 
     // Check if required environment variables are set

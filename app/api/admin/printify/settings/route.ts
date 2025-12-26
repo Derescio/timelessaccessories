@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/utils/auth-helpers';
 
 export async function GET() {
   try {
+    // Require admin authentication
+    const authResult = await requireAdmin();
+    if (authResult.error) {
+      return authResult.error;
+    }
+
     console.log('🔄 Fetching Printify settings...');
 
     const settings = {
@@ -30,6 +37,12 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Require admin authentication
+    const authResult = await requireAdmin();
+    if (authResult.error) {
+      return authResult.error;
+    }
+
     const body = await request.json();
     console.log('🔄 Updating Printify settings:', body);
 

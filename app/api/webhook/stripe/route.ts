@@ -5,6 +5,7 @@ import { sendOrderConfirmationEmail } from '@/email';
 import { reduceActualStock } from '@/lib/actions/inventory.actions';
 import { prisma } from '@/lib/prisma';
 import { recordPromotionUsage } from '@/lib/actions/promotions-actions';
+import { PaymentStatus } from '@prisma/client';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-02-24.acacia',
@@ -176,6 +177,18 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      // Check if payment was already processed (to avoid double stock reduction)
+      const existingPayment = await prisma.payment.findFirst({
+        where: { orderId },
+        select: { status: true }
+      });
+
+      const alreadyProcessed = existingPayment?.status === PaymentStatus.COMPLETED;
+      
+      if (alreadyProcessed) {
+        console.log(`ℹ️ WEBHOOK [${timestamp}]: Payment already processed for order ${orderId}, skipping stock reduction to avoid duplicates`);
+      }
+
       console.log(`📦 WEBHOOK [${timestamp}]: Updating order to paid: ${orderId}`);
       await updateOrderToPaid({
         orderId,
@@ -188,21 +201,26 @@ export async function POST(req: NextRequest) {
       });
       console.log(`✅ WEBHOOK [${timestamp}]: Order updated successfully: ${orderId}`);
 
-      // Reduce actual stock after payment confirmation
-      console.log(`📦 WEBHOOK [${timestamp}]: About to reduce stock for confirmed order: ${orderId}`);
-      const stockResult = await reduceOrderStock(orderId);
+      // Reduce actual stock after payment confirmation (only if not already processed)
+      let stockResult: { success: boolean; error?: string; reducedItems?: number } | null = null;
+      if (!alreadyProcessed) {
+        console.log(`📦 WEBHOOK [${timestamp}]: About to reduce stock for confirmed order: ${orderId}`);
+        stockResult = await reduceOrderStock(orderId);
       
-      console.log(`📊 WEBHOOK [${timestamp}]: Stock reduction result for order ${orderId}:`, {
-        success: stockResult.success,
-        error: stockResult.error,
-        reducedItems: stockResult.reducedItems || 0
-      });
-      
-      if (!stockResult.success) {
-        console.error(`❌ WEBHOOK [${timestamp}]: Stock reduction failed for order ${orderId}:`, stockResult.error);
-        // Log the error but don't fail the webhook - payment was successful
+        console.log(`📊 WEBHOOK [${timestamp}]: Stock reduction result for order ${orderId}:`, {
+          success: stockResult.success,
+          error: stockResult.error,
+          reducedItems: stockResult.reducedItems || 0
+        });
+        
+        if (!stockResult.success) {
+          console.error(`❌ WEBHOOK [${timestamp}]: Stock reduction failed for order ${orderId}:`, stockResult.error);
+          // Log the error but don't fail the webhook - payment was successful
+        } else {
+          console.log(`✅ WEBHOOK [${timestamp}]: Stock reduced successfully for order: ${orderId}`);
+        }
       } else {
-        console.log(`✅ WEBHOOK [${timestamp}]: Stock reduced successfully for order: ${orderId}`);
+        console.log(`ℹ️ WEBHOOK [${timestamp}]: Skipping stock reduction for order ${orderId} (already processed)`);
       }
 
       console.log(`📧 WEBHOOK [${timestamp}]: Sending order confirmation email for: ${orderId}`);
@@ -227,7 +245,7 @@ export async function POST(req: NextRequest) {
       console.log(`✅ WEBHOOK [${timestamp}]: Successfully completed processing for order: ${orderId}`);
       return NextResponse.json({ 
         message: 'Order updated via checkout.session.completed',
-        stockReduction: stockResult.success ? 'completed' : 'failed',
+        stockReduction: alreadyProcessed ? 'skipped' : (stockResult?.success ? 'completed' : 'failed'),
         orderId: orderId,
         timestamp: timestamp
       });
@@ -264,6 +282,18 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      // Check if payment was already processed (to avoid double stock reduction)
+      const existingPayment = await prisma.payment.findFirst({
+        where: { orderId },
+        select: { status: true }
+      });
+
+      const alreadyProcessed = existingPayment?.status === PaymentStatus.COMPLETED;
+      
+      if (alreadyProcessed) {
+        console.log(`ℹ️ WEBHOOK [${timestamp}]: Payment already processed for order ${orderId}, skipping stock reduction to avoid duplicates`);
+      }
+
       console.log(`📦 WEBHOOK [${timestamp}]: Updating order to paid: ${orderId}`);
       await updateOrderToPaid({
         orderId,
@@ -276,21 +306,26 @@ export async function POST(req: NextRequest) {
       });
       console.log(`✅ WEBHOOK [${timestamp}]: Order updated successfully: ${orderId}`);
 
-      // Reduce actual stock after payment confirmation
-      console.log(`📦 WEBHOOK [${timestamp}]: About to reduce stock for confirmed order: ${orderId}`);
-      const stockResult = await reduceOrderStock(orderId);
+      // Reduce actual stock after payment confirmation (only if not already processed)
+      let stockResult: { success: boolean; error?: string; reducedItems?: number } | null = null;
+      if (!alreadyProcessed) {
+        console.log(`📦 WEBHOOK [${timestamp}]: About to reduce stock for confirmed order: ${orderId}`);
+        stockResult = await reduceOrderStock(orderId);
       
-      console.log(`📊 WEBHOOK [${timestamp}]: Stock reduction result for order ${orderId}:`, {
-        success: stockResult.success,
-        error: stockResult.error,
-        reducedItems: stockResult.reducedItems || 0
-      });
-      
-      if (!stockResult.success) {
-        console.error(`❌ WEBHOOK [${timestamp}]: Stock reduction failed for order ${orderId}:`, stockResult.error);
-        // Log the error but don't fail the webhook - payment was successful
+        console.log(`📊 WEBHOOK [${timestamp}]: Stock reduction result for order ${orderId}:`, {
+          success: stockResult.success,
+          error: stockResult.error,
+          reducedItems: stockResult.reducedItems || 0
+        });
+        
+        if (!stockResult.success) {
+          console.error(`❌ WEBHOOK [${timestamp}]: Stock reduction failed for order ${orderId}:`, stockResult.error);
+          // Log the error but don't fail the webhook - payment was successful
+        } else {
+          console.log(`✅ WEBHOOK [${timestamp}]: Stock reduced successfully for order: ${orderId}`);
+        }
       } else {
-        console.log(`✅ WEBHOOK [${timestamp}]: Stock reduced successfully for order: ${orderId}`);
+        console.log(`ℹ️ WEBHOOK [${timestamp}]: Skipping stock reduction for order ${orderId} (already processed)`);
       }
 
       console.log(`📧 WEBHOOK [${timestamp}]: Sending order confirmation email for: ${orderId}`);
@@ -315,7 +350,7 @@ export async function POST(req: NextRequest) {
       console.log(`✅ WEBHOOK [${timestamp}]: Successfully completed processing for order: ${orderId}`);
       return NextResponse.json({ 
         message: 'Order updated via charge.succeeded',
-        stockReduction: stockResult.success ? 'completed' : 'failed',
+        stockReduction: alreadyProcessed ? 'skipped' : (stockResult?.success ? 'completed' : 'failed'),
         orderId: orderId,
         timestamp: timestamp
       });
