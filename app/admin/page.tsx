@@ -4,13 +4,20 @@ import { LineChart } from "@/components/ui/charts/line-chart";
 import { BarChart } from "@/components/ui/charts/bar-chart";
 import { PieChart } from "@/components/ui/charts/pie-chart";
 import { getAnalytics } from "@/lib/actions/analytics.actions";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-    title: "Dashboard",
+    title: "1Dashboard",
     description: "Overview of your store's performance",
 };
 
 export default async function DashboardPage() {
+    // Admin USERS ONLY
+    const session = await auth();
+    if (!session || session.user.role !== "ADMIN") {
+        redirect("/sign-in?message=Admin access required");
+    }
     const { success, data, error } = await getAnalytics();
 
     if (!success || error || !data) {
