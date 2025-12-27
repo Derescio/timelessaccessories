@@ -4,15 +4,33 @@ import BlogListClient from '@/components/blog/BlogListClient'
 import { getAllPosts, getFeaturedPosts, getAllCategories } from '@/lib/sanity'
 import { Skeleton } from '@/components/ui/skeleton'
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.shop-dw.com';
+
 export const metadata: Metadata = {
     title: 'Blog | Timeless Accessories',
     description: 'Discover the latest trends, style tips, and insights about timeless accessories. From jewelry care to fashion guides, find everything you need to elevate your style.',
     keywords: ['fashion blog', 'accessory trends', 'jewelry care', 'style tips', 'fashion accessories', 'timeless style'],
+    alternates: {
+        canonical: `${BASE_URL}/blog`,
+    },
     openGraph: {
         title: 'Blog | Timeless Accessories',
         description: 'Discover the latest trends, style tips, and insights about timeless accessories.',
         type: 'website',
-        url: '/blog',
+        siteName: 'Shop-DW',
+        url: `${BASE_URL}/blog`,
+        images: [{
+            url: `${BASE_URL}/og/diamond_1.png`,
+            width: 1200,
+            height: 630,
+            alt: 'Shop-DW Blog - Timeless Accessories',
+        }],
+    },
+    twitter: {
+        card: 'summary_large_image',
+        title: 'Blog | Timeless Accessories',
+        description: 'Discover the latest trends, style tips, and insights about timeless accessories.',
+        images: [`${BASE_URL}/og/diamond_1.png`],
     },
 }
 
